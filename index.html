@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>동네고고 — 우리 동네 문화·스포츠 프로그램 안내</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                   "Malgun Gothic", "Noto Sans KR", sans-serif;
+      background: #f7f9f4;
+      color: #1a2b1e;
+      line-height: 1.7;
+    }
+
+    header {
+      background: linear-gradient(135deg, #2ea04b, #4bbf6b);
+      color: white;
+      padding: 56px 24px 48px;
+      text-align: center;
+    }
+    header .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 5px 16px;
+      margin-bottom: 18px;
+      letter-spacing: 0.04em;
+    }
+    header h1 {
+      font-size: clamp(2rem, 6vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    header p {
+      margin-top: 14px;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      opacity: 0.9;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    section { margin-bottom: 40px; }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      box-shadow: 0 2px 12px rgba(30,60,30,0.07);
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #2ea04b;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .desc {
+      font-size: 1.05rem;
+      color: #2d3a30;
+      line-height: 1.8;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .tag {
+      background: #e8f5ec;
+      color: #1f7a38;
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    td { padding: 10px 0; border-bottom: 1px solid #eef2ee; font-size: 0.97rem; vertical-align: top; }
+    td:first-child { font-weight: 700; color: #4a5a4c; width: 38%; padding-right: 12px; }
+    tr:last-child td { border-bottom: none; }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff3cd;
+      color: #7a5800;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+    .status-badge::before {
+      content: '';
+      width: 8px; height: 8px;
+      background: #f0a500;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      font-size: 0.85rem;
+      color: #8a9e8c;
+      border-top: 1px solid #ddeedd;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="badge">🗺 공공 프로그램 안내 서비스</div>
+  <h1>동네고고</h1>
+  <p>우리 동네 문화·스포츠·교육 프로그램을<br>지도와 목록으로 한눈에</p>
+</header>
+
+<main>
+
+  <section>
+    <div class="card">
+      <h2>서비스 소개</h2>
+      <p class="desc">
+        <strong>동네고고</strong>는 공공기관(문화센터, 주민센터, 복지관, 체육시설 등)이
+        운영하는 교육·문화·예술·체육 프로그램을 지도 기반으로 탐색하고
+        접수 일정을 안내하는 모바일 서비스입니다.
+      </p>
+      <div class="tags">
+        <span class="tag">iOS 앱</span>
+        <span class="tag">지도 기반 탐색</span>
+        <span class="tag">접수 일정 안내</span>
+        <span class="tag">시니어 우선 설계</span>
+        <span class="tag">무료 서비스</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>공유누리 API 활용 목적</h2>
+      <p class="desc">
+        공유누리 공공개방자원 API를 통해 제공되는 시설 정보를 활용하여
+        사용자에게 다음 정보를 제공합니다.
+      </p>
+      <table>
+        <tr><td>시설명 · 운영기관</td><td>프로그램이 운영되는 공공시설 이름과 담당 기관</td></tr>
+        <tr><td>주소 · 위치</td><td>지도 핀 표시 및 길 안내 연동</td></tr>
+        <tr><td>이용 시간</td><td>시설 운영 시간 안내</td></tr>
+        <tr><td>이용료</td><td>유료·무료 여부 및 수강료 표시</td></tr>
+        <tr><td>예약 페이지</td><td>신청 페이지로 연결되는 외부 링크 제공</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>개인정보 처리 방침</h2>
+      <p class="desc">
+        동네고고는 예약자 정보, 회원 정보, 결제 정보를 수집하거나 저장하지 않습니다.<br><br>
+        사용자가 입력하는 지역 설정 및 알림 설정은 기기 내부에만 저장되며,
+        외부 서버로 전송되지 않습니다.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>서비스 현황</h2>
+      <table>
+        <tr>
+          <td>개발 상태</td>
+          <td><span class="status-badge">iOS 앱 개발 중</span></td>
+        </tr>
+        <tr>
+          <td>플랫폼</td>
+          <td>iOS (iPhone)</td>
+        </tr>
+        <tr>
+          <td>데이터 출처</td>
+          <td>공유누리, 서울 열린데이터광장, 공공데이터포털</td>
+        </tr>
+        <tr>
+          <td>운영 주체</td>
+          <td>개인 개발 프로젝트 (비영리)</td>
+        </tr>
+        <tr>
+          <td>문의</td>
+          <td>alberted.cho@gmail.com</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  &copy; 2025 동네고고 · 데이터 제공: 공유누리 및 공공데이터 제공기관
+</footer>
+
+</body>
+</html>
