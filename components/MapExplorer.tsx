@@ -1,6 +1,7 @@
 "use client";
 
 import type { User } from "@supabase/supabase-js";
+import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadKakaoMap } from "@/lib/kakao-map";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
@@ -19,6 +20,13 @@ type Program = {
   lecture_start: string | null; lecture_end: string | null;
   schedule_text: string | null; audiences: string[] | null; summary: string | null;
   apply_url: string | null; phone: string | null;
+};
+
+type MapController = {
+  locate: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  center: () => { latitude: number; longitude: number } | null;
 };
 
 const selectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,summary,apply_url,phone";
@@ -72,6 +80,9 @@ export function MapExplorer() {
   const [filterOpen, setFilterOpen] = useState(false); const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set()); const [alerts, setAlerts] = useState<Set<string>>(new Set());
+  const mapControllerRef = useRef<MapController | null>(null);
+  const [mapNotice, setMapNotice] = useState<string | null>(null);
+  const [distanceCenter, setDistanceCenter] = useState({ latitude: 37.5665, longitude: 126.978 });
 
   useEffect(() => {
     let active = true;
@@ -114,8 +125,8 @@ export function MapExplorer() {
       .filter((program) => !onlyFree || program.is_free).filter((program) => !onlyReceiving || isReceiving(program))
       .filter((program) => !term || [program.name, program.facility, program.address, program.area, program.field]
         .some((value) => value?.toLocaleLowerCase("ko").includes(term)))
-      .sort((a, b) => distanceKm(a.latitude, a.longitude) - distanceKm(b.latitude, b.longitude));
-  }, [programs, query, category, onlyFree, onlyReceiving]);
+      .sort((a, b) => distanceKm(a.latitude, a.longitude, distanceCenter.latitude, distanceCenter.longitude) - distanceKm(b.latitude, b.longitude, distanceCenter.latitude, distanceCenter.longitude));
+  }, [programs, query, category, onlyFree, onlyReceiving, distanceCenter]);
 
   const requireUser = useCallback(() => { if (user) return true; setAuthOpen(true); return false; }, [user]);
   const toggleFavorite = useCallback(async (programId: string) => {
@@ -137,6 +148,32 @@ export function MapExplorer() {
     if (result.error) setAlerts((current) => { const next = new Set(current); if (exists) next.add(programId); else next.delete(programId); return next; });
   }, [alerts, requireUser, user]);
   const openProgram = useCallback((program: Program) => { setSelected(program); setMobileList(false); }, []);
+  const researchHere = useCallback(async () => {
+    const center = mapControllerRef.current?.center();
+    if (!center) {
+      setMapNotice("지도를 불러오는 중이에요.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { data, error: nearbyError } = await supabase.rpc("get_programs_near", {
+      p_lat: center.latitude,
+      p_lon: center.longitude,
+      p_radius: 30,
+      p_limit: 240,
+      p_offset: 0,
+    });
+    if (nearbyError) {
+      setError("이 지역의 프로그램을 다시 불러오지 못했어요.");
+      setMapNotice(null);
+    } else {
+      setPrograms((data || []) as Program[]);
+      setDistanceCenter(center);
+      setSelected(null);
+      setMapNotice(`지도 중심 반경 30km · ${(data || []).length.toLocaleString()}개`);
+    }
+    setLoading(false);
+  }, []);
 
   return <main className={styles.shell}>
     <header className={styles.header}>
@@ -161,16 +198,17 @@ export function MapExplorer() {
           {loading && Array.from({ length: 5 }, (_, i) => <ProgramSkeleton key={i} />)}
           {error && <div className={styles.empty}><span>🌱</span><strong>연결을 준비하고 있어요</strong><p>{error}</p></div>}
           {!loading && !error && filtered.length === 0 && <div className={styles.empty}><span>🧭</span><strong>조건에 맞는 프로그램이 없어요</strong><p>검색어나 필터를 조금 넓혀 보세요.</p></div>}
-          {filtered.slice(0, 100).map((program) => <ProgramCard key={program.id} program={program} active={selected?.id === program.id} favorite={favorites.has(program.id)} onOpen={() => openProgram(program)} onFavorite={() => toggleFavorite(program.id)} />)}
+          {filtered.slice(0, 100).map((program) => <ProgramCard key={program.id} program={program} active={selected?.id === program.id} favorite={favorites.has(program.id)} distanceCenter={distanceCenter} onOpen={() => openProgram(program)} onFavorite={() => toggleFavorite(program.id)} />)}
         </div>
       </aside>
       <div className={styles.mapArea}>
-        <MapCanvas programs={filtered.slice(0, 100)} selected={selected} onSelect={openProgram} />
+        <MapCanvas programs={filtered.slice(0, 100)} selected={selected} onSelect={openProgram} controllerRef={mapControllerRef} onNotice={setMapNotice} />
         <div className={styles.mapTopSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="우리 동네 프로그램 검색" /><button onClick={() => setFilterOpen(true)}><SlidersIcon /></button></div>
-        <button className={styles.researchButton}><SearchIcon /> 이 지역에서 다시 찾기</button>
-        <div className={styles.mapControls}><button aria-label="현재 위치"><LocateIcon /></button><button aria-label="확대">＋</button><button aria-label="축소">−</button></div>
+        <button className={styles.researchButton} onClick={researchHere}><SearchIcon /> 이 지역에서 다시 찾기</button>
+        <div className={styles.mapControls}><button aria-label="현재 위치" onClick={() => mapControllerRef.current?.locate()}><LocateIcon /></button><button aria-label="확대" onClick={() => mapControllerRef.current?.zoomIn()}>＋</button><button aria-label="축소" onClick={() => mapControllerRef.current?.zoomOut()}>−</button></div>
         <button className={styles.mobileListButton} onClick={() => setMobileList(true)}><ListIcon /> 목록 {filtered.length}</button>
         <div className={styles.legend}><i /> 프로그램 {filtered.length}개</div>
+        {mapNotice && <div className={styles.mapNotice}>{mapNotice}</div>}
       </div>
     </section>
     {selected && <ProgramDetail program={selected} favorite={favorites.has(selected.id)} alerted={alerts.has(selected.id)} onClose={() => setSelected(null)} onFavorite={() => toggleFavorite(selected.id)} onAlert={() => toggleAlert(selected.id)} />}
@@ -178,19 +216,52 @@ export function MapExplorer() {
   </main>;
 }
 
-function ProgramCard({ program, active, favorite, onOpen, onFavorite }: { program: Program; active: boolean; favorite: boolean; onOpen: () => void; onFavorite: () => void }) {
+function ProgramCard({ program, active, favorite, distanceCenter, onOpen, onFavorite }: { program: Program; active: boolean; favorite: boolean; distanceCenter: { latitude: number; longitude: number }; onOpen: () => void; onFavorite: () => void }) {
   const style = categoryFor(program);
   return <article className={`${styles.card} ${active ? styles.cardActive : ""}`} onClick={onOpen} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
     <div className={styles.cardHead}><span className={styles.categoryTag} style={{ background: style.pale, color: style.color }}>{style.emoji} {program.category || program.field || "프로그램"}</span>{isReceiving(program) && <span className={styles.liveTag}><i /> 접수중</span>}<button className={styles.heartButton} onClick={(e) => { e.stopPropagation(); onFavorite(); }} aria-label={favorite ? "찜 해제" : "찜하기"}><HeartIcon fill={favorite ? "#35b95f" : "none"} className={favorite ? styles.favorited : ""} /></button></div>
-    <h2>{program.name}</h2><div className={styles.cardMeta}><span><PinIcon />{program.facility || program.area || "서울"}</span><span>{distanceKm(program.latitude, program.longitude).toFixed(1)}km</span></div>
+    <h2>{program.name}</h2><div className={styles.cardMeta}><span><PinIcon />{program.facility || program.area || "서울"}</span><span>{distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude).toFixed(1)}km</span></div>
     <div className={styles.cardFoot}><span>{dateRange(program.lecture_start, program.lecture_end)}</span><strong className={program.is_free ? styles.free : ""}>{program.is_free ? "무료" : (program.fee_text || "요금 확인")}</strong></div>
   </article>;
 }
 function ProgramSkeleton() { return <div className={styles.skeleton}><span /><span /><span /><span /></div>; }
 
-function MapCanvas({ programs, selected, onSelect }: { programs: Program[]; selected: Program | null; onSelect: (program: Program) => void }) {
-  const nodeRef = useRef<HTMLDivElement>(null); const mapRef = useRef<KakaoMap | null>(null); const overlaysRef = useRef<KakaoOverlay[]>([]); const [ready, setReady] = useState(false);
-  useEffect(() => { let active = true; loadKakaoMap().then((loaded) => { if (!active || !loaded || !nodeRef.current || !window.kakao) return; mapRef.current = new window.kakao.maps.Map(nodeRef.current, { center: new window.kakao.maps.LatLng(37.5665, 126.978), level: 8 }); setReady(true); }); return () => { active = false; }; }, []);
+function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { programs: Program[]; selected: Program | null; onSelect: (program: Program) => void; controllerRef: MutableRefObject<MapController | null>; onNotice: (message: string | null) => void }) {
+  const nodeRef = useRef<HTMLDivElement>(null); const mapRef = useRef<KakaoMap | null>(null); const overlaysRef = useRef<KakaoOverlay[]>([]); const locationOverlayRef = useRef<KakaoOverlay | null>(null); const [ready, setReady] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    loadKakaoMap().then((loaded) => {
+      if (!active) return;
+      if (!loaded || !nodeRef.current || !window.kakao) { setLoadFailed(true); return; }
+      const map = new window.kakao.maps.Map(nodeRef.current, { center: new window.kakao.maps.LatLng(37.5665, 126.978), level: 8 });
+      mapRef.current = map;
+      controllerRef.current = {
+        center: () => {
+          const point = map.getCenter();
+          return { latitude: point.getLat(), longitude: point.getLng() };
+        },
+        zoomIn: () => map.setLevel(Math.max(1, map.getLevel() - 1)),
+        zoomOut: () => map.setLevel(Math.min(14, map.getLevel() + 1)),
+        locate: () => {
+          if (!navigator.geolocation) { onNotice("이 브라우저에서는 현재 위치를 사용할 수 없어요."); return; }
+          onNotice("현재 위치를 확인하고 있어요…");
+          navigator.geolocation.getCurrentPosition(({ coords }) => {
+            const position = new window.kakao!.maps.LatLng(coords.latitude, coords.longitude);
+            map.setCenter(position);
+            map.setLevel(4);
+            locationOverlayRef.current?.setMap(null);
+            const currentDot = document.createElement("div");
+            currentDot.className = styles.currentLocationMarker;
+            currentDot.setAttribute("aria-label", "현재 위치");
+            locationOverlayRef.current = new window.kakao!.maps.CustomOverlay({ map, position, content: currentDot, zIndex: 10 });
+            onNotice("현재 위치로 이동했어요. 이 지역에서 다시 찾아보세요.");
+          }, () => onNotice("위치 권한을 허용하면 현재 위치로 이동할 수 있어요."), { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+        },
+      };
+      setReady(true);
+    });
+    return () => { active = false; controllerRef.current = null; };
+  }, [controllerRef, onNotice]);
   useEffect(() => {
     if (!ready || !mapRef.current || !window.kakao) return;
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
@@ -200,7 +271,7 @@ function MapCanvas({ programs, selected, onSelect }: { programs: Program[]; sele
     });
   }, [programs, selected, onSelect, ready]);
   useEffect(() => { if (!selected || !mapRef.current || !window.kakao) return; mapRef.current.setCenter(new window.kakao.maps.LatLng(selected.latitude, selected.longitude)); mapRef.current.setLevel(5); }, [selected]);
-  return <div className={styles.mapCanvas}><div className={styles.kakaoMap} ref={nodeRef} />{!ready && <div className={styles.mapFallback} aria-label="지도 미리보기"><div className={styles.river} />{programs.slice(0, 50).map((program, i) => { const left = 8 + ((program.longitude * 997 + i * 13) % 84 + 84) % 84; const top = 8 + ((program.latitude * 991 + i * 17) % 78 + 78) % 78; return <button key={program.id} className={`${styles.fallbackMarker} ${selected?.id === program.id ? styles.fallbackMarkerSelected : ""}`} style={{ left: `${left}%`, top: `${top}%` }} onClick={() => onSelect(program)}>{program.is_free ? "무료" : categoryFor(program).emoji}</button>; })}<span className={styles.mapPending}>카카오 지도를 연결 중입니다</span></div>}</div>;
+  return <div className={styles.mapCanvas}><div className={styles.kakaoMap} ref={nodeRef} />{!ready && <div className={styles.mapFallback} aria-label="지도 미리보기"><div className={styles.river} />{programs.slice(0, 50).map((program, i) => { const left = 8 + ((program.longitude * 997 + i * 13) % 84 + 84) % 84; const top = 8 + ((program.latitude * 991 + i * 17) % 78 + 78) % 78; return <button key={program.id} className={`${styles.fallbackMarker} ${selected?.id === program.id ? styles.fallbackMarkerSelected : ""}`} style={{ left: `${left}%`, top: `${top}%` }} onClick={() => onSelect(program)}>{program.is_free ? "무료" : categoryFor(program).emoji}</button>; })}<span className={styles.mapPending}>{loadFailed ? "카카오 지도를 불러오지 못했어요" : "카카오 지도를 연결 중입니다"}</span></div>}</div>;
 }
 
 function ProgramDetail({ program, favorite, alerted, onClose, onFavorite, onAlert }: { program: Program; favorite: boolean; alerted: boolean; onClose: () => void; onFavorite: () => void; onAlert: () => void }) {
