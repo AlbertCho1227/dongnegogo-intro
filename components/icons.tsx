@@ -1,0 +1,14 @@
+import type { SVGProps } from "react";
+type IconProps = SVGProps<SVGSVGElement>;
+const base = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
+export const SearchIcon = (p: IconProps) => <svg {...base} {...p}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>;
+export const PinIcon = (p: IconProps) => <svg {...base} {...p}><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>;
+export const HeartIcon = ({ fill = "none", ...p }: IconProps) => <svg {...base} fill={fill} {...p}><path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.4 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"/></svg>;
+export const UserIcon = (p: IconProps) => <svg {...base} {...p}><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>;
+export const SlidersIcon = (p: IconProps) => <svg {...base} {...p}><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>;
+export const CloseIcon = (p: IconProps) => <svg {...base} {...p}><path d="m6 6 12 12M18 6 6 18"/></svg>;
+export const BellIcon = (p: IconProps) => <svg {...base} {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>;
+export const ChevronIcon = (p: IconProps) => <svg {...base} {...p}><path d="m9 18 6-6-6-6"/></svg>;
+export const LocateIcon = (p: IconProps) => <svg {...base} {...p}><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>;
+export const ExternalIcon = (p: IconProps) => <svg {...base} {...p}><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>;
+export const ListIcon = (p: IconProps) => <svg {...base} {...p}><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r=".5" fill="currentColor"/><circle cx="3.5" cy="12" r=".5" fill="currentColor"/><circle cx="3.5" cy="18" r=".5" fill="currentColor"/></svg>;
