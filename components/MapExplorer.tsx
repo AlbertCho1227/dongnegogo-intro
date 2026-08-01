@@ -42,6 +42,18 @@ const categoryStyle: Record<string, { emoji: string; color: string; pale: string
 };
 const filterCategories = ["전체", "교육", "문화", "체육", "복지", "1인가구"];
 const defaultCenter = { latitude: 37.5665, longitude: 126.978 };
+const mapSelectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,apply_url,phone,is_senior_recommended";
+
+async function fetchMapSamples(center: { latitude: number; longitude: number }) {
+  const results = await Promise.all([800, 1600, 2400].map((offset) => supabase
+    .rpc("get_programs_near", {
+      p_lat: center.latitude, p_lon: center.longitude,
+      p_radius: 12, p_limit: 320, p_offset: offset,
+    })
+    .select(mapSelectFields)
+    .eq("is_active", true)));
+  return results.flatMap(({ data }) => (data || []) as Program[]);
+}
 
 function categoryFor(program: Program) {
   return categoryStyle[program.category || ""] || { emoji: "📍", color: "#35a962", pale: "#edf9f1" };
@@ -93,6 +105,7 @@ function distanceKm(lat: number, lng: number, toLat = 37.5665, toLng = 126.978) 
 
 export function MapExplorer() {
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [mapPrograms, setMapPrograms] = useState<Program[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState(""); const [category, setCategory] = useState("전체");
@@ -111,13 +124,20 @@ export function MapExplorer() {
     let active = true;
     async function fetchPrograms() {
       if (!isSupabaseConfigured) { setError("Supabase 환경 설정을 확인하고 있어요."); setLoading(false); return; }
-      const { data, error: fetchError } = await supabase.rpc("get_programs_near", {
-        p_lat: defaultCenter.latitude, p_lon: defaultCenter.longitude,
-        p_radius: 12, p_limit: 240, p_offset: 0,
-      });
+      const [{ data, error: fetchError }, sampledPrograms] = await Promise.all([
+        supabase.rpc("get_programs_near", {
+          p_lat: defaultCenter.latitude, p_lon: defaultCenter.longitude,
+          p_radius: 12, p_limit: 240, p_offset: 0,
+        }).eq("is_active", true),
+        fetchMapSamples(defaultCenter),
+      ]);
       if (!active) return;
       if (fetchError) setError("프로그램을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
-      else setPrograms((data || []) as Program[]);
+      else {
+        const nearbyPrograms = (data || []) as Program[];
+        setPrograms(nearbyPrograms);
+        setMapPrograms([...nearbyPrograms, ...sampledPrograms]);
+      }
       setLoading(false);
     }
     fetchPrograms();
@@ -143,21 +163,24 @@ export function MapExplorer() {
     });
   }, [user]);
 
-  const filtered = useMemo(() => {
+  const matchesProgram = useCallback((program: Program) => {
     const term = query.trim().toLocaleLowerCase("ko");
-    return programs.filter((program) => category === "전체" || program.category === category)
-      .filter((program) => !onlyFree || program.is_free).filter((program) => !onlyReceiving || isReceiving(program))
-      .filter((program) => !onlySenior || isSenior(program)).filter((program) => !onlyFamily || isFamily(program))
-      .filter((program) => !onlyTomorrow || opensTomorrow(program))
-      .filter((program) => !term || [program.name, program.facility, program.address, program.area, program.field]
-        .some((value) => value?.toLocaleLowerCase("ko").includes(term)))
-      .sort((a, b) => {
+    return (category === "전체" || program.category === category)
+      && (!onlyFree || Boolean(program.is_free)) && (!onlyReceiving || isReceiving(program))
+      && (!onlySenior || isSenior(program)) && (!onlyFamily || isFamily(program))
+      && (!onlyTomorrow || opensTomorrow(program))
+      && (!term || [program.name, program.facility, program.address, program.area, program.field]
+        .some((value) => value?.toLocaleLowerCase("ko").includes(term)));
+  }, [query, category, onlyFree, onlyReceiving, onlySenior, onlyFamily, onlyTomorrow]);
+
+  const filtered = useMemo(() => programs.filter(matchesProgram).sort((a, b) => {
         if (sortBy === "receiving") return Number(isReceiving(b)) - Number(isReceiving(a));
         if (sortBy === "free") return Number(Boolean(b.is_free)) - Number(Boolean(a.is_free));
         if (sortBy === "senior") return Number(isSenior(b)) - Number(isSenior(a));
         return distanceKm(a.latitude, a.longitude, distanceCenter.latitude, distanceCenter.longitude) - distanceKm(b.latitude, b.longitude, distanceCenter.latitude, distanceCenter.longitude);
-      });
-  }, [programs, query, category, onlyFree, onlyReceiving, onlySenior, onlyFamily, onlyTomorrow, distanceCenter, sortBy]);
+      }), [programs, matchesProgram, distanceCenter, sortBy]);
+
+  const filteredMapPrograms = useMemo(() => mapPrograms.filter(matchesProgram), [mapPrograms, matchesProgram]);
 
   const locationLabel = useMemo(() => {
     const nearest = programs.reduce<Program | null>((closest, program) => {
@@ -195,18 +218,20 @@ export function MapExplorer() {
     }
     setLoading(true);
     setError(null);
-    const { data, error: nearbyError } = await supabase.rpc("get_programs_near", {
-      p_lat: center.latitude,
-      p_lon: center.longitude,
-      p_radius: 12,
-      p_limit: 240,
-      p_offset: 0,
-    });
+    const [{ data, error: nearbyError }, sampledPrograms] = await Promise.all([
+      supabase.rpc("get_programs_near", {
+        p_lat: center.latitude, p_lon: center.longitude,
+        p_radius: 12, p_limit: 240, p_offset: 0,
+      }).eq("is_active", true),
+      fetchMapSamples(center),
+    ]);
     if (nearbyError) {
       setError("이 지역의 프로그램을 다시 불러오지 못했어요.");
       setMapNotice(null);
     } else {
-      setPrograms((data || []) as Program[]);
+      const nearbyPrograms = (data || []) as Program[];
+      setPrograms(nearbyPrograms);
+      setMapPrograms([...nearbyPrograms, ...sampledPrograms]);
       setDistanceCenter(center);
       setSelected(null);
       setMapNotice(`지도 중심 반경 12km · ${(data || []).length.toLocaleString()}개`);
@@ -259,7 +284,7 @@ export function MapExplorer() {
       </aside>
 
       <div className={styles.mapArea}>
-        <MapCanvas programs={filtered.slice(0, 100)} selected={selected} onSelect={openProgram} controllerRef={mapControllerRef} onNotice={setMapNotice} />
+        <MapCanvas programs={filteredMapPrograms} selected={selected} onSelect={openProgram} controllerRef={mapControllerRef} onNotice={setMapNotice} />
         <div className={styles.mapTopSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="우리 동네 프로그램 검색" /><button onClick={() => setFilterOpen((v) => !v)}><SlidersIcon /></button></div>
         <div className={styles.mapCategories}>
           {[{ label: "전체 강좌", value: "전체", emoji: "📍" }, { label: "교육", value: "교육", emoji: "📚" }, { label: "스포츠", value: "체육", emoji: "🏃" }, { label: "공연·전시", value: "문화", emoji: "🎭" }, { label: "1인가구", value: "1인가구", emoji: "🏡" }].map((item) => <button key={item.label} className={category === item.value ? styles.mapCategoryActive : ""} onClick={() => setCategory(item.value)}><span>{item.emoji}</span>{item.label}</button>)}
@@ -299,24 +324,28 @@ function ProgramCard({ program, active, favorite, distanceCenter, onOpen, onFavo
 function ProgramSkeleton() { return <div className={styles.skeleton}><span /><span /><span /><span /></div>; }
 
 function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { programs: Program[]; selected: Program | null; onSelect: (program: Program) => void; controllerRef: MutableRefObject<MapController | null>; onNotice: (message: string | null) => void }) {
-  const nodeRef = useRef<HTMLDivElement>(null); const mapRef = useRef<KakaoMap | null>(null); const overlaysRef = useRef<KakaoOverlay[]>([]); const locationOverlayRef = useRef<KakaoOverlay | null>(null); const [ready, setReady] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
+  const nodeRef = useRef<HTMLDivElement>(null); const mapRef = useRef<KakaoMap | null>(null); const overlaysRef = useRef<KakaoOverlay[]>([]); const locationOverlayRef = useRef<KakaoOverlay | null>(null); const [ready, setReady] = useState(false); const [loadFailed, setLoadFailed] = useState(false); const [mapLevel, setMapLevel] = useState(8);
   const markerGroups = useMemo(() => {
     const groups = new Map<string, { program: Program; count: number }>();
+    const cellLat = Math.max(.0018, .006 * (2 ** ((mapLevel - 5) * .75)));
+    const cellLng = cellLat * 1.6;
     programs.forEach((program) => {
-      const key = `${program.latitude.toFixed(4)}:${program.longitude.toFixed(4)}:${program.facility || ""}`;
+      const key = `${Math.round(program.latitude / cellLat)}:${Math.round(program.longitude / cellLng)}`;
       const current = groups.get(key);
       if (!current) groups.set(key, { program, count: 1 });
       else groups.set(key, { program: selected?.id === program.id ? program : current.program, count: current.count + 1 });
     });
-    return Array.from(groups.values()).slice(0, 64);
-  }, [programs, selected]);
+    return Array.from(groups.values()).slice(0, 72);
+  }, [programs, selected, mapLevel]);
   useEffect(() => {
-    let active = true;
+    let active = true; let zoomListener: (() => void) | null = null;
     loadKakaoMap().then((loaded) => {
       if (!active) return;
       if (!loaded || !nodeRef.current || !window.kakao) { setLoadFailed(true); return; }
       const map = new window.kakao.maps.Map(nodeRef.current, { center: new window.kakao.maps.LatLng(defaultCenter.latitude, defaultCenter.longitude), level: 8 });
       mapRef.current = map;
+      zoomListener = () => setMapLevel(map.getLevel());
+      window.kakao.maps.event.addListener(map, "zoom_changed", zoomListener);
       controllerRef.current = {
         center: () => {
           const point = map.getCenter();
@@ -342,7 +371,10 @@ function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { 
       };
       setReady(true);
     });
-    return () => { active = false; controllerRef.current = null; };
+    return () => {
+      active = false; controllerRef.current = null;
+      if (zoomListener && mapRef.current && window.kakao) window.kakao.maps.event.removeListener(mapRef.current, "zoom_changed", zoomListener);
+    };
   }, [controllerRef, onNotice]);
   useEffect(() => {
     if (!ready || !mapRef.current || !window.kakao) return;
