@@ -19,7 +19,7 @@ type Program = {
   receipt_start: string | null; receipt_end: string | null;
   lecture_start: string | null; lecture_end: string | null;
   schedule_text: string | null; audiences: string[] | null; summary: string | null;
-  apply_url: string | null; phone: string | null;
+  apply_url: string | null; phone: string | null; is_senior_recommended: boolean | null;
 };
 
 type MapController = {
@@ -29,15 +29,19 @@ type MapController = {
   center: () => { latitude: number; longitude: number } | null;
 };
 
-const selectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,summary,apply_url,phone";
 const categoryStyle: Record<string, { emoji: string; color: string; pale: string }> = {
   교육: { emoji: "✏️", color: "#ef8a39", pale: "#fff3e8" },
   문화: { emoji: "🎨", color: "#7b68d9", pale: "#f2efff" },
   체육: { emoji: "🏃", color: "#2d9bd6", pale: "#eaf7ff" },
   복지: { emoji: "🤝", color: "#2eaf62", pale: "#ebf9f0" },
   "1인가구": { emoji: "🏡", color: "#d15c83", pale: "#fff0f5" },
+  시설대관: { emoji: "🏛️", color: "#4f8b63", pale: "#eef7ef" },
+  문화행사: { emoji: "🎭", color: "#8b5fc4", pale: "#f5effc" },
+  전시: { emoji: "🖼️", color: "#d17935", pale: "#fff4e9" },
+  진료: { emoji: "🩺", color: "#3b8ea8", pale: "#eaf7fa" },
 };
 const filterCategories = ["전체", "교육", "문화", "체육", "복지", "1인가구"];
+const defaultCenter = { latitude: 37.5665, longitude: 126.978 };
 
 function categoryFor(program: Program) {
   return categoryStyle[program.category || ""] || { emoji: "📍", color: "#35a962", pale: "#edf9f1" };
@@ -63,6 +67,23 @@ function isReceiving(program: Program) {
   const end = program.receipt_end ? new Date(program.receipt_end).getTime() : Infinity;
   return now >= start && now <= end;
 }
+function isSenior(program: Program) {
+  const text = [program.name, program.summary, ...(program.audiences || [])].filter(Boolean).join(" ");
+  return Boolean(program.is_senior_recommended || /시니어|어르신|노년|고령|50\+|60세|65세/.test(text));
+}
+function isFamily(program: Program) {
+  const text = [program.name, program.summary, ...(program.audiences || [])].filter(Boolean).join(" ");
+  return /아이|아동|어린이|유아|가족|부모|초등/.test(text);
+}
+function opensTomorrow(program: Program) {
+  if (!program.receipt_start) return false;
+  const target = new Date(program.receipt_start); const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+  return target.getFullYear() === tomorrow.getFullYear() && target.getMonth() === tomorrow.getMonth() && target.getDate() === tomorrow.getDate();
+}
+function scheduleLabel(program: Program) {
+  if (program.schedule_text) return program.schedule_text;
+  return dateRange(program.lecture_start, program.lecture_end);
+}
 function distanceKm(lat: number, lng: number, toLat = 37.5665, toLng = 126.978) {
   const rad = Math.PI / 180;
   const dLat = (lat - toLat) * rad; const dLng = (lng - toLng) * rad;
@@ -76,21 +97,24 @@ export function MapExplorer() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState(""); const [category, setCategory] = useState("전체");
   const [onlyFree, setOnlyFree] = useState(false); const [onlyReceiving, setOnlyReceiving] = useState(false);
+  const [onlySenior, setOnlySenior] = useState(false); const [onlyFamily, setOnlyFamily] = useState(false);
+  const [onlyTomorrow, setOnlyTomorrow] = useState(false); const [sortBy, setSortBy] = useState<"distance" | "receiving" | "free" | "senior">("distance");
   const [selected, setSelected] = useState<Program | null>(null); const [mobileList, setMobileList] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false); const [authOpen, setAuthOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set()); const [alerts, setAlerts] = useState<Set<string>>(new Set());
   const mapControllerRef = useRef<MapController | null>(null);
   const [mapNotice, setMapNotice] = useState<string | null>(null);
-  const [distanceCenter, setDistanceCenter] = useState({ latitude: 37.5665, longitude: 126.978 });
+  const [distanceCenter, setDistanceCenter] = useState(defaultCenter);
 
   useEffect(() => {
     let active = true;
     async function fetchPrograms() {
       if (!isSupabaseConfigured) { setError("Supabase 환경 설정을 확인하고 있어요."); setLoading(false); return; }
-      const { data, error: fetchError } = await supabase.from("programs").select(selectFields)
-        .eq("is_active", true).not("latitude", "is", null).not("longitude", "is", null)
-        .order("updated_at", { ascending: false }).limit(240);
+      const { data, error: fetchError } = await supabase.rpc("get_programs_near", {
+        p_lat: defaultCenter.latitude, p_lon: defaultCenter.longitude,
+        p_radius: 12, p_limit: 240, p_offset: 0,
+      });
       if (!active) return;
       if (fetchError) setError("프로그램을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
       else setPrograms((data || []) as Program[]);
@@ -123,10 +147,25 @@ export function MapExplorer() {
     const term = query.trim().toLocaleLowerCase("ko");
     return programs.filter((program) => category === "전체" || program.category === category)
       .filter((program) => !onlyFree || program.is_free).filter((program) => !onlyReceiving || isReceiving(program))
+      .filter((program) => !onlySenior || isSenior(program)).filter((program) => !onlyFamily || isFamily(program))
+      .filter((program) => !onlyTomorrow || opensTomorrow(program))
       .filter((program) => !term || [program.name, program.facility, program.address, program.area, program.field]
         .some((value) => value?.toLocaleLowerCase("ko").includes(term)))
-      .sort((a, b) => distanceKm(a.latitude, a.longitude, distanceCenter.latitude, distanceCenter.longitude) - distanceKm(b.latitude, b.longitude, distanceCenter.latitude, distanceCenter.longitude));
-  }, [programs, query, category, onlyFree, onlyReceiving, distanceCenter]);
+      .sort((a, b) => {
+        if (sortBy === "receiving") return Number(isReceiving(b)) - Number(isReceiving(a));
+        if (sortBy === "free") return Number(Boolean(b.is_free)) - Number(Boolean(a.is_free));
+        if (sortBy === "senior") return Number(isSenior(b)) - Number(isSenior(a));
+        return distanceKm(a.latitude, a.longitude, distanceCenter.latitude, distanceCenter.longitude) - distanceKm(b.latitude, b.longitude, distanceCenter.latitude, distanceCenter.longitude);
+      });
+  }, [programs, query, category, onlyFree, onlyReceiving, onlySenior, onlyFamily, onlyTomorrow, distanceCenter, sortBy]);
+
+  const locationLabel = useMemo(() => {
+    const nearest = programs.reduce<Program | null>((closest, program) => {
+      if (!closest) return program;
+      return distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude) < distanceKm(closest.latitude, closest.longitude, distanceCenter.latitude, distanceCenter.longitude) ? program : closest;
+    }, null);
+    return [nearest?.region, nearest?.area].filter(Boolean).join(" ") || "서울특별시 중구";
+  }, [programs, distanceCenter]);
 
   const requireUser = useCallback(() => { if (user) return true; setAuthOpen(true); return false; }, [user]);
   const toggleFavorite = useCallback(async (programId: string) => {
@@ -159,7 +198,7 @@ export function MapExplorer() {
     const { data, error: nearbyError } = await supabase.rpc("get_programs_near", {
       p_lat: center.latitude,
       p_lon: center.longitude,
-      p_radius: 30,
+      p_radius: 12,
       p_limit: 240,
       p_offset: 0,
     });
@@ -170,44 +209,73 @@ export function MapExplorer() {
       setPrograms((data || []) as Program[]);
       setDistanceCenter(center);
       setSelected(null);
-      setMapNotice(`지도 중심 반경 30km · ${(data || []).length.toLocaleString()}개`);
+      setMapNotice(`지도 중심 반경 12km · ${(data || []).length.toLocaleString()}개`);
     }
     setLoading(false);
   }, []);
 
   return <main className={styles.shell}>
-    <header className={styles.header}>
-      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-      <a className={styles.brand} href="/" aria-label="동네고고 홈"><span className={styles.logoMark}><PinIcon /></span><span>동네고고</span></a>
-      <div className={styles.headerSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="동네, 시설, 프로그램을 검색해 보세요" aria-label="프로그램 검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기"><CloseIcon /></button>}</div>
-      <nav className={styles.nav} aria-label="사용자 메뉴">
-        <button className={styles.navButton} onClick={() => user ? setCategory("전체") : setAuthOpen(true)}><HeartIcon /> <span>찜</span></button>
-        <button className={styles.loginButton} onClick={() => user ? supabase.auth.signOut() : setAuthOpen(true)}><UserIcon /> <span>{user ? "로그아웃" : "로그인"}</span></button>
-      </nav>
-    </header>
     <section className={styles.workspace}>
       <aside className={`${styles.panel} ${mobileList ? styles.mobilePanelOpen : ""}`}>
-        <div className={styles.panelTop}>
+        <div className={styles.panelBrand}>
           <div className={styles.mobileHandle} onClick={() => setMobileList(false)} />
-          <div className={styles.locationRow}><div><span className={styles.eyebrow}>지금 보고 있는 지역</span><h1>서울특별시 전체 <ChevronIcon /></h1></div><button className={styles.filterButton} onClick={() => setFilterOpen((v) => !v)} aria-expanded={filterOpen}><SlidersIcon /> 필터</button></div>
-          <div className={styles.chips}>{filterCategories.map((item) => <button key={item} className={category === item ? styles.chipActive : styles.chip} onClick={() => setCategory(item)}>{item}</button>)}</div>
-          {filterOpen && <div className={styles.filterTray}><label><input type="checkbox" checked={onlyReceiving} onChange={(e) => setOnlyReceiving(e.target.checked)} /><span>지금 접수 중</span></label><label><input type="checkbox" checked={onlyFree} onChange={(e) => setOnlyFree(e.target.checked)} /><span>무료만 보기</span></label></div>}
-          <div className={styles.resultSummary}><strong>{filtered.length.toLocaleString()}개</strong><span>가까운 순</span></div>
+          <div className={styles.brandRow}>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className={styles.brand} href="/" aria-label="동네고고 홈"><span className={styles.logoMark}><PinIcon /></span><span>동네고고</span></a>
+            <nav className={styles.panelNav} aria-label="사용자 메뉴">
+              <button aria-label="오픈런 알림" onClick={() => user ? setSortBy("receiving") : setAuthOpen(true)}><BellIcon />{alerts.size > 0 && <i>{alerts.size}</i>}</button>
+              <button aria-label={user ? "로그아웃" : "로그인"} onClick={() => user ? supabase.auth.signOut() : setAuthOpen(true)}><UserIcon /></button>
+            </nav>
+          </div>
+          <div className={styles.panelSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="지역 · 기관 · 강좌명으로 검색" aria-label="프로그램 검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기"><CloseIcon /></button>}</div>
         </div>
+
+        <div className={styles.panelFilters}>
+          <div className={styles.locationRow}><span className={styles.locationPill}><PinIcon />{locationLabel}</span><span className={styles.resultCount}>강좌 <b>{filtered.length.toLocaleString()}</b>개</span><button onClick={researchHere}>동네 변경</button></div>
+          <div className={styles.quickChips}>
+            <button className={onlyFree ? styles.quickActive : ""} onClick={() => setOnlyFree((v) => !v)}>무료</button>
+            <button className={onlySenior ? styles.quickActive : ""} onClick={() => setOnlySenior((v) => !v)}>시니어</button>
+            <button className={onlyReceiving ? styles.quickActive : ""} onClick={() => setOnlyReceiving((v) => !v)}>오늘 신청</button>
+            <button className={onlyTomorrow ? styles.quickActive : ""} onClick={() => setOnlyTomorrow((v) => !v)}>내일 오픈런</button>
+            <button className={onlyFamily ? styles.quickActive : ""} onClick={() => setOnlyFamily((v) => !v)}>아이와 함께</button>
+          </div>
+          {filterOpen && <div className={styles.categoryTray}>{filterCategories.map((item) => <button key={item} className={category === item ? styles.categoryActive : ""} onClick={() => setCategory(item)}>{item}</button>)}</div>}
+        </div>
+
+        <div className={styles.sortTabs} role="tablist" aria-label="정렬 방식">
+          <button className={sortBy === "distance" ? styles.sortActive : ""} onClick={() => setSortBy("distance")}>가까운 순</button>
+          <button className={sortBy === "receiving" ? styles.sortActive : ""} onClick={() => setSortBy("receiving")}>신청 가능 순</button>
+          <button className={sortBy === "free" ? styles.sortActive : ""} onClick={() => setSortBy("free")}>무료 먼저</button>
+          <button className={sortBy === "senior" ? styles.sortActive : ""} onClick={() => setSortBy("senior")}>시니어 추천</button>
+        </div>
+
         <div className={styles.list}>
           {loading && Array.from({ length: 5 }, (_, i) => <ProgramSkeleton key={i} />)}
-          {error && <div className={styles.empty}><span>🌱</span><strong>연결을 준비하고 있어요</strong><p>{error}</p></div>}
+          {error && <div className={styles.empty}><span>🌱</span><strong>프로그램을 불러오지 못했어요</strong><p>{error}</p></div>}
           {!loading && !error && filtered.length === 0 && <div className={styles.empty}><span>🧭</span><strong>조건에 맞는 프로그램이 없어요</strong><p>검색어나 필터를 조금 넓혀 보세요.</p></div>}
-          {filtered.slice(0, 100).map((program) => <ProgramCard key={program.id} program={program} active={selected?.id === program.id} favorite={favorites.has(program.id)} distanceCenter={distanceCenter} onOpen={() => openProgram(program)} onFavorite={() => toggleFavorite(program.id)} />)}
+          {filtered.slice(0, 120).map((program) => <ProgramCard key={program.id} program={program} active={selected?.id === program.id} favorite={favorites.has(program.id)} distanceCenter={distanceCenter} onOpen={() => openProgram(program)} onFavorite={() => toggleFavorite(program.id)} />)}
         </div>
+        <div className={styles.panelFoot}><span>✓ 공공데이터 기반</span><span>✦ 쉬운 설명</span><span>✓ 신청 링크 확인</span></div>
       </aside>
+
       <div className={styles.mapArea}>
         <MapCanvas programs={filtered.slice(0, 100)} selected={selected} onSelect={openProgram} controllerRef={mapControllerRef} onNotice={setMapNotice} />
-        <div className={styles.mapTopSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="우리 동네 프로그램 검색" /><button onClick={() => setFilterOpen(true)}><SlidersIcon /></button></div>
+        <div className={styles.mapTopSearch}><SearchIcon /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="우리 동네 프로그램 검색" /><button onClick={() => setFilterOpen((v) => !v)}><SlidersIcon /></button></div>
+        <div className={styles.mapCategories}>
+          {[{ label: "전체 강좌", value: "전체", emoji: "📍" }, { label: "교육", value: "교육", emoji: "📚" }, { label: "스포츠", value: "체육", emoji: "🏃" }, { label: "공연·전시", value: "문화", emoji: "🎭" }, { label: "1인가구", value: "1인가구", emoji: "🏡" }].map((item) => <button key={item.label} className={category === item.value ? styles.mapCategoryActive : ""} onClick={() => setCategory(item.value)}><span>{item.emoji}</span>{item.label}</button>)}
+        </div>
         <button className={styles.researchButton} onClick={researchHere}><SearchIcon /> 이 지역에서 다시 찾기</button>
+        <div className={styles.toolRail}>
+          <button className={styles.toolActive}><span>▱</span>지도</button>
+          <button onClick={() => setFilterOpen((v) => !v)}><SlidersIcon />필터</button>
+          <button onClick={() => mapControllerRef.current?.locate()}><LocateIcon />주변</button>
+          <button onClick={() => setSortBy("distance")}><span>↔</span>거리</button>
+          <button onClick={() => user ? setSortBy("receiving") : setAuthOpen(true)}><BellIcon />오픈런</button>
+          <button onClick={() => user ? setCategory("전체") : setAuthOpen(true)}><HeartIcon />찜</button>
+        </div>
         <div className={styles.mapControls}><button aria-label="현재 위치" onClick={() => mapControllerRef.current?.locate()}><LocateIcon /></button><button aria-label="확대" onClick={() => mapControllerRef.current?.zoomIn()}>＋</button><button aria-label="축소" onClick={() => mapControllerRef.current?.zoomOut()}>−</button></div>
+        <button className={styles.mapCta} onClick={() => setMobileList(true)}>✦ {locationLabel} 강좌 {filtered.length.toLocaleString()}개 자세히 보기 <ChevronIcon /></button>
         <button className={styles.mobileListButton} onClick={() => setMobileList(true)}><ListIcon /> 목록 {filtered.length}</button>
-        <div className={styles.legend}><i /> 프로그램 {filtered.length}개</div>
         {mapNotice && <div className={styles.mapNotice}>{mapNotice}</div>}
       </div>
     </section>
@@ -219,21 +287,35 @@ export function MapExplorer() {
 function ProgramCard({ program, active, favorite, distanceCenter, onOpen, onFavorite }: { program: Program; active: boolean; favorite: boolean; distanceCenter: { latitude: number; longitude: number }; onOpen: () => void; onFavorite: () => void }) {
   const style = categoryFor(program);
   return <article className={`${styles.card} ${active ? styles.cardActive : ""}`} onClick={onOpen} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
-    <div className={styles.cardHead}><span className={styles.categoryTag} style={{ background: style.pale, color: style.color }}>{style.emoji} {program.category || program.field || "프로그램"}</span>{isReceiving(program) && <span className={styles.liveTag}><i /> 접수중</span>}<button className={styles.heartButton} onClick={(e) => { e.stopPropagation(); onFavorite(); }} aria-label={favorite ? "찜 해제" : "찜하기"}><HeartIcon fill={favorite ? "#35b95f" : "none"} className={favorite ? styles.favorited : ""} /></button></div>
-    <h2>{program.name}</h2><div className={styles.cardMeta}><span><PinIcon />{program.facility || program.area || "서울"}</span><span>{distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude).toFixed(1)}km</span></div>
-    <div className={styles.cardFoot}><span>{dateRange(program.lecture_start, program.lecture_end)}</span><strong className={program.is_free ? styles.free : ""}>{program.is_free ? "무료" : (program.fee_text || "요금 확인")}</strong></div>
+    <div className={styles.cardEmoji} style={{ background: style.pale }}>{style.emoji}</div>
+    <div className={styles.cardContent}>
+      <div className={styles.cardHead}>{program.is_free && <span className={styles.freeTag}>무료</span>}{isSenior(program) && <span className={styles.seniorTag}>시니어 추천</span>}{isReceiving(program) && <span className={styles.liveTag}>접수중</span>}{opensTomorrow(program) && <span className={styles.tomorrowTag}>내일 오픈런</span>}</div>
+      <h2>{program.name}</h2>
+      <div className={styles.cardMeta}><span>{program.facility || program.area || "장소 확인"}</span><i>·</i><span>{distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude) < 1 ? `${Math.round(distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude) * 1000)}m` : `${distanceKm(program.latitude, program.longitude, distanceCenter.latitude, distanceCenter.longitude).toFixed(1)}km`}</span><i>·</i><span>{scheduleLabel(program)}</span></div>
+    </div>
+    <button className={styles.heartButton} onClick={(e) => { e.stopPropagation(); onFavorite(); }} aria-label={favorite ? "찜 해제" : "찜하기"}><HeartIcon fill={favorite ? "#35b95f" : "none"} className={favorite ? styles.favorited : ""} /></button>
   </article>;
 }
 function ProgramSkeleton() { return <div className={styles.skeleton}><span /><span /><span /><span /></div>; }
 
 function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { programs: Program[]; selected: Program | null; onSelect: (program: Program) => void; controllerRef: MutableRefObject<MapController | null>; onNotice: (message: string | null) => void }) {
   const nodeRef = useRef<HTMLDivElement>(null); const mapRef = useRef<KakaoMap | null>(null); const overlaysRef = useRef<KakaoOverlay[]>([]); const locationOverlayRef = useRef<KakaoOverlay | null>(null); const [ready, setReady] = useState(false); const [loadFailed, setLoadFailed] = useState(false);
+  const markerGroups = useMemo(() => {
+    const groups = new Map<string, { program: Program; count: number }>();
+    programs.forEach((program) => {
+      const key = `${program.latitude.toFixed(4)}:${program.longitude.toFixed(4)}:${program.facility || ""}`;
+      const current = groups.get(key);
+      if (!current) groups.set(key, { program, count: 1 });
+      else groups.set(key, { program: selected?.id === program.id ? program : current.program, count: current.count + 1 });
+    });
+    return Array.from(groups.values()).slice(0, 64);
+  }, [programs, selected]);
   useEffect(() => {
     let active = true;
     loadKakaoMap().then((loaded) => {
       if (!active) return;
       if (!loaded || !nodeRef.current || !window.kakao) { setLoadFailed(true); return; }
-      const map = new window.kakao.maps.Map(nodeRef.current, { center: new window.kakao.maps.LatLng(37.5665, 126.978), level: 8 });
+      const map = new window.kakao.maps.Map(nodeRef.current, { center: new window.kakao.maps.LatLng(defaultCenter.latitude, defaultCenter.longitude), level: 8 });
       mapRef.current = map;
       controllerRef.current = {
         center: () => {
@@ -265,11 +347,18 @@ function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { 
   useEffect(() => {
     if (!ready || !mapRef.current || !window.kakao) return;
     overlaysRef.current.forEach((overlay) => overlay.setMap(null));
-    overlaysRef.current = programs.map((program) => {
-      const marker = document.createElement("button"); marker.className = `${styles.mapMarker} ${selected?.id === program.id ? styles.mapMarkerSelected : ""}`; marker.type = "button"; marker.title = program.name; marker.textContent = program.is_free ? "무료" : categoryFor(program).emoji; marker.onclick = () => onSelect(program);
+    overlaysRef.current = markerGroups.map(({ program, count }) => {
+      const style = categoryFor(program);
+      const marker = document.createElement("button"); marker.className = `${styles.mapMarker} ${selected?.id === program.id ? styles.mapMarkerSelected : ""}`; marker.type = "button"; marker.title = program.name; marker.setAttribute("aria-label", `${program.name}, ${program.facility || program.area || "장소 확인"}`); marker.onclick = () => onSelect(program);
+      const emoji = document.createElement("span"); emoji.className = styles.mapMarkerEmoji; emoji.textContent = style.emoji;
+      const copy = document.createElement("span"); copy.className = styles.mapMarkerCopy;
+      const title = document.createElement("strong"); title.textContent = program.field || program.category || "프로그램";
+      const place = document.createElement("small"); place.textContent = program.facility || program.area || "장소 확인";
+      copy.append(title, place); marker.append(emoji, copy);
+      if (count > 1) { const badge = document.createElement("i"); badge.textContent = String(count); marker.append(badge); }
       return new window.kakao!.maps.CustomOverlay({ map: mapRef.current, position: new window.kakao!.maps.LatLng(program.latitude, program.longitude), content: marker, yAnchor: 1, zIndex: selected?.id === program.id ? 8 : 2 });
     });
-  }, [programs, selected, onSelect, ready]);
+  }, [markerGroups, selected, onSelect, ready]);
   useEffect(() => { if (!selected || !mapRef.current || !window.kakao) return; mapRef.current.setCenter(new window.kakao.maps.LatLng(selected.latitude, selected.longitude)); mapRef.current.setLevel(5); }, [selected]);
   return <div className={styles.mapCanvas}><div className={styles.kakaoMap} ref={nodeRef} />{!ready && <div className={styles.mapFallback} aria-label="지도 미리보기"><div className={styles.river} />{programs.slice(0, 50).map((program, i) => { const left = 8 + ((program.longitude * 997 + i * 13) % 84 + 84) % 84; const top = 8 + ((program.latitude * 991 + i * 17) % 78 + 78) % 78; return <button key={program.id} className={`${styles.fallbackMarker} ${selected?.id === program.id ? styles.fallbackMarkerSelected : ""}`} style={{ left: `${left}%`, top: `${top}%` }} onClick={() => onSelect(program)}>{program.is_free ? "무료" : categoryFor(program).emoji}</button>; })}<span className={styles.mapPending}>{loadFailed ? "카카오 지도를 불러오지 못했어요" : "카카오 지도를 연결 중입니다"}</span></div>}</div>;
 }
