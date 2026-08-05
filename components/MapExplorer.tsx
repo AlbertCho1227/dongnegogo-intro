@@ -20,6 +20,33 @@ type Program = {
   lecture_start: string | null; lecture_end: string | null;
   schedule_text: string | null; audiences: string[] | null; summary: string | null;
   apply_url: string | null; phone: string | null; is_senior_recommended: boolean | null;
+  primary_image_url: string | null; primary_image_source: string | null; image_count: number | null;
+};
+
+type ProgramMedia = {
+  media_id: string;
+  source_key: string;
+  source_id: string | null;
+  media_role: "program_poster" | "program_image";
+  image_url: string;
+  thumbnail_url: string | null;
+  external_url: string | null;
+  attribution: string | null;
+  license: string | null;
+  license_url: string | null;
+  is_primary: boolean;
+};
+
+type FacilityMedia = {
+  media_id: string;
+  provider: string;
+  media_type: "official_photo" | "kakao_place" | "kakao_roadview" | "google_place_photo" | "google_streetview" | "mapillary";
+  photo_url: string | null;
+  thumbnail_url: string | null;
+  external_url: string | null;
+  attribution: string | null;
+  match_confidence: number | null;
+  is_primary: boolean;
 };
 
 type MapController = {
@@ -42,7 +69,7 @@ const categoryStyle: Record<string, { emoji: string; color: string; pale: string
 };
 const filterCategories = ["전체", "교육", "문화", "체육", "복지", "1인가구"];
 const defaultCenter = { latitude: 37.5665, longitude: 126.978 };
-const mapSelectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,apply_url,phone,is_senior_recommended";
+const mapSelectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,summary,apply_url,phone,is_senior_recommended,primary_image_url,primary_image_source,image_count";
 
 async function fetchMapSamples(center: { latitude: number; longitude: number }) {
   const results = await Promise.all([800, 1600, 2400].map((offset) => supabase
@@ -312,7 +339,9 @@ export function MapExplorer() {
 function ProgramCard({ program, active, favorite, distanceCenter, onOpen, onFavorite }: { program: Program; active: boolean; favorite: boolean; distanceCenter: { latitude: number; longitude: number }; onOpen: () => void; onFavorite: () => void }) {
   const style = categoryFor(program);
   return <article className={`${styles.card} ${active ? styles.cardActive : ""}`} onClick={onOpen} tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
-    <div className={styles.cardEmoji} style={{ background: style.pale }}>{style.emoji}</div>
+    <div className={styles.cardVisual} style={{ background: style.pale }}>
+      {program.primary_image_url ? <img src={program.primary_image_url} alt="" loading="lazy" /> : <span>{style.emoji}</span>}
+    </div>
     <div className={styles.cardContent}>
       <div className={styles.cardHead}>{program.is_free && <span className={styles.freeTag}>무료</span>}{isSenior(program) && <span className={styles.seniorTag}>시니어 추천</span>}{isReceiving(program) && <span className={styles.liveTag}>접수중</span>}{opensTomorrow(program) && <span className={styles.tomorrowTag}>내일 오픈런</span>}</div>
       <h2>{program.name}</h2>
@@ -397,13 +426,124 @@ function MapCanvas({ programs, selected, onSelect, controllerRef, onNotice }: { 
 
 function ProgramDetail({ program, favorite, alerted, onClose, onFavorite, onAlert }: { program: Program; favorite: boolean; alerted: boolean; onClose: () => void; onFavorite: () => void; onAlert: () => void }) {
   const style = categoryFor(program);
+  const [facilityMedia, setFacilityMedia] = useState<FacilityMedia[]>([]);
+  const [programMedia, setProgramMedia] = useState<ProgramMedia[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("program_facility_media")
+      .select("media_id,provider,media_type,photo_url,thumbnail_url,external_url,attribution,match_confidence,is_primary")
+      .eq("program_id", program.id)
+      .order("is_primary", { ascending: false })
+      .order("media_type", { ascending: true })
+      .then(({ data }) => {
+        if (active) setFacilityMedia((data || []) as FacilityMedia[]);
+      });
+    return () => { active = false; };
+  }, [program.id]);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("program_media_public")
+      .select("media_id,source_key,source_id,media_role,image_url,thumbnail_url,external_url,attribution,license,license_url,is_primary")
+      .eq("program_id", program.id)
+      .order("is_primary", { ascending: false })
+      .order("media_role", { ascending: true })
+      .order("updated_at", { ascending: false })
+      .then(({ data }) => {
+        if (!active) return;
+        const seen = new Set<string>();
+        const unique = ((data || []) as ProgramMedia[]).filter((media) => {
+          const key = media.image_url.trim().toLowerCase().replace(/#.*$/, "");
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setProgramMedia(unique);
+      });
+    return () => { active = false; };
+  }, [program.id]);
+
+  const photoMedia = facilityMedia.find((media) => Boolean(media.photo_url || media.thumbnail_url));
+  const placeMedia = facilityMedia.find((media) => media.media_type === "kakao_place" && media.external_url);
+  const roadviewMedia = facilityMedia.find((media) => media.media_type === "kakao_roadview" && media.external_url);
+  const hasCoordinates = Number.isFinite(program.latitude) && Number.isFinite(program.longitude);
+  const fallbackPlaceUrl = program.facility || program.address
+    ? `https://map.kakao.com/link/search/${encodeURIComponent([program.facility, program.address].filter(Boolean).join(" "))}`
+    : null;
   return <div className={styles.detailBackdrop} onMouseDown={(e) => e.target === e.currentTarget && onClose()}><article className={styles.detail}>
     <div className={styles.detailHero} style={{ background: `linear-gradient(135deg, ${style.pale}, #f5f8f4)` }}><button className={styles.closeButton} onClick={onClose} aria-label="상세 닫기"><CloseIcon /></button><span className={styles.heroEmoji}>{style.emoji}</span><span className={styles.categoryTag} style={{ background: "white", color: style.color }}>{program.category || program.field || "프로그램"}</span><h2>{program.name}</h2><p><PinIcon /> {program.facility || program.address || program.area}</p></div>
     <div className={styles.detailBody}><div className={styles.detailActions}><button className={favorite ? styles.actionActive : ""} onClick={onFavorite}><HeartIcon fill={favorite ? "#35b95f" : "none"} />{favorite ? "찜했어요" : "찜하기"}</button><button className={alerted ? styles.actionActive : ""} onClick={onAlert}><BellIcon />{alerted ? "알림 켜짐" : "오픈런 알림"}</button></div>
       <section className={styles.infoGrid}><div><span>접수 상태</span><strong>{program.status || (isReceiving(program) ? "접수중" : "일정 확인")}</strong></div><div><span>이용 요금</span><strong className={program.is_free ? styles.free : ""}>{program.is_free ? "무료" : (program.fee_text || "요금 확인")}</strong></div><div><span>운영 일정</span><strong>{dateRange(program.lecture_start, program.lecture_end)}</strong></div><div><span>대상</span><strong>{program.audiences?.slice(0, 2).join(", ") || "누구나"}</strong></div></section>
-      <section className={styles.description}><h3>프로그램 소개</h3><p>{shortSummary(program.summary)}</p></section><section className={styles.address}><h3>장소</h3><p>{program.address || program.facility || "공고에서 확인"}</p>{program.phone && <small>문의 {program.phone}</small>}</section>
+      <section className={styles.description}><h3>프로그램 소개</h3><p>{shortSummary(program.summary)}</p></section>
+      {programMedia.length > 0 && <section className={styles.programMediaSection} aria-label="프로그램 이미지">
+        <h3>프로그램 이미지</h3>
+        <div className={styles.programMediaGrid}>
+          {programMedia.map((media) => <a key={media.media_id} className={styles.programMediaItem} href={media.external_url || media.image_url} target="_blank" rel="noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={media.thumbnail_url || media.image_url} alt={`${program.name} 대표 이미지`} loading="lazy" />
+          </a>)}
+        </div>
+        <small className={styles.programMediaAttribution}>{programMedia[0]?.attribution || "공공데이터 제공 이미지"}</small>
+      </section>}
+      <section className={styles.address} aria-label="시설정보">
+        <h3>시설정보</h3>
+        <div className={styles.facilityLine}><span>시설</span><strong>{program.facility || "시설명 확인"}</strong></div>
+        <div className={styles.facilityLine}><span>주소</span><strong>{program.address || "주소 확인"}</strong></div>
+        {program.phone && <small>문의 {program.phone}</small>}
+        <div className={styles.facilityMedia}>
+          {photoMedia && <a className={styles.facilityPhoto} href={photoMedia.photo_url || photoMedia.thumbnail_url || undefined} target="_blank" rel="noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoMedia.thumbnail_url || photoMedia.photo_url || ""} alt={`${program.facility || "시설"} 사진`} />
+          </a>}
+          {!photoMedia && <div className={styles.facilityPhotoPlaceholder}><span>📍</span><strong>시설 사진·거리뷰</strong><small>카카오맵에서 실제 위치를 확인할 수 있어요.</small></div>}
+          <div className={styles.facilityMediaActions}>
+            {(placeMedia?.external_url || fallbackPlaceUrl) && <a href={placeMedia?.external_url || fallbackPlaceUrl || undefined} target="_blank" rel="noreferrer">장소 정보 보기 <ExternalIcon /></a>}
+            {hasCoordinates && <a href={roadviewMedia?.external_url || `https://map.kakao.com/link/roadview/${program.latitude},${program.longitude}`} target="_blank" rel="noreferrer">거리뷰 보기 <ExternalIcon /></a>}
+          </div>
+          {hasCoordinates && <FacilityRoadview latitude={program.latitude} longitude={program.longitude} />}
+          <small className={styles.mediaAttribution}>{facilityMedia[0]?.attribution || "카카오맵 시설 위치"}</small>
+        </div>
+      </section>
     </div><div className={styles.detailBottom}><a href={`https://map.kakao.com/link/map/${encodeURIComponent(program.facility || program.name)},${program.latitude},${program.longitude}`} target="_blank" rel="noreferrer">지도 보기</a>{program.apply_url ? <a className={styles.primaryAction} href={program.apply_url} target="_blank" rel="noreferrer">신청 페이지 <ExternalIcon /></a> : <button className={styles.primaryAction} onClick={onAlert}>접수 알림 받기 <BellIcon /></button>}</div>
   </article></div>;
+}
+
+function FacilityRoadview({ latitude, longitude }: { latitude: number; longitude: number }) {
+  const nodeRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<"loading" | "ready" | "empty">("loading");
+
+  useEffect(() => {
+    let active = true;
+    loadKakaoMap().then((loaded) => {
+      if (!active) return;
+      if (!loaded || !nodeRef.current || !window.kakao?.maps.Roadview || !window.kakao.maps.RoadviewClient) {
+        setState("empty");
+        return;
+      }
+      const position = new window.kakao.maps.LatLng(latitude, longitude);
+      const roadview = new window.kakao.maps.Roadview(nodeRef.current);
+      const client = new window.kakao.maps.RoadviewClient();
+      client.getNearestPanoId(position, 80, (panoId) => {
+        if (!active) return;
+        if (!panoId) {
+          setState("empty");
+          return;
+        }
+        roadview.setPanoId(panoId, position);
+        setState("ready");
+      });
+    });
+    return () => { active = false; };
+  }, [latitude, longitude]);
+
+  if (state === "empty") return <div className={styles.facilityRoadviewEmpty}>이 위치에는 제공 가능한 거리뷰 사진이 없어요.</div>;
+  return <div className={styles.facilityRoadview} aria-label="시설 거리뷰">
+    <div className={styles.facilityRoadviewCanvas} ref={nodeRef} />
+    {state === "loading" && <span>시설 거리뷰를 준비하고 있어요…</span>}
+  </div>;
 }
 
 function AuthDialog({ onClose }: { onClose: () => void }) {
