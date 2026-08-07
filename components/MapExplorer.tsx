@@ -49,6 +49,31 @@ type FacilityMedia = {
   is_primary: boolean;
 };
 
+type ParkingLot = {
+  id: string;
+  name: string;
+  parking_type: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  phone: string | null;
+  total_spaces: number | null;
+  occupied_spaces: number | null;
+  available_spaces: number | null;
+  availability_status: string | null;
+  availability_updated_at: string | null;
+  is_paid: boolean | null;
+  fee_summary: string | null;
+  operating_hours: Record<string, unknown> | null;
+  notes: string | null;
+  source_updated_at: string | null;
+  source_url: string | null;
+  distance_m?: number | null;
+  relation_type?: string | null;
+};
+
+type Coordinate = { latitude: number; longitude: number };
+
 type MapController = {
   locate: () => void;
   zoomIn: () => void;
@@ -70,6 +95,7 @@ const categoryStyle: Record<string, { emoji: string; color: string; pale: string
 const filterCategories = ["전체", "교육", "문화", "체육", "복지", "1인가구"];
 const defaultCenter = { latitude: 37.5665, longitude: 126.978 };
 const mapSelectFields = "id,name,category,field,facility,address,area,region,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,audiences,summary,apply_url,phone,is_senior_recommended,primary_image_url,primary_image_source,image_count";
+const parkingSelectFields = "id,name,parking_type,address,latitude,longitude,phone,total_spaces,occupied_spaces,available_spaces,availability_status,availability_updated_at,is_paid,fee_summary,operating_hours,notes,source_updated_at,source_url";
 
 async function fetchMapSamples(center: { latitude: number; longitude: number }) {
   const results = await Promise.all([800, 1600, 2400].map((offset) => supabase
@@ -128,6 +154,108 @@ function distanceKm(lat: number, lng: number, toLat = 37.5665, toLng = 126.978) 
   const dLat = (lat - toLat) * rad; const dLng = (lng - toLng) * rad;
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toLat * rad) * Math.cos(lat * rad) * Math.sin(dLng / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function parkingDistanceM(lot: ParkingLot, program: Coordinate): number | null {
+  if (!Number.isFinite(lot.latitude) || !Number.isFinite(lot.longitude)) return null;
+  return Math.round(distanceKm(lot.latitude as number, lot.longitude as number, program.latitude, program.longitude) * 1000);
+}
+
+function parkingStatusLabel(lot: ParkingLot): string {
+  if (lot.available_spaces !== null && lot.total_spaces !== null) {
+    return `${lot.available_spaces.toLocaleString()}자리 이용 가능`;
+  }
+  return lot.availability_status || "이용 정보 확인";
+}
+
+function parkingStatusClass(lot: ParkingLot): "available" | "unavailable" | "unknown" {
+  const status = `${lot.availability_status || ""} ${parkingStatusLabel(lot)}`;
+  if (/불가|만차|폐쇄|없음/.test(status)) return "unavailable";
+  if (/가능|이용 가능|자리/.test(status)) return "available";
+  return "unknown";
+}
+
+function parkingFeeLabel(lot: ParkingLot): string | null {
+  const value = lot.fee_summary || (lot.is_paid === false ? "무료" : null);
+  return value ? value.replace(/\s+/g, " ").trim() : null;
+}
+
+function parkingDistanceLabel(distanceM: number | null | undefined): string | null {
+  if (distanceM === null || distanceM === undefined || !Number.isFinite(distanceM)) return null;
+  return distanceM < 1000 ? `${distanceM.toLocaleString()}m` : `${(distanceM / 1000).toFixed(1)}km`;
+}
+
+function uniqueParkingLots(lots: ParkingLot[], program: Coordinate): ParkingLot[] {
+  const seen = new Set<string>();
+  return lots
+    .map((lot) => ({ ...lot, distance_m: lot.distance_m ?? parkingDistanceM(lot, program) }))
+    .sort((a, b) => {
+      const relationScore = (relation: string | null | undefined) => relation === "facility_note" ? 0 : relation === "same_location" ? 1 : 2;
+      return relationScore(a.relation_type) - relationScore(b.relation_type) ||
+        (a.distance_m ?? Number.POSITIVE_INFINITY) - (b.distance_m ?? Number.POSITIVE_INFINITY);
+    })
+    .filter((lot) => {
+      const key = [lot.name, lot.address, lot.notes, lot.fee_summary].map((value) => (value || "").trim().toLocaleLowerCase("ko")).join("|");
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 5);
+}
+
+async function fetchParkingForProgram(program: Program): Promise<ParkingLot[]> {
+  if (!Number.isFinite(program.latitude) || !Number.isFinite(program.longitude)) return [];
+  const coordinate = { latitude: program.latitude, longitude: program.longitude };
+  const linkedLots: ParkingLot[] = [];
+
+  // The collector stores an explainable facility-to-parking relationship. Prefer
+  // that relationship so a nearby facility does not accidentally inherit another
+  // building's parking note.
+  if (program.facility?.trim()) {
+    const { data: facilities } = await supabase
+      .from("facilities")
+      .select("id")
+      .eq("title", program.facility.trim())
+      .limit(20);
+    const facilityIds = (facilities || []).map((row) => row.id).filter(Boolean);
+    if (facilityIds.length > 0) {
+      const { data: links } = await supabase
+        .from("facility_parking_links")
+        .select("parking_lot_id,relation_type,distance_m")
+        .in("facility_id", facilityIds)
+        .limit(30);
+      const linkRows = (links || []) as Array<{ parking_lot_id: string; relation_type: string | null; distance_m: number | null }>;
+      const lotIds = [...new Set(linkRows.map((row) => row.parking_lot_id).filter(Boolean))];
+      if (lotIds.length > 0) {
+        const { data: lots } = await supabase.from("parking_lots").select(parkingSelectFields).in("id", lotIds);
+        const lotsById = new Map(((lots || []) as ParkingLot[]).map((lot) => [lot.id, lot]));
+        linkRows.forEach((link) => {
+          const lot = lotsById.get(link.parking_lot_id);
+          if (lot) linkedLots.push({ ...lot, relation_type: link.relation_type, distance_m: link.distance_m });
+        });
+      }
+    }
+  }
+
+  if (linkedLots.length > 0) return uniqueParkingLots(linkedLots, coordinate);
+
+  // Some cultural/event records have no matching row in `facilities`. In that
+  // case, use a deliberately small geographic fallback and cap the result.
+  const latitudeDelta = 0.018;
+  const longitudeDelta = latitudeDelta / Math.max(Math.cos((program.latitude * Math.PI) / 180), 0.2);
+  const { data: nearbyLots } = await supabase
+    .from("parking_lots")
+    .select(parkingSelectFields)
+    .gte("latitude", program.latitude - latitudeDelta)
+    .lte("latitude", program.latitude + latitudeDelta)
+    .gte("longitude", program.longitude - longitudeDelta)
+    .lte("longitude", program.longitude + longitudeDelta)
+    .limit(100);
+  const nearby = ((nearbyLots || []) as ParkingLot[]).filter((lot) => {
+    const distance = parkingDistanceM(lot, coordinate);
+    return distance !== null && distance <= 2_000;
+  });
+  return uniqueParkingLots(nearby, coordinate);
 }
 
 export function MapExplorer() {
@@ -331,7 +459,7 @@ export function MapExplorer() {
         {mapNotice && <div className={styles.mapNotice}>{mapNotice}</div>}
       </div>
     </section>
-    {selected && <ProgramDetail program={selected} favorite={favorites.has(selected.id)} alerted={alerts.has(selected.id)} onClose={() => setSelected(null)} onFavorite={() => toggleFavorite(selected.id)} onAlert={() => toggleAlert(selected.id)} />}
+    {selected && <ProgramDetail key={selected.id} program={selected} favorite={favorites.has(selected.id)} alerted={alerts.has(selected.id)} onClose={() => setSelected(null)} onFavorite={() => toggleFavorite(selected.id)} onAlert={() => toggleAlert(selected.id)} />}
     {authOpen && <AuthDialog onClose={() => setAuthOpen(false)} />}
   </main>;
 }
@@ -428,6 +556,37 @@ function ProgramDetail({ program, favorite, alerted, onClose, onFavorite, onAler
   const style = categoryFor(program);
   const [facilityMedia, setFacilityMedia] = useState<FacilityMedia[]>([]);
   const [programMedia, setProgramMedia] = useState<ProgramMedia[]>([]);
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([]);
+  const [parkingLoading, setParkingLoading] = useState(true);
+  const [routeMode, setRouteMode] = useState<"walk" | "transit" | "car">("car");
+  const [origin, setOrigin] = useState<Coordinate | null>(null);
+  const [originStatus, setOriginStatus] = useState<"idle" | "loading" | "ready" | "unavailable">("idle");
+
+  useEffect(() => {
+    let active = true;
+    fetchParkingForProgram(program)
+      .then((lots) => active && setParkingLots(lots))
+      .catch(() => active && setParkingLots([]))
+      .finally(() => active && setParkingLoading(false));
+    return () => { active = false; };
+  }, [program]);
+
+  const requestOrigin = useCallback(() => {
+    if (originStatus === "loading" || originStatus === "ready") return;
+    if (!navigator.geolocation) {
+      setOriginStatus("unavailable");
+      return;
+    }
+    setOriginStatus("loading");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setOrigin({ latitude: coords.latitude, longitude: coords.longitude });
+        setOriginStatus("ready");
+      },
+      () => setOriginStatus("unavailable"),
+      { enableHighAccuracy: false, timeout: 8_000, maximumAge: 300_000 },
+    );
+  }, [originStatus]);
 
   useEffect(() => {
     let active = true;
@@ -493,6 +652,7 @@ function ProgramDetail({ program, favorite, alerted, onClose, onFavorite, onAler
         <div className={styles.facilityLine}><span>시설</span><strong>{program.facility || "시설명 확인"}</strong></div>
         <div className={styles.facilityLine}><span>주소</span><strong>{program.address || "주소 확인"}</strong></div>
         {program.phone && <small>문의 {program.phone}</small>}
+        {(parkingLoading || parkingLots.length > 0) && <ParkingInformation lots={parkingLots} loading={parkingLoading} />}
         <div className={styles.facilityMedia}>
           {photoMedia && <a className={styles.facilityPhoto} href={photoMedia.photo_url || photoMedia.thumbnail_url || undefined} target="_blank" rel="noreferrer">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -507,8 +667,108 @@ function ProgramDetail({ program, favorite, alerted, onClose, onFavorite, onAler
           <small className={styles.mediaAttribution}>{facilityMedia[0]?.attribution || "카카오맵 시설 위치"}</small>
         </div>
       </section>
+      <DistanceInformation
+        program={program}
+        routeMode={routeMode}
+        onRouteModeChange={setRouteMode}
+        origin={origin}
+        originStatus={originStatus}
+        onRequestOrigin={requestOrigin}
+        parkingLots={parkingLots}
+        parkingLoading={parkingLoading}
+      />
     </div><div className={styles.detailBottom}><a href={`https://map.kakao.com/link/map/${encodeURIComponent(program.facility || program.name)},${program.latitude},${program.longitude}`} target="_blank" rel="noreferrer">지도 보기</a>{program.apply_url ? <a className={styles.primaryAction} href={program.apply_url} target="_blank" rel="noreferrer">신청 페이지 <ExternalIcon /></a> : <button className={styles.primaryAction} onClick={onAlert}>접수 알림 받기 <BellIcon /></button>}</div>
   </article></div>;
+}
+
+function ParkingInformation({ lots, loading, compact = false }: { lots: ParkingLot[]; loading: boolean; compact?: boolean }) {
+  if (!loading && lots.length === 0) return null;
+  const visibleLots = compact ? lots.slice(0, 3) : lots;
+  return <div className={`${styles.parkingSection} ${compact ? styles.parkingSectionCompact : ""}`} aria-label="주차정보">
+    <div className={styles.parkingHeading}><h4>주차정보</h4>{lots.length > 0 && <span>{compact ? `가까운 ${Math.min(lots.length, 3)}곳` : `${lots.length}곳`}</span>}</div>
+    {loading && <p className={styles.parkingLoading}>주차정보를 확인하고 있어요…</p>}
+    {!loading && <div className={styles.parkingList}>
+      {visibleLots.map((lot) => {
+        const statusClass = parkingStatusClass(lot);
+        const fee = parkingFeeLabel(lot);
+        const distance = parkingDistanceLabel(lot.distance_m);
+        return <article className={styles.parkingItem} key={lot.id}>
+          <div className={styles.parkingItemTop}><strong>{lot.name}</strong><span className={`${styles.parkingStatus} ${styles[`parkingStatus${statusClass[0].toUpperCase()}${statusClass.slice(1)}`]}`}>{parkingStatusLabel(lot)}</span></div>
+          {lot.address && <p>{lot.address}{distance && <><i>·</i>{distance}</>}</p>}
+          <div className={styles.parkingMeta}>
+            {lot.total_spaces !== null && <span>전체 {lot.total_spaces.toLocaleString()}면</span>}
+            {fee && <span>{fee}</span>}
+            {lot.notes && <span>{lot.notes.replace(/\s+/g, " ").trim()}</span>}
+          </div>
+          {lot.source_url && <a className={styles.parkingSource} href={lot.source_url} target="_blank" rel="noreferrer">출처 보기 <ExternalIcon /></a>}
+        </article>;
+      })}
+    </div>}
+  </div>;
+}
+
+function routeURL(mode: "walk" | "transit" | "car", origin: Coordinate | null, program: Program): string {
+  if (origin) {
+    const query = new URLSearchParams({
+      sp: `${origin.latitude.toFixed(6)},${origin.longitude.toFixed(6)}`,
+      ep: `${program.latitude.toFixed(6)},${program.longitude.toFixed(6)}`,
+      by: mode === "transit" ? "publictransit" : mode,
+    });
+    return `https://m.map.kakao.com/scheme/route?${query.toString()}`;
+  }
+  return `https://map.kakao.com/link/to/${encodeURIComponent(program.facility || program.name)},${program.latitude},${program.longitude}`;
+}
+
+function DistanceInformation({
+  program,
+  routeMode,
+  onRouteModeChange,
+  origin,
+  originStatus,
+  onRequestOrigin,
+  parkingLots,
+  parkingLoading,
+}: {
+  program: Program;
+  routeMode: "walk" | "transit" | "car";
+  onRouteModeChange: (mode: "walk" | "transit" | "car") => void;
+  origin: Coordinate | null;
+  originStatus: "idle" | "loading" | "ready" | "unavailable";
+  onRequestOrigin: () => void;
+  parkingLots: ParkingLot[];
+  parkingLoading: boolean;
+}) {
+  const modes = [
+    { value: "walk" as const, label: "도보", emoji: "🚶" },
+    { value: "transit" as const, label: "대중교통", emoji: "🚌" },
+    { value: "car" as const, label: "자동차", emoji: "🚗" },
+  ];
+  const isCar = routeMode === "car";
+  const originLabel = origin ? "현재 위치" : "현재 위치 (출발지 설정 필요)";
+  const destinationLabel = program.facility || program.name;
+  return <section className={styles.distanceSection} aria-label="거리정보">
+    <div className={styles.distanceHeading}><h3>거리정보</h3><span>카카오맵 길찾기</span></div>
+    <div className={styles.routeModes} role="tablist" aria-label="이동수단 선택">
+      {modes.map((mode) => <button key={mode.value} role="tab" aria-selected={routeMode === mode.value} className={routeMode === mode.value ? styles.routeModeActive : ""} onClick={() => { onRouteModeChange(mode.value); if (mode.value === "car" && originStatus === "idle") onRequestOrigin(); }}><span>{mode.emoji}</span>{mode.label}</button>)}
+    </div>
+    {isCar ? <div className={styles.routePanel}>
+      <h4>자동차로 가는 길</h4>
+      <div className={styles.routeEndpoints}>
+        <div className={styles.routeEndpoint}><span>출발</span><strong>{originLabel}</strong>{originStatus === "loading" && <small>현재 위치를 확인하고 있어요…</small>}{originStatus === "unavailable" && <small>위치 권한이 없어 카카오맵에서 출발지를 설정해 주세요.</small>}</div>
+        <span className={styles.routeConnector} aria-hidden="true">↓</span>
+        <div className={styles.routeEndpoint}><span>도착</span><strong>{destinationLabel}</strong><small>{program.address || "시설 위치"}</small></div>
+      </div>
+      <div className={styles.routeActions}>
+        {!origin && <button type="button" onClick={onRequestOrigin}>현재 위치를 출발지로 사용</button>}
+        <a href={routeURL(routeMode, origin, program)} target="_blank" rel="noreferrer">자동차 길찾기 열기 <ExternalIcon /></a>
+      </div>
+      {(parkingLoading || parkingLots.length > 0) && <ParkingInformation lots={parkingLots} loading={parkingLoading} compact />}
+    </div> : <div className={styles.routePanel}>
+      <h4>{routeMode === "walk" ? "도보로 가는 길" : "대중교통으로 가는 길"}</h4>
+      <p className={styles.routeHint}>출발지를 설정하면 카카오맵에서 예상 경로와 소요 시간을 확인할 수 있어요.</p>
+      <a className={styles.routeExternal} href={routeURL(routeMode, origin, program)} target="_blank" rel="noreferrer">{routeMode === "walk" ? "도보" : "대중교통"} 길찾기 열기 <ExternalIcon /></a>
+    </div>}
+  </section>;
 }
 
 function FacilityRoadview({ latitude, longitude }: { latitude: number; longitude: number }) {
