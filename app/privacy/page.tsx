@@ -13,8 +13,8 @@ export default function PrivacyPage() {
       <LegalMeta>공개일 2026년 8월 11일 · 「개인정보 보호법」 제30조 기준 준비본 · 정식 시행일은 출시 전에 고지합니다.</LegalMeta>
 
       <LegalSection title="1. 처리 원칙과 책임자">
-        <p>동네고고 운영자는 서비스 제공에 필요한 최소한의 개인정보만 처리하며 목적이 끝난 정보는 지체 없이 삭제합니다. 개인정보 보호 관련 문의·열람·정정·삭제·처리정지 요청은 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>에서 접수합니다.</p>
-        <Callout>개인정보 보호책임자의 이름, 운영자의 법적 명칭·주소·전화번호는 정식 출시 전에 확정하여 이 문서에 공개합니다.</Callout>
+        <p>포레스트 이음(Forest Ieum)은 서비스 제공에 필요한 최소한의 개인정보만 처리하며 목적이 끝난 정보는 지체 없이 삭제합니다. 개인정보 보호 관련 문의·열람·정정·삭제·처리정지 요청은 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>에서 접수합니다.</p>
+        <Callout>개인정보 보호책임자: 조재완 · 연락처: <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a></Callout>
       </LegalSection>
 
       <LegalSection title="2. 인증과 사용자 데이터 흐름">

@@ -136,6 +136,24 @@ test("법적 고지 페이지 5개를 독립 경로로 제공한다", async () =
   }
 });
 
+test("운영자 정보는 반영하고 주거 주소는 위치약관에만 제한한다", async () => {
+  const address = /서울시(?:<!-- -->)? 북악산로(?:<!-- -->)? 851,(?:<!-- -->)? 101동(?:<!-- -->)? 603호/;
+
+  for (const pathname of ["/terms", "/privacy", "/public-data", "/account-deletion"]) {
+    const response = await render(pathname);
+    const html = await response.text();
+    assert.match(html, /포레스트 이음/);
+    assert.match(html, /689-01-03864/);
+    assert.doesNotMatch(html, address, pathname);
+  }
+
+  const locationResponse = await render("/location-terms");
+  const locationHtml = await locationResponse.text();
+  assert.match(locationHtml, address);
+  assert.match(locationHtml, /위치정보관리책임자/);
+  assert.match(locationHtml, /조재완/);
+});
+
 test("공공누리 1~4유형과 출처 표시 원칙을 모두 고지한다", async () => {
   const response = await render("/public-data");
   const html = await response.text();

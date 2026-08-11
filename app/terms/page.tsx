@@ -13,7 +13,8 @@ export default function TermsPage() {
       <LegalMeta>공개일 2026년 8월 11일 · 정식 시행일은 서비스 출시 전에 별도 고지합니다.</LegalMeta>
 
       <LegalSection title="1. 목적과 운영 주체">
-        <p>이 약관은 동네고고 운영자(이하 “운영자”)가 제공하는 모바일 앱, 앱인토스 및 웹 서비스의 이용 조건과 권리·의무를 정합니다. 현재 운영자 연락처는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>이며, 법적 명칭·대표자·주소·전화번호는 정식 출시 전에 이 문서 상단과 고객센터에 고지합니다.</p>
+        <p>이 약관은 포레스트 이음(Forest Ieum, 대표자 정재은, 사업자등록번호 689-01-03864, 이하 “운영자”)이 제공하는 모바일 앱, 앱인토스 및 웹 서비스의 이용 조건과 권리·의무를 정합니다. 고객 문의는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>에서 접수합니다.</p>
+        <p>동네고고는 현재 앱과 웹에서 재화·용역의 주문·결제를 직접 받지 않고 공공기관·운영기관의 외부 신청 경로를 안내합니다. 향후 유료 거래 또는 통신판매 기능을 제공하면 관련 신고와 표시사항을 먼저 갖추고 약관을 갱신합니다.</p>
       </LegalSection>
 
       <LegalSection title="2. 서비스가 동작하는 방식">

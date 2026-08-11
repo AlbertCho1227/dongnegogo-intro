@@ -38,8 +38,8 @@ export function LegalPage({
           <h1>{title}</h1>
           <p>{description}</p>
           <div className="legal-status" role="note">
-            <strong>운영 준비 안내</strong>
-            <span>현재 동네고고는 정식 서비스 출시 전 테스트 단계입니다. 운영자 법적 정보와 위치기반서비스 신고 사항은 출시 전에 확정·고지합니다.</span>
+            <strong>운영자 정보</strong>
+            <span>포레스트 이음(Forest Ieum) · 대표 정재은 · 사업자등록번호 689-01-03864 · 정식 서비스 출시 전 테스트 단계</span>
           </div>
         </div>
 
@@ -51,7 +51,7 @@ export function LegalPage({
       </main>
 
       <footer className="legal-footer">
-        <span>© 2026 동네고고</span>
+        <span>© 2026 포레스트 이음 · 동네고고</span>
         <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>
       </footer>
     </div>
