@@ -40,7 +40,7 @@ export default function AccountDeletionPage() {
 
       <LegalSection title="4. 소셜 로그인 제공자에서 직접 연결을 끊은 경우">
         <p>Kakao·Apple·Google 계정 설정에서 동네고고 연결을 먼저 끊으면 로그인 토큰은 사용할 수 없게 되지만, 동네고고 데이터베이스의 계정·게시물이 자동으로 모두 삭제되지는 않을 수 있습니다. 이 페이지에서도 계정 삭제를 요청해 주세요.</p>
-        <Callout>정식 출시 전 Kakao 연결 해제 웹훅과 Apple 토큰 철회, 앱 내 계정 삭제 경로를 완성해 외부 연결 해제와 동네고고 데이터 삭제가 함께 처리되도록 합니다.</Callout>
+        <Callout>iOS 앱의 내정보에는 계정 삭제 경로가 제공되며, 본인 확인 후 동네고고 계정·후기·댓글·사진·찜·알림·가족 정보를 삭제합니다. 기기에 유효한 Kakao 토큰이 있으면 Kakao 연결 해제도 시도합니다. Apple·Google 또는 기기에 토큰이 남지 않은 Kakao 연결은 각 제공자 계정 설정에서 별도로 해제할 수 있습니다.</Callout>
         <p>관련 기준은 <a href="https://developer.apple.com/support/offering-account-deletion-in-your-app/" target="_blank" rel="noreferrer">Apple 앱 내 계정 삭제 안내</a>, <a href="https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api#unlink" target="_blank" rel="noreferrer">Kakao 연결 끊기 안내</a>, <a href="https://support.google.com/googleplay/android-developer/answer/13327111?hl=ko" target="_blank" rel="noreferrer">Google Play 계정 삭제 요건</a>에서 확인할 수 있습니다.</p>
       </LegalSection>
 

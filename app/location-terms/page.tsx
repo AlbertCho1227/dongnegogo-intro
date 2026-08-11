@@ -14,7 +14,7 @@ export default function LocationTermsPage() {
 
       <LegalSection title="1. 사업자 정보와 적용 범위">
         <p>본 약관은 동네고고 앱과 앱인토스에서 제공하는 주변 탐색·거리·길찾기 기능에 적용됩니다. 현재는 정식 출시 전 테스트 단계이며 운영자의 법적 상호, 주소, 전화번호, 위치정보관리책임자는 정식 서비스 개시 전에 확정·게시합니다. 문의는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>으로 접수합니다.</p>
-        <Callout>정식 출시 전 위치기반서비스사업 신고 대상과 시점을 확인하여 필요한 신고를 완료하고, 앱에서 이 약관에 대한 별도 동의 화면을 제공합니다.</Callout>
+        <Callout>iOS 앱은 운영체제 위치 권한을 요청하기 전에 이 약관과 위치 이용 목적을 별도로 안내하고 동의를 받습니다. Android·앱인토스 정식 출시 전에도 같은 동의 절차를 적용하며, 위치기반서비스사업 신고 대상과 시점을 확인해 필요한 신고를 완료합니다.</Callout>
       </LegalSection>
 
       <LegalSection title="2. 위치정보가 흐르는 과정">
