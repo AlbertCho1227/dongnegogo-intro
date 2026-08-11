@@ -71,6 +71,26 @@ test("첨부된 원안의 화면 이미지와 레이아웃 문구를 그대로 �
   assert.doesNotMatch(html, /support\.js|text\/x-dc|<x-dc/i);
 });
 
+test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", async () => {
+  const response = await render();
+  const html = await response.text();
+  const css = await readFile(new URL("app/globals.css", projectRoot), "utf8");
+  const behavior = await readFile(new URL("app/original-design-behavior.tsx", projectRoot), "utf8");
+
+  assert.match(html, /data-r="hero-mascot"/);
+  assert.match(html, /data-r="hero-search"/);
+  assert.match(html, /data-r="route-carousel"/);
+  assert.match(html, /data-r="route-pager"/);
+  assert.match(html, /data-route-page="0"[^>]*aria-current="true"/);
+  assert.match(html, /data-route-page="1"[^>]*aria-current="false"/);
+  assert.match(html, /data-r="proof-actions"/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(css, /scroll-snap-type:\s*x mandatory/);
+  assert.match(css, /\[data-r="proof-actions"\][\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(behavior, /carousel\.scrollTo/);
+  assert.match(behavior, /aria-current/);
+});
+
 test("웹 디자인 원본 파일은 첨부 ZIP과 바이트 단위로 동일하다", async () => {
   const source = await readFile(new URL("app/original-design.dc.html", projectRoot));
   assert.equal(

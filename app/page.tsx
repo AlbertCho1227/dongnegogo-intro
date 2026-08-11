@@ -10,6 +10,10 @@ const PAGE_OPEN = '<div style="width:100%;background:#FFFFFF">';
 const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
+const HERO_SEARCH_OPEN = '    <div style="width:100%;max-width:640px;height:68px;';
+const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:center">';
+const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
+const PROOF_ACTIONS_OPEN = '    <div style="display:flex;gap:10px;flex:none">';
 const MAP_SECTION_MARKER = "<!-- ═══ MAP EXPLORER ═══ -->";
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
@@ -23,6 +27,13 @@ function sliceRequired(source: string, startMarker: string, endMarker: string) {
   }
 
   return source.slice(start + startMarker.length, end);
+}
+
+function replaceRequired(source: string, marker: string, replacement: string) {
+  if (!source.includes(marker)) {
+    throw new Error(`Original responsive marker is missing: ${marker}`);
+  }
+  return source.replace(marker, replacement);
 }
 
 const originalDesignStyles = sliceRequired(
@@ -48,7 +59,26 @@ const originalPageMarkup = (() => {
   if (!withoutOriginalStats.includes(ORIGINAL_LEGAL_LINKS)) {
     throw new Error("Original legal footer links could not be located.");
   }
-  return withoutOriginalStats.replace(ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS);
+  const routePager = `
+    </div>
+    <div data-r="route-pager" role="group" aria-label="길찾기 화면 넘기기">
+      <button type="button" data-route-page="0" aria-label="첫 번째 길찾기 화면 보기" aria-current="true">1</button>
+      <button type="button" data-route-page="1" aria-label="두 번째 거리뷰 화면 보기" aria-current="false">2</button>
+    </div>
+    <p data-r="route-status" aria-live="polite">1 / 2</p>
+  </div>
+  </div>
+
+  <!-- 4-up -->`;
+
+  return [
+    [MASCOT_OPEN, MASCOT_OPEN.replace("<div", '<div data-r="hero-mascot"')],
+    [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
+    [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
+    [ROUTE_SHOTS_CLOSE, routePager],
+    [PROOF_ACTIONS_OPEN, PROOF_ACTIONS_OPEN.replace("<div", '<div data-r="proof-actions"')],
+    [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
+  ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);
 })();
 
 function formatCount(value: number) {
