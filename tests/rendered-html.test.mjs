@@ -207,7 +207,7 @@ test("법적 고지 페이지 5개를 독립 경로로 제공한다", async () =
     ["/terms", /동네고고 이용약관/, /서비스가 동작하는 방식/],
     ["/privacy", /개인정보처리방침/, /소셜 로그인 데이터 흐름/],
     ["/location-terms", /위치기반서비스 이용약관/, /사용자 위치 기반 데이터 흐름/],
-    ["/public-data", /공공데이터 이용정책/, /공공누리 1~4유형 적용 기준/],
+    ["/public-data", /공공데이터·공공누리 이용정책/, /공공누리 공식 마크와 1~4유형/],
     ["/account-deletion", /계정·데이터 삭제/, /계정 삭제 처리 흐름/],
   ];
 
@@ -219,6 +219,23 @@ test("법적 고지 페이지 5개를 독립 경로로 제공한다", async () =
     assert.match(html, detail);
     assert.doesNotMatch(html, /jupwdcfkybvyrrmzmwed|ccbhczlrhlbtyszubgxr|sb_secret_|service_role/i);
   }
+});
+
+test("공공데이터 정책은 공공누리 공식 마크와 확인된 출처 조건만 표시한다", async () => {
+  const response = await render("/public-data");
+  const html = await response.text();
+
+  for (const type of [1, 2, 3, 4]) {
+    assert.match(html, new RegExp(`/legal/kogl/number${type}\\.jpg`));
+    assert.match(html, new RegExp(`공공누리 제${type}유형`));
+  }
+  assert.match(html, /https:\/\/www\.kogl\.or\.kr\/info\/license\.do/);
+  assert.match(html, /기관명, 작성연도, 저작물명, 작성자명/);
+  assert.match(html, /이용허락범위 제한 없음/);
+  assert.match(html, /공공누리 제1유형으로 바꿔 표시하지 않습니다/);
+  assert.match(html, /유형이 확인되지 않은 자료에는 공공누리 마크를 붙이지 않습니다/);
+  assert.match(html, /제3자 권리/);
+  assert.match(html, /Kakao·Naver·Apple/);
 });
 
 test("운영자 정보는 반영하고 주거 주소는 위치약관에만 제한한다", async () => {
@@ -246,7 +263,7 @@ test("공공누리 1~4유형과 출처 표시 원칙을 모두 고지한다", as
   for (const type of [1, 2, 3, 4]) {
     assert.match(html, new RegExp(`공공누리 제(?:<!-- -->)?${type}(?:<!-- -->)?유형`));
   }
-  assert.match(html, /출처·티커 표시 방식/);
+  assert.match(html, /출처·저작권 표시 방식/);
   assert.match(html, /라이선스 미확인/);
   assert.match(html, /숙박 자원은 수집·제공 대상에서 제외/);
 });

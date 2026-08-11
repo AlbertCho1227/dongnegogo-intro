@@ -55,8 +55,8 @@
 .legal-table tr:last-child td { border-bottom: 0; }
 .legal-callout { margin-top: 18px; padding: 18px 20px; border-left: 4px solid var(--legal-green); border-radius: 0 14px 14px 0; background: #f0f8ee; color: #3f5843; font-size: 14px; line-height: 1.75; }
 .legal-delete-button { display: inline-flex; padding: 13px 18px; border-radius: 12px; background: var(--legal-green); color: white !important; font-weight: 900 !important; text-decoration: none !important; }
-.kogl-badge { display: inline-flex; padding: 4px 8px; border-radius: 7px; color: white; font-size: 11px; font-weight: 900; white-space: nowrap; }
-.kogl-1 { background: #2475d1; }.kogl-2 { background: #e57822; }.kogl-3 { background: #6a55b7; }.kogl-4 { background: #b44343; }
+.kogl-mark-link { display: inline-flex; align-items: center; text-decoration: none !important; }
+.kogl-mark { display: block; width: auto; max-width: 178px; height: 42px; object-fit: contain; }
 .legal-footer { padding: 30px max(24px, calc((100vw - 1000px) / 2)); display: flex; justify-content: space-between; gap: 14px; border-top: 1px solid var(--legal-line); background: white; color: #788078; font-size: 13px; }
 .legal-footer a { color: var(--legal-green); font-weight: 800; }
 @media (max-width: 800px) {
