@@ -101,7 +101,8 @@ test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이�
 
   assert.ok(statsIndex > 0 && mascotIndex > statsIndex && mapIndex > mascotIndex);
   assert.match(css, /#top\s*\{\s*border-bottom:\s*0\s*!important/);
-  assert.match(css, /\.trust-strip\s*\{[\s\S]*?margin-top:\s*42px;[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /\.trust-strip\s*\{[\s\S]*?margin-top:\s*84px;[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\.trust-strip\s*\{\s*margin-top:\s*48px;/);
   assert.match(css, /\.trust-stat strong\s*\{[\s\S]*?font-size:\s*30px;[\s\S]*?font-weight:\s*900;/);
 });
 
