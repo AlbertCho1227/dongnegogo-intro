@@ -113,6 +113,12 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(css, /@media \(max-width:\s*480px\)[\s\S]*?main \[data-r="cta"\] \[data-r="closing-cta-copy"\]\s*\{[\s\S]*?width:\s*100%;[\s\S]*?padding:\s*24px 20px\s*!important/);
   assert.match(behavior, /carousel\.scrollTo/);
   assert.match(behavior, /aria-current/);
+  assert.match(html, /data-r="to-top"[^>]*aria-label="위로 가기"/);
+  assert.match(css, /\[data-r="to-top"\]\s*\{\s*display:\s*none\s*!important;/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="to-top"\]\s*\{[\s\S]*?display:\s*flex\s*!important;/);
+  assert.match(behavior, /window\.scrollTo\(\{ top: 0, behavior:/);
+  assert.match(behavior, /prefers-reduced-motion:\s*reduce/);
+  assert.match(behavior, /button\.tabIndex\s*=\s*visible \? 0 : -1/);
 });
 
 test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이어준다", async () => {

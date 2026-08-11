@@ -36,6 +36,8 @@ const FAMILY_ACTIONS_OPEN = '      <div style="display:flex;gap:8px">\n        <
 const FAMILY_ACTIONS_MARKED = '      <div data-r="family-actions" style="display:flex;gap:8px">\n        <div style="flex:1;height:48px;border-radius:13px;background:#FEE500;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;font-weight:800;color:#3B1E1E">';
 const CLOSING_CTA_COPY_OPEN = '    <div style="position: relative; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(6px);';
 const CLOSING_CTA_COPY_MARKED = '    <div data-r="closing-cta-copy" style="position: relative; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(6px);';
+const TO_TOP_OPEN = '<a href="#top" id="to-top" title="맨 위로"';
+const TO_TOP_MARKED = '<a href="#top" id="to-top" data-r="to-top" aria-label="위로 가기" title="위로 가기"';
 const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
 const FOUR_STEP_HEADING = '    <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>';
 const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
@@ -117,6 +119,7 @@ const originalPageMarkup = (() => {
     [OPENRUN_TIMING_OPEN, OPENRUN_TIMING_MARKED],
     [FAMILY_ACTIONS_OPEN, FAMILY_ACTIONS_MARKED],
     [CLOSING_CTA_COPY_OPEN, CLOSING_CTA_COPY_MARKED],
+    [TO_TOP_OPEN, TO_TOP_MARKED],
     [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
   ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);
 })();

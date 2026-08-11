@@ -4,19 +4,31 @@ import { useEffect } from "react";
 
 export default function OriginalDesignBehavior() {
   useEffect(() => {
-    const button = document.getElementById("to-top");
+    const button = document.querySelector<HTMLAnchorElement>('[data-r="to-top"]');
     const update = () => {
       const visible = window.scrollY > 400;
       if (button) {
+        button.setAttribute("aria-hidden", visible ? "false" : "true");
+        button.tabIndex = visible ? 0 : -1;
         button.style.opacity = visible ? "1" : "0";
         button.style.visibility = visible ? "visible" : "hidden";
         button.style.transform = visible ? "translateY(0)" : "translateY(12px)";
       }
     };
 
+    const scrollToTop = (event: MouseEvent) => {
+      event.preventDefault();
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    };
+
     window.addEventListener("scroll", update, { passive: true });
+    button?.addEventListener("click", scrollToTop);
     update();
-    return () => window.removeEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      button?.removeEventListener("click", scrollToTop);
+    };
   }, []);
 
   useEffect(() => {

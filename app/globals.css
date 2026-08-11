@@ -19,6 +19,7 @@ body { margin: 0; }
 [data-r="hero-category-break"] { display: none; }
 [data-r="mobile-break"], [data-r="mobile-only"] { display: none; }
 [data-r="desktop-only"] { display: inline; }
+[data-r="to-top"] { display: none !important; }
 
 [data-r="four-step-heading"] {
   display: flex;
@@ -128,6 +129,15 @@ body { margin: 0; }
 }
 
 @media (max-width: 1023px) {
+  [data-r="to-top"] {
+    right: max(16px, env(safe-area-inset-right)) !important;
+    bottom: max(20px, env(safe-area-inset-bottom)) !important;
+    display: flex !important;
+  }
+  [data-r="to-top"]:focus-visible {
+    outline: 4px solid rgba(47, 168, 79, .28);
+    outline-offset: 4px;
+  }
   [data-r="hero-mascot"] {
     position: relative !important;
     inset: auto !important;
