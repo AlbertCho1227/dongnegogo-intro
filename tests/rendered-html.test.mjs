@@ -35,9 +35,9 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /우리(?:&nbsp;|\s)+(?:<!-- -->)?<span[^>]*>주변의 배움과 즐거움을/);
-  assert.match(html, /강좌와 행사가 지도 위에 아이콘으로 떠 있어요/);
-  assert.match(html, /신청까지 네 걸음이면 충분해요/);
+  assert.match(html, /data-r="hero-title"[\s\S]*?우리 주변의 배움과[\s\S]*?data-r="mobile-break"[\s\S]*?즐거움을 한눈에[\s\S]*?동네고고 하나로/);
+  assert.match(html, /data-r="map-heading"[\s\S]*?강좌와 행사가 지도 위에[\s\S]*?data-r="mobile-break"[\s\S]*?아이콘으로 떠 있어요/);
+  assert.match(html, /신청까지 네 걸음이면[\s\S]*?data-r="mobile-break"[\s\S]*?충분해요/);
   assert.match(html, /data-r="four-step-heading"/);
   assert.match(html, /assets\/beodeuli-search\.png/);
   assert.match(html, /AI 쉬운 설명/);
@@ -84,6 +84,9 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(html, /data-r="hero-badge"/);
   assert.match(html, /data-r="hero-badge-secondary">신청 링크 확인됨/);
   assert.match(html, /data-r="hero-category-break"/);
+  assert.match(html, /data-r="route-heading"[\s\S]*?가는 길과 도착 풍경까지[\s\S]*?data-r="mobile-break"[\s\S]*?미리[\s\S]*?data-r="mobile-only"[\s\S]*?확인/);
+  assert.match(html, /data-r="persona-heading"[\s\S]*?누구에게나 딱 맞는[\s\S]*?data-r="mobile-break"[\s\S]*?동네 생활/);
+  assert.match(html, /data-r="stories-heading"[\s\S]*?우리 동네 모든 무료[\s\S]*?data-r="mobile-break"[\s\S]*?공공 혜택,[\s\S]*?지도 하나로/);
   assert.match(html, /data-r="hero-search"/);
   assert.match(html, /data-r="route-carousel"/);
   assert.match(html, /data-r="route-pager"/);
@@ -98,6 +101,9 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(css, /\[data-r="hero-badge"\][\s\S]*?grid-template-areas:[\s\S]*?"star primary"[\s\S]*?"secondary secondary"/);
   assert.match(css, /\[data-r="hero-category-separator"\]\s*\{\s*display:\s*none;\s*\}/);
   assert.match(css, /\[data-r="hero-category-break"\]\s*\{\s*display:\s*inline;\s*\}/);
+  assert.match(css, /\[data-r="mobile-break"\], \[data-r="mobile-only"\]\s*\{\s*display:\s*inline;\s*\}/);
+  assert.match(css, /\[data-r="desktop-only"\]\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(css, /\[data-r="responsive-line"\]\s*\{\s*white-space:\s*nowrap;\s*\}/);
   assert.match(css, /scroll-snap-type:\s*x mandatory/);
   assert.match(css, /\[data-r="proof-actions"\][\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\[data-r="openrun-timing"\][\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);

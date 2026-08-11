@@ -14,8 +14,18 @@ const PRIMARY_NAV_OPEN = '    <div style="flex:1 1 auto;display:flex;flex-wrap:w
 const HERO_BADGE_OPEN = '    <div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #DDF0C9;border-radius:999px;padding:9px 18px;font-size:15px;font-weight:700;color:#2FA84F;box-shadow:0 2px 8px rgba(58,178,79,0.1)">';
 const HERO_BADGE_COPY = '      공공데이터 기반 · AI 쉬운 설명 · 신청 링크 확인됨';
 const HERO_BADGE_COPY_RESPONSIVE = '      <span data-r="hero-badge-primary">공공데이터 기반 · AI 쉬운 설명</span><span data-r="hero-badge-secondary">신청 링크 확인됨</span>';
+const HERO_TITLE = '    <h1 style="margin:0;font-size:54px;font-weight:900;line-height:1.28;letter-spacing:-0.02em;color:#20241F">우리&nbsp;<span style="background-color: initial;">주변의 배움과 즐거움을&nbsp; 한눈에<br></span><span style="background-color: initial;"></span>&nbsp;<span style="background: linear-gradient(135deg, rgb(107, 190, 46) 0%, rgb(47, 180, 87) 100%) text; color: transparent;">동네고고 하나로</span></h1>';
+const HERO_TITLE_RESPONSIVE = '    <h1 data-r="hero-title" style="margin:0;font-size:54px;font-weight:900;line-height:1.28;letter-spacing:-0.02em;color:#20241F"><span data-r="responsive-line">우리 주변의 배움과</span><br data-r="mobile-break"><span data-r="responsive-line">즐거움을 한눈에</span><br><span data-r="responsive-line" style="background: linear-gradient(135deg, rgb(107, 190, 46) 0%, rgb(47, 180, 87) 100%) text; color: transparent;">동네고고 하나로</span></h1>';
 const HERO_CATEGORY_COPY = '    <div style="font-size: 21px; font-weight: 700; color: #0D0D0D; line-height: 1.6">교육 · 강좌 · 공연 · 체육 · 문화 · 예술 · 전시&nbsp;<br>행사를 지도에서 한눈에 찾아보세요</div>';
 const HERO_CATEGORY_COPY_RESPONSIVE = '    <div data-r="hero-category" style="font-size: 21px; font-weight: 700; color: #0D0D0D; line-height: 1.6"><span>교육 · 강좌 · 공연 · 체육</span><span data-r="hero-category-separator"> · </span><span data-r="hero-category-break"><br></span><span>문화 · 예술 · 전시</span>&nbsp;<br>행사를 지도에서 한눈에 찾아보세요</div>';
+const MAP_HEADING = '    <div style="font-size:36px;font-weight:900;letter-spacing:-0.02em">강좌와 행사가 지도 위에 아이콘으로 떠 있어요</div>';
+const MAP_HEADING_RESPONSIVE = '    <div data-r="map-heading" style="font-size:36px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">강좌와 행사가 지도 위에</span><br data-r="mobile-break"><span data-r="responsive-line">아이콘으로 떠 있어요</span></div>';
+const ROUTE_HEADING = '        <div style="font-size:30px;font-weight:900;letter-spacing:-0.02em;line-height:1.35">"거기 어떻게 가요?"<br>가는 길과 도착 풍경까지 미리</div>';
+const ROUTE_HEADING_RESPONSIVE = '        <div data-r="route-heading" style="font-size:30px;font-weight:900;letter-spacing:-0.02em;line-height:1.35">"거기 어떻게 가요?"<br><span data-r="responsive-line">가는 길과 도착 풍경까지</span><span data-r="desktop-only"> </span><br data-r="mobile-break"><span data-r="responsive-line">미리<span data-r="mobile-only"> 확인</span></span></div>';
+const PERSONA_HEADING = '    <div style="font-size:36px;font-weight:900;letter-spacing:-0.02em">누구에게나 딱 맞는 동네 생활</div>';
+const PERSONA_HEADING_RESPONSIVE = '    <div data-r="persona-heading" style="font-size:36px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">누구에게나 딱 맞는</span><br data-r="mobile-break"><span data-r="responsive-line">동네 생활</span></div>';
+const STORIES_HEADING = '    <div style="font-size:36px;font-weight:900;letter-spacing:-0.02em">우리 동네 모든 무료·공공 혜택,<br>지도 하나로</div>';
+const STORIES_HEADING_RESPONSIVE = '    <div data-r="stories-heading" style="font-size:36px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">우리 동네 모든 무료</span><span data-r="desktop-only">·</span><br data-r="mobile-break"><span data-r="responsive-line">공공 혜택,</span><br><span data-r="responsive-line">지도 하나로</span></div>';
 const HERO_SEARCH_OPEN = '    <div style="width:100%;max-width:640px;height:68px;';
 const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:center">';
 const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
@@ -30,7 +40,7 @@ const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
 const FOUR_STEP_HEADING = '    <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>';
 const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
       <img src="assets/beodeuli-search.png" alt="돋보기로 프로그램을 찾는 버들이">
-      <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>
+      <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">신청까지 네 걸음이면</span><br data-r="mobile-break"><span data-r="responsive-line">충분해요</span></div>
     </div>`;
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
@@ -92,7 +102,12 @@ const originalPageMarkup = (() => {
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
+    [HERO_TITLE, HERO_TITLE_RESPONSIVE],
     [HERO_CATEGORY_COPY, HERO_CATEGORY_COPY_RESPONSIVE],
+    [MAP_HEADING, MAP_HEADING_RESPONSIVE],
+    [ROUTE_HEADING, ROUTE_HEADING_RESPONSIVE],
+    [PERSONA_HEADING, PERSONA_HEADING_RESPONSIVE],
+    [STORIES_HEADING, STORIES_HEADING_RESPONSIVE],
     [MASCOT_OPEN, MASCOT_OPEN.replace("<div", '<div data-r="hero-mascot"')],
     [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
