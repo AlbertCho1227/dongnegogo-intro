@@ -96,7 +96,7 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(html, /data-r="openrun-timing"/);
   assert.match(html, /data-r="family-actions"/);
   assert.match(html, /data-r="closing-cta-copy"/);
-  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="hero-mascot"\]\s*\{[\s\S]*?position:\s*relative\s*!important;[\s\S]*?display:\s*flex\s*!important;[\s\S]*?order:\s*1;[\s\S]*?margin:\s*88px auto 0;/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="hero-mascot"\]\s*\{\s*margin-top:\s*88px;\s*\}/);
   assert.match(css, /\[data-r="primary-nav"\][\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /\[data-r="hero-badge"\][\s\S]*?grid-template-areas:[\s\S]*?"star primary"[\s\S]*?"secondary secondary"/);
   assert.match(css, /\[data-r="hero-category-separator"\]\s*\{\s*display:\s*none;\s*\}/);
@@ -114,8 +114,8 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(behavior, /carousel\.scrollTo/);
   assert.match(behavior, /aria-current/);
   assert.match(html, /data-r="to-top"[^>]*aria-label="위로 가기"/);
-  assert.match(css, /\[data-r="to-top"\]\s*\{\s*display:\s*none\s*!important;/);
-  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="to-top"\]\s*\{[\s\S]*?display:\s*flex\s*!important;/);
+  assert.match(css, /\[data-r="to-top"\]\s*\{[\s\S]*?left:\s*auto\s*!important;[\s\S]*?display:\s*flex\s*!important;/);
+  assert.match(css, /\[data-r="to-top"\]:focus-visible\s*\{[\s\S]*?outline:/);
   assert.match(behavior, /window\.scrollTo\(\{ top: 0, behavior:/);
   assert.match(behavior, /prefers-reduced-motion:\s*reduce/);
   assert.match(behavior, /button\.tabIndex\s*=\s*visible \? 0 : -1/);
@@ -131,8 +131,8 @@ test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이�
 
   assert.ok(statsIndex > 0 && mascotIndex > statsIndex && mapIndex > mascotIndex);
   assert.match(css, /#top\s*\{\s*border-bottom:\s*0\s*!important/);
-  assert.match(css, /\.trust-strip\s*\{[\s\S]*?margin-top:\s*84px;[\s\S]*?background:\s*transparent;/);
-  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\.trust-strip\s*\{[^}]*margin-top:\s*54px;/);
+  assert.match(css, /\.trust-strip\s*\{[\s\S]*?order:\s*2;[\s\S]*?margin-top:\s*0;[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\.trust-strip\s*\{[^}]*margin-top:\s*0;/);
   assert.match(css, /\.trust-stat strong\s*\{[\s\S]*?font-size:\s*30px;[\s\S]*?font-weight:\s*900;/);
 });
 
@@ -143,7 +143,7 @@ test("버들이와 둥근 안내 상자를 참고 이미지 위치로 표시한�
 
   assert.match(html, /예요!<\/span><br>/);
   assert.match(html, /동네 마실<br>나가볼까요/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*\{[\s\S]*?left:\s*40px\s*!important;[\s\S]*?top:\s*299px\s*!important;[\s\S]*?align-items:\s*center\s*!important;/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*\{[\s\S]*?position:\s*relative\s*!important;[\s\S]*?order:\s*1;[\s\S]*?align-self:\s*center;[\s\S]*?margin:\s*80px auto 0;/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div\s*\{[\s\S]*?width:\s*230px;[\s\S]*?border-radius:\s*20px\s*!important;[\s\S]*?font-size:\s*15px\s*!important;/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*img\s*\{[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*0;/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div::after\s*\{\s*display:\s*none;/);
