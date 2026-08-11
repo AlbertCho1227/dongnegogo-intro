@@ -10,6 +10,12 @@ const PAGE_OPEN = '<div style="width:100%;background:#FFFFFF">';
 const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
+const PRIMARY_NAV_OPEN = '    <div style="flex:1 1 auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;font-size:15px;font-weight:600;color:#42473F;white-space:nowrap">';
+const HERO_BADGE_OPEN = '    <div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #DDF0C9;border-radius:999px;padding:9px 18px;font-size:15px;font-weight:700;color:#2FA84F;box-shadow:0 2px 8px rgba(58,178,79,0.1)">';
+const HERO_BADGE_COPY = '      공공데이터 기반 · AI 쉬운 설명 · 신청 링크 확인됨';
+const HERO_BADGE_COPY_RESPONSIVE = '      <span data-r="hero-badge-primary">공공데이터 기반 · AI 쉬운 설명</span><span data-r="hero-badge-secondary">신청 링크 확인됨</span>';
+const HERO_CATEGORY_COPY = '    <div style="font-size: 21px; font-weight: 700; color: #0D0D0D; line-height: 1.6">교육 · 강좌 · 공연 · 체육 · 문화 · 예술 · 전시&nbsp;<br>행사를 지도에서 한눈에 찾아보세요</div>';
+const HERO_CATEGORY_COPY_RESPONSIVE = '    <div data-r="hero-category" style="font-size: 21px; font-weight: 700; color: #0D0D0D; line-height: 1.6"><span>교육 · 강좌 · 공연 · 체육</span><span data-r="hero-category-separator"> · </span><span data-r="hero-category-break"><br></span><span>문화 · 예술 · 전시</span>&nbsp;<br>행사를 지도에서 한눈에 찾아보세요</div>';
 const HERO_SEARCH_OPEN = '    <div style="width:100%;max-width:640px;height:68px;';
 const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:center">';
 const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
@@ -83,6 +89,10 @@ const originalPageMarkup = (() => {
   <!-- 4-up -->`;
 
   return [
+    [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
+    [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
+    [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
+    [HERO_CATEGORY_COPY, HERO_CATEGORY_COPY_RESPONSIVE],
     [MASCOT_OPEN, MASCOT_OPEN.replace("<div", '<div data-r="hero-mascot"')],
     [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],

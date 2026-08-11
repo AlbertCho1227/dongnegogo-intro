@@ -80,6 +80,10 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   const behavior = await readFile(new URL("app/original-design-behavior.tsx", projectRoot), "utf8");
 
   assert.match(html, /data-r="hero-mascot"/);
+  assert.match(html, /data-r="primary-nav"/);
+  assert.match(html, /data-r="hero-badge"/);
+  assert.match(html, /data-r="hero-badge-secondary">신청 링크 확인됨/);
+  assert.match(html, /data-r="hero-category-break"/);
   assert.match(html, /data-r="hero-search"/);
   assert.match(html, /data-r="route-carousel"/);
   assert.match(html, /data-r="route-pager"/);
@@ -89,7 +93,11 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(html, /data-r="openrun-timing"/);
   assert.match(html, /data-r="family-actions"/);
   assert.match(html, /data-r="closing-cta-copy"/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="hero-mascot"\]\s*\{[\s\S]*?position:\s*relative\s*!important;[\s\S]*?display:\s*flex\s*!important;[\s\S]*?order:\s*1;[\s\S]*?margin:\s*88px auto 0;/);
+  assert.match(css, /\[data-r="primary-nav"\][\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\[data-r="hero-badge"\][\s\S]*?grid-template-areas:[\s\S]*?"star primary"[\s\S]*?"secondary secondary"/);
+  assert.match(css, /\[data-r="hero-category-separator"\]\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(css, /\[data-r="hero-category-break"\]\s*\{\s*display:\s*inline;\s*\}/);
   assert.match(css, /scroll-snap-type:\s*x mandatory/);
   assert.match(css, /\[data-r="proof-actions"\][\s\S]*grid-template-columns:\s*1fr/);
   assert.match(css, /\[data-r="openrun-timing"\][\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
@@ -112,7 +120,7 @@ test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이�
   assert.ok(statsIndex > 0 && mascotIndex > statsIndex && mapIndex > mascotIndex);
   assert.match(css, /#top\s*\{\s*border-bottom:\s*0\s*!important/);
   assert.match(css, /\.trust-strip\s*\{[\s\S]*?margin-top:\s*84px;[\s\S]*?background:\s*transparent;/);
-  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\.trust-strip\s*\{\s*margin-top:\s*48px;/);
+  assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\.trust-strip\s*\{[^}]*margin-top:\s*54px;/);
   assert.match(css, /\.trust-stat strong\s*\{[\s\S]*?font-size:\s*30px;[\s\S]*?font-weight:\s*900;/);
 });
 

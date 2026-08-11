@@ -16,6 +16,7 @@ body { margin: 0; }
   gap: 14px;
 }
 [data-r="route-pager"], [data-r="route-status"] { display: none; }
+[data-r="hero-category-break"] { display: none; }
 
 [data-r="four-step-heading"] {
   display: flex;
@@ -125,8 +126,17 @@ body { margin: 0; }
 }
 
 @media (max-width: 1023px) {
-  [data-r="hero-mascot"] { display: none !important; }
-  .trust-strip { margin-top: 48px; padding: 0 0 44px; gap: 22px; }
+  [data-r="hero-mascot"] {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    top: auto !important;
+    display: flex !important;
+    order: 1;
+    align-self: center;
+    margin: 88px auto 0;
+  }
+  .trust-strip { order: 2; margin-top: 54px; padding: 0 0 44px; gap: 22px; }
   .trust-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 20px; }
   .trust-stat { padding: 0 10px; }
   .trust-stat:nth-child(4) { border-left: 0; }
@@ -135,6 +145,39 @@ body { margin: 0; }
 }
 
 @media (max-width: 767px) {
+  [data-r="primary-nav"] {
+    width: 100%;
+    flex: 0 0 100% !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 8px !important;
+    text-align: center;
+  }
+  [data-r="primary-nav"] > a {
+    min-width: 0;
+    white-space: nowrap;
+  }
+  [data-r="hero-badge"] {
+    display: grid !important;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+      "star primary"
+      "secondary secondary";
+    justify-content: center;
+    align-items: center;
+    gap: 5px 7px !important;
+    padding: 12px 18px !important;
+    text-align: center;
+  }
+  [data-r="hero-badge"] > svg { grid-area: star; }
+  [data-r="hero-badge-primary"] { grid-area: primary; }
+  [data-r="hero-badge-secondary"] { grid-area: secondary; }
+  [data-r="hero-category"] {
+    word-break: keep-all;
+    text-align: center;
+  }
+  [data-r="hero-category-separator"] { display: none; }
+  [data-r="hero-category-break"] { display: inline; }
   #openrun,
   #family,
   [data-r="closing-cta-copy"] {
@@ -271,6 +314,15 @@ body { margin: 0; }
 }
 
 @media (max-width: 480px) {
+  [data-r="primary-nav"] { font-size: 14px !important; }
+  [data-r="hero-badge"] {
+    width: 100%;
+    max-width: 330px;
+    font-size: 14px !important;
+  }
+  [data-r="hero-category"] { font-size: 18px !important; }
+  [data-r="hero-mascot"] { margin-top: 104px; }
+  .trust-strip { margin-top: 60px; }
   main [data-r="cta"] {
     padding: 16px !important;
     border-radius: 24px !important;
