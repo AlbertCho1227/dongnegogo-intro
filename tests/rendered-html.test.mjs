@@ -38,6 +38,8 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.match(html, /우리(?:&nbsp;|\s)+(?:<!-- -->)?<span[^>]*>주변의 배움과 즐거움을/);
   assert.match(html, /강좌와 행사가 지도 위에 아이콘으로 떠 있어요/);
   assert.match(html, /신청까지 네 걸음이면 충분해요/);
+  assert.match(html, /data-r="four-step-heading"/);
+  assert.match(html, /assets\/beodeuli-search\.png/);
   assert.match(html, /AI 쉬운 설명/);
   assert.match(html, /오픈런 알림/);
   assert.match(html, /가족 도우미 모드/);
@@ -118,6 +120,13 @@ test("버들이 안내 문구를 한 줄 둥근 말풍선으로 표시한다", a
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div\s*>\s*span\s*\{[\s\S]*?white-space:\s*nowrap\s*!important;/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*img\s*\{[\s\S]*?margin-left:\s*42px;/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div::after\s*\{[\s\S]*?transform:\s*translateX\(-50%\) rotate\(45deg\);/);
+});
+
+test("네 걸음 안내 제목 왼쪽에 새 버들이를 상단 캐릭터 크기로 표시한다", async () => {
+  const css = await readFile(new URL("app/globals.css", projectRoot), "utf8");
+
+  assert.match(css, /\[data-r="four-step-heading"\]\s*>\s*img\s*\{[\s\S]*?width:\s*120px;[\s\S]*?height:\s*141px;/);
+  assert.match(css, /@media \(max-width:\s*480px\)[\s\S]*?\[data-r="four-step-heading"\]\s*>\s*img\s*\{[\s\S]*?width:\s*96px;[\s\S]*?height:\s*113px;/);
 });
 
 test("웹 디자인 원본 파일은 첨부 ZIP과 바이트 단위로 동일하다", async () => {

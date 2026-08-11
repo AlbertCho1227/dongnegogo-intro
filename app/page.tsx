@@ -17,6 +17,11 @@ const PROOF_ACTIONS_OPEN = '    <div style="display:flex;gap:10px;flex:none">';
 const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
 const HERO_SPEECH_ROW_BREAK = '</span><br>\n      <span style="color: #2FA84F; text-align: left">';
 const HERO_SPEECH_QUESTION_BREAK = '동네 마실<br>나가볼까요?';
+const FOUR_STEP_HEADING = '    <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>';
+const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
+      <img src="assets/beodeuli-search.png" alt="돋보기로 프로그램을 찾는 버들이">
+      <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>
+    </div>`;
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
 
@@ -80,6 +85,7 @@ const originalPageMarkup = (() => {
     [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
     [ROUTE_SHOTS_CLOSE, routePager],
+    [FOUR_STEP_HEADING, FOUR_STEP_HEADING_WITH_MASCOT],
     [PROOF_ACTIONS_OPEN, PROOF_ACTIONS_OPEN.replace("<div", '<div data-r="proof-actions"')],
     [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
   ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);

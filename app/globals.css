@@ -17,6 +17,19 @@ body { margin: 0; }
 }
 [data-r="route-pager"], [data-r="route-status"] { display: none; }
 
+[data-r="four-step-heading"] {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+[data-r="four-step-heading"] > img {
+  width: 120px;
+  height: 141px;
+  flex: none;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 20px rgba(24, 60, 30, .18));
+}
+
 [data-r="hero-mascot"] {
   left: 8px !important;
   top: 332px !important;
@@ -212,6 +225,12 @@ body { margin: 0; }
 }
 
 @media (max-width: 480px) {
+  [data-r="four-step-heading"] { gap: 14px; }
+  [data-r="four-step-heading"] > img {
+    width: 96px;
+    height: 113px;
+  }
+  [data-r="four-step-heading"] > div { font-size: 23px !important; }
   [data-r="hero-search"] {
     flex-wrap: nowrap !important;
     gap: 8px !important;
