@@ -16,6 +16,7 @@ html { scroll-behavior: smooth; }
 html, body { min-height: 100%; width: 100%; }
 body {
   margin: 0;
+  overflow-x: hidden;
   background: #fff;
   color: var(--ink);
   font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
