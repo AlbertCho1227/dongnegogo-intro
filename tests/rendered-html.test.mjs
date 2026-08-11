@@ -108,18 +108,17 @@ test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이�
   assert.match(css, /\.trust-stat strong\s*\{[\s\S]*?font-size:\s*30px;[\s\S]*?font-weight:\s*900;/);
 });
 
-test("버들이 안내 문구를 한 줄 둥근 말풍선으로 표시한다", async () => {
+test("버들이와 둥근 안내 상자를 참고 이미지 위치로 표시한다", async () => {
   const response = await render();
   const html = await response.text();
   const css = await readFile(new URL("app/globals.css", projectRoot), "utf8");
 
-  assert.doesNotMatch(html, /예요!<\/span><br>/);
-  assert.doesNotMatch(html, /동네 마실<br>/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*\{[\s\S]*?left:\s*8px\s*!important;[\s\S]*?top:\s*332px\s*!important;/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?font-size:\s*13px\s*!important;[\s\S]*?white-space:\s*nowrap;/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div\s*>\s*span\s*\{[\s\S]*?white-space:\s*nowrap\s*!important;/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*img\s*\{[\s\S]*?margin-left:\s*42px;/);
-  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div::after\s*\{[\s\S]*?transform:\s*translateX\(-50%\) rotate\(45deg\);/);
+  assert.match(html, /예요!<\/span><br>/);
+  assert.match(html, /동네 마실<br>나가볼까요/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*\{[\s\S]*?left:\s*40px\s*!important;[\s\S]*?top:\s*299px\s*!important;[\s\S]*?align-items:\s*center\s*!important;/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div\s*\{[\s\S]*?width:\s*230px;[\s\S]*?border-radius:\s*20px\s*!important;[\s\S]*?font-size:\s*15px\s*!important;/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*img\s*\{[\s\S]*?align-self:\s*center;[\s\S]*?margin-left:\s*0;/);
+  assert.match(css, /\[data-r="hero-mascot"\]\s*>\s*div::after\s*\{\s*display:\s*none;/);
 });
 
 test("네 걸음 안내 제목 왼쪽에 새 버들이를 상단 캐릭터 크기로 표시한다", async () => {

@@ -15,8 +15,6 @@ const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:
 const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
 const PROOF_ACTIONS_OPEN = '    <div style="display:flex;gap:10px;flex:none">';
 const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
-const HERO_SPEECH_ROW_BREAK = '</span><br>\n      <span style="color: #2FA84F; text-align: left">';
-const HERO_SPEECH_QUESTION_BREAK = '동네 마실<br>나가볼까요?';
 const FOUR_STEP_HEADING = '    <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>';
 const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
       <img src="assets/beodeuli-search.png" alt="돋보기로 프로그램을 찾는 버들이">
@@ -80,8 +78,6 @@ const originalPageMarkup = (() => {
 
   return [
     [MASCOT_OPEN, MASCOT_OPEN.replace("<div", '<div data-r="hero-mascot"')],
-    [HERO_SPEECH_ROW_BREAK, HERO_SPEECH_ROW_BREAK.replace("</span><br>", "</span> ")],
-    [HERO_SPEECH_QUESTION_BREAK, "동네 마실 나가볼까요?"],
     [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
     [ROUTE_SHOTS_CLOSE, routePager],
