@@ -15,6 +15,8 @@ const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:
 const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
 const PROOF_ACTIONS_OPEN = '    <div style="display:flex;gap:10px;flex:none">';
 const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
+const HERO_SPEECH_ROW_BREAK = '</span><br>\n      <span style="color: #2FA84F; text-align: left">';
+const HERO_SPEECH_QUESTION_BREAK = '동네 마실<br>나가볼까요?';
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
 
@@ -73,6 +75,8 @@ const originalPageMarkup = (() => {
 
   return [
     [MASCOT_OPEN, MASCOT_OPEN.replace("<div", '<div data-r="hero-mascot"')],
+    [HERO_SPEECH_ROW_BREAK, HERO_SPEECH_ROW_BREAK.replace("</span><br>", "</span> ")],
+    [HERO_SPEECH_QUESTION_BREAK, "동네 마실 나가볼까요?"],
     [HERO_SEARCH_OPEN, HERO_SEARCH_OPEN.replace("<div", '<div data-r="hero-search"')],
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
     [ROUTE_SHOTS_CLOSE, routePager],

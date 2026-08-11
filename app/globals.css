@@ -17,19 +17,28 @@ body { margin: 0; }
 }
 [data-r="route-pager"], [data-r="route-status"] { display: none; }
 
-[data-r="hero-mascot"] { gap: 16px !important; }
+[data-r="hero-mascot"] {
+  left: 8px !important;
+  top: 332px !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+}
 [data-r="hero-mascot"] > div {
   position: relative;
-  width: 230px;
-  max-width: 230px !important;
-  padding: 16px 18px !important;
+  width: max-content;
+  max-width: none !important;
+  padding: 14px 18px !important;
   border-radius: 22px !important;
-  line-height: 1.55 !important;
-  overflow-wrap: anywhere;
-  word-break: keep-all;
+  font-size: 13px !important;
+  line-height: 1.4 !important;
+  white-space: nowrap;
 }
 [data-r="hero-mascot"] > div > span {
-  white-space: normal !important;
+  white-space: nowrap !important;
+}
+[data-r="hero-mascot"] > img {
+  align-self: flex-start;
+  margin-left: 42px;
 }
 [data-r="hero-mascot"] > div::after {
   content: "";
