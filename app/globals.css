@@ -17,6 +17,34 @@ body { margin: 0; }
 }
 [data-r="route-pager"], [data-r="route-status"] { display: none; }
 
+[data-r="hero-mascot"] { gap: 16px !important; }
+[data-r="hero-mascot"] > div {
+  position: relative;
+  width: 230px;
+  max-width: 230px !important;
+  padding: 16px 18px !important;
+  border-radius: 22px !important;
+  line-height: 1.55 !important;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+[data-r="hero-mascot"] > div > span {
+  white-space: normal !important;
+}
+[data-r="hero-mascot"] > div::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 18px;
+  height: 18px;
+  border-right: 1.5px solid #ddf0c9;
+  border-bottom: 1.5px solid #ddf0c9;
+  border-radius: 0 0 4px;
+  background: #fff;
+  transform: translateX(-50%) rotate(45deg);
+}
+
 .trust-strip {
   width: 100%;
   min-height: 0;
