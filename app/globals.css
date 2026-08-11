@@ -135,6 +135,58 @@ body { margin: 0; }
 }
 
 @media (max-width: 767px) {
+  #openrun,
+  #family,
+  [data-r="closing-cta-copy"] {
+    word-break: keep-all;
+    overflow-wrap: normal;
+  }
+  #openrun,
+  #family {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  #family > div {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+  [data-r="openrun-timing"] {
+    width: 100%;
+    min-width: 0;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+    padding-bottom: 0 !important;
+  }
+  [data-r="openrun-timing"] > * {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 11px 8px !important;
+    white-space: nowrap;
+    word-break: keep-all;
+    text-align: center;
+  }
+  [data-r="family-actions"] {
+    min-width: 0;
+    gap: 6px !important;
+  }
+  [data-r="family-actions"] > * {
+    min-width: 0;
+    gap: 4px !important;
+    padding: 0 4px;
+    font-size: 13.5px !important;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+  [data-r="family-actions"] svg { flex: none; }
+  [data-r="closing-cta-copy"] > div:first-child {
+    word-break: keep-all;
+    overflow-wrap: normal;
+    text-wrap: balance;
+  }
   #map {
     padding-left: 16px !important;
     padding-right: 16px !important;
@@ -219,6 +271,33 @@ body { margin: 0; }
 }
 
 @media (max-width: 480px) {
+  main [data-r="cta"] {
+    padding: 16px !important;
+    border-radius: 24px !important;
+  }
+  main [data-r="cta"] [data-r="closing-cta-copy"] {
+    width: 100%;
+    padding: 24px 20px !important;
+    border-radius: 22px !important;
+  }
+  main [data-r="cta"] [data-r="closing-cta-copy"] > div:first-child {
+    font-size: 27px !important;
+    line-height: 1.35 !important;
+  }
+  #family > div {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+  #family > div > div[style*="background:#FFFFFF"] {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  [data-r="family-actions"] { gap: 4px !important; }
+  [data-r="family-actions"] > * {
+    gap: 3px !important;
+    padding: 0 2px;
+    font-size: 13px !important;
+  }
   [data-r="four-step-heading"] { gap: 14px; }
   [data-r="four-step-heading"] > img {
     width: 96px;

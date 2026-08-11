@@ -86,9 +86,17 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(html, /data-route-page="0"[^>]*aria-current="true"/);
   assert.match(html, /data-route-page="1"[^>]*aria-current="false"/);
   assert.match(html, /data-r="proof-actions"/);
+  assert.match(html, /data-r="openrun-timing"/);
+  assert.match(html, /data-r="family-actions"/);
+  assert.match(html, /data-r="closing-cta-copy"/);
   assert.match(css, /\[data-r="hero-mascot"\]\s*\{\s*display:\s*none\s*!important/);
   assert.match(css, /scroll-snap-type:\s*x mandatory/);
   assert.match(css, /\[data-r="proof-actions"\][\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(css, /\[data-r="openrun-timing"\][\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\[data-r="openrun-timing"\]\s*>\s*\*[\s\S]*white-space:\s*nowrap/);
+  assert.match(css, /\[data-r="family-actions"\]\s*>\s*\*[\s\S]*white-space:\s*nowrap/);
+  assert.match(css, /\[data-r="closing-cta-copy"\]\s*>\s*div:first-child[\s\S]*word-break:\s*keep-all/);
+  assert.match(css, /@media \(max-width:\s*480px\)[\s\S]*?main \[data-r="cta"\] \[data-r="closing-cta-copy"\]\s*\{[\s\S]*?width:\s*100%;[\s\S]*?padding:\s*24px 20px\s*!important/);
   assert.match(behavior, /carousel\.scrollTo/);
   assert.match(behavior, /aria-current/);
 });

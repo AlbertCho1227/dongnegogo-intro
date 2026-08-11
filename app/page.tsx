@@ -14,6 +14,12 @@ const HERO_SEARCH_OPEN = '    <div style="width:100%;max-width:640px;height:68px
 const ROUTE_SHOTS_OPEN = '    <div style="display:flex;gap:20px;justify-content:center">';
 const ROUTE_SHOTS_CLOSE = '    </div>\n  </div>\n\n  <!-- 4-up -->';
 const PROOF_ACTIONS_OPEN = '    <div style="display:flex;gap:10px;flex:none">';
+const OPENRUN_TIMING_OPEN = '    <div style="display:flex;gap:8px;padding-bottom:4px">\n      <div style="border-radius:999px;padding:10px 16px;font-size:14.5px;font-weight:600;background:#FFFFFF;color:#42473F;border:1.5px solid #E2E4E2">1일 전</div>';
+const OPENRUN_TIMING_MARKED = '    <div data-r="openrun-timing" style="display:flex;gap:8px;padding-bottom:4px">\n      <div style="border-radius:999px;padding:10px 16px;font-size:14.5px;font-weight:600;background:#FFFFFF;color:#42473F;border:1.5px solid #E2E4E2">1일 전</div>';
+const FAMILY_ACTIONS_OPEN = '      <div style="display:flex;gap:8px">\n        <div style="flex:1;height:48px;border-radius:13px;background:#FEE500;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;font-weight:800;color:#3B1E1E">';
+const FAMILY_ACTIONS_MARKED = '      <div data-r="family-actions" style="display:flex;gap:8px">\n        <div style="flex:1;height:48px;border-radius:13px;background:#FEE500;display:flex;align-items:center;justify-content:center;gap:7px;font-size:15px;font-weight:800;color:#3B1E1E">';
+const CLOSING_CTA_COPY_OPEN = '    <div style="position: relative; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(6px);';
+const CLOSING_CTA_COPY_MARKED = '    <div data-r="closing-cta-copy" style="position: relative; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(6px);';
 const HERO_MASCOT_MARKER = '<div data-r="hero-mascot"';
 const FOUR_STEP_HEADING = '    <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em">신청까지 네 걸음이면 충분해요</div>';
 const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
@@ -83,6 +89,9 @@ const originalPageMarkup = (() => {
     [ROUTE_SHOTS_CLOSE, routePager],
     [FOUR_STEP_HEADING, FOUR_STEP_HEADING_WITH_MASCOT],
     [PROOF_ACTIONS_OPEN, PROOF_ACTIONS_OPEN.replace("<div", '<div data-r="proof-actions"')],
+    [OPENRUN_TIMING_OPEN, OPENRUN_TIMING_MARKED],
+    [FAMILY_ACTIONS_OPEN, FAMILY_ACTIONS_MARKED],
+    [CLOSING_CTA_COPY_OPEN, CLOSING_CTA_COPY_MARKED],
     [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
   ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);
 })();
