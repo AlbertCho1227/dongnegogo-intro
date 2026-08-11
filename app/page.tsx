@@ -11,6 +11,8 @@ const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
 const MAP_SECTION_MARKER = "<!-- ═══ MAP EXPLORER ═══ -->";
+const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
+const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
 
 function sliceRequired(source: string, startMarker: string, endMarker: string) {
   const start = source.indexOf(startMarker);
@@ -42,7 +44,11 @@ const originalPageMarkup = (() => {
     throw new Error("Original hero statistics block could not be located.");
   }
 
-  return fullMarkup.slice(0, statsStart) + fullMarkup.slice(mascotStart);
+  const withoutOriginalStats = fullMarkup.slice(0, statsStart) + fullMarkup.slice(mascotStart);
+  if (!withoutOriginalStats.includes(ORIGINAL_LEGAL_LINKS)) {
+    throw new Error("Original legal footer links could not be located.");
+  }
+  return withoutOriginalStats.replace(ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS);
 })();
 
 function formatCount(value: number) {

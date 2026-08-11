@@ -21,11 +21,11 @@ async function collectTextArtifacts(directory) {
   return texts;
 }
 
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request("http://localhost/", { headers: { accept: "text/html" } }), {
+  return worker.fetch(new Request(`http://localhost${pathname}`, { headers: { accept: "text/html" } }), {
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
   }, { waitUntil() {}, passThroughOnException() {} });
 }
@@ -100,4 +100,50 @@ test("브라우저 산출물에는 Kakao SDK와 Supabase 클라이언트가 없�
     clientArtifacts,
     /dapi\.kakao\.com|maps\/sdk\.js|NEXT_PUBLIC_KAKAO|@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_|support\.js|DCLogic|<x-dc/i,
   );
+});
+
+test("원안 하단의 법적 고지는 실제 정책 페이지로 연결된다", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  for (const [label, href] of [
+    ["이용약관", "/terms"],
+    ["개인정보처리방침", "/privacy"],
+    ["위치기반서비스 이용약관", "/location-terms"],
+    ["공공데이터 이용정책", "/public-data"],
+    ["계정·데이터 삭제", "/account-deletion"],
+  ]) {
+    assert.match(html, new RegExp(`href="${href}"[^>]*>${label}`));
+  }
+});
+
+test("법적 고지 페이지 5개를 독립 경로로 제공한다", async () => {
+  const pages = [
+    ["/terms", /동네고고 이용약관/, /서비스가 동작하는 방식/],
+    ["/privacy", /개인정보처리방침/, /소셜 로그인 데이터 흐름/],
+    ["/location-terms", /위치기반서비스 이용약관/, /사용자 위치 기반 데이터 흐름/],
+    ["/public-data", /공공데이터 이용정책/, /공공누리 1~4유형 적용 기준/],
+    ["/account-deletion", /계정·데이터 삭제/, /계정 삭제 처리 흐름/],
+  ];
+
+  for (const [pathname, title, detail] of pages) {
+    const response = await render(pathname);
+    assert.equal(response.status, 200, pathname);
+    const html = await response.text();
+    assert.match(html, title);
+    assert.match(html, detail);
+    assert.doesNotMatch(html, /jupwdcfkybvyrrmzmwed|ccbhczlrhlbtyszubgxr|sb_secret_|service_role/i);
+  }
+});
+
+test("공공누리 1~4유형과 출처 표시 원칙을 모두 고지한다", async () => {
+  const response = await render("/public-data");
+  const html = await response.text();
+
+  for (const type of [1, 2, 3, 4]) {
+    assert.match(html, new RegExp(`공공누리 제(?:<!-- -->)?${type}(?:<!-- -->)?유형`));
+  }
+  assert.match(html, /출처·티커 표시 방식/);
+  assert.match(html, /라이선스 미확인/);
+  assert.match(html, /숙박 자원은 수집·제공 대상에서 제외/);
 });
