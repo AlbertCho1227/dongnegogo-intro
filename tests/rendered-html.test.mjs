@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
@@ -34,7 +35,9 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /우리 주변의 배움과 즐거움을/);
+  assert.match(html, /우리(?:&nbsp;|\s)+(?:<!-- -->)?<span[^>]*>주변의 배움과 즐거움을/);
+  assert.match(html, /강좌와 행사가 지도 위에 아이콘으로 떠 있어요/);
+  assert.match(html, /신청까지 네 걸음이면 충분해요/);
   assert.match(html, /AI 쉬운 설명/);
   assert.match(html, /오픈런 알림/);
   assert.match(html, /가족 도우미 모드/);
@@ -58,14 +61,22 @@ test("지도 SDK와 데이터 클라이언트를 웹 문서에 포함하지 않�
   assert.doesNotMatch(html, /supabase\.co|NEXT_PUBLIC_SUPABASE|navigator\.geolocation/i);
 });
 
-test("최적화한 화면 이미지를 지연 디코딩하고 불필요한 자산을 참조하지 않는다", async () => {
+test("첨부된 원안의 화면 이미지와 레이아웃 문구를 그대로 사용한다", async () => {
   const response = await render();
   const html = await response.text();
-  assert.match(html, /\/screens\/map-home\.jpg/);
-  assert.match(html, /\/brand\/cta-landscape\.jpg/);
-  assert.match(html, /loading="lazy"/);
-  assert.match(html, /decoding="async"/);
-  assert.doesNotMatch(html, /\/auth\/|screens\/(?:parking|program-info)\.png/i);
+  assert.match(html, /uploads\/B93E5F67-2560-45D3-A5A5-08A0A8E75E1B\.png/);
+  assert.match(html, /uploads\/Screenshot 2026-08-11 at 3\.35\.17 PM\.png/);
+  assert.match(html, /uploads\/b24d3c0f-525c-43b8-b8fc-27b46f137b6f\.png/);
+  assert.match(html, /assets\/beodeuli-wave\.png/);
+  assert.doesNotMatch(html, /support\.js|text\/x-dc|<x-dc/i);
+});
+
+test("웹 디자인 원본 파일은 첨부 ZIP과 바이트 단위로 동일하다", async () => {
+  const source = await readFile(new URL("app/original-design.dc.html", projectRoot));
+  assert.equal(
+    createHash("sha256").update(source).digest("hex"),
+    "a8b25f7b8dc629f1b99c49d98a80b5f7c567d64a36e8957f38773a8cc55e7305",
+  );
 });
 
 test("통계 모듈은 서버 전용 native fetch와 하루 캐시만 사용한다", async () => {
@@ -87,6 +98,6 @@ test("브라우저 산출물에는 Kakao SDK와 Supabase 클라이언트가 없�
   const clientArtifacts = (await collectTextArtifacts(new URL("dist/client/", projectRoot))).join("\n");
   assert.doesNotMatch(
     clientArtifacts,
-    /dapi\.kakao\.com|maps\/sdk\.js|NEXT_PUBLIC_KAKAO|@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_/i,
+    /dapi\.kakao\.com|maps\/sdk\.js|NEXT_PUBLIC_KAKAO|@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_|support\.js|DCLogic|<x-dc/i,
   );
 });
