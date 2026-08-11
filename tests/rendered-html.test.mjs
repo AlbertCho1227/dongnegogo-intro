@@ -91,6 +91,20 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(behavior, /aria-current/);
 });
 
+test("데스크톱 히어로와 통계를 하나의 연두색 영역으로 이어준다", async () => {
+  const response = await render();
+  const html = await response.text();
+  const css = await readFile(new URL("app/globals.css", projectRoot), "utf8");
+  const statsIndex = html.indexOf('class="trust-strip"');
+  const mascotIndex = html.indexOf('data-r="hero-mascot"');
+  const mapIndex = html.indexOf('id="map"');
+
+  assert.ok(statsIndex > 0 && mascotIndex > statsIndex && mapIndex > mascotIndex);
+  assert.match(css, /#top\s*\{\s*border-bottom:\s*0\s*!important/);
+  assert.match(css, /\.trust-strip\s*\{[\s\S]*?margin-top:\s*42px;[\s\S]*?background:\s*transparent;/);
+  assert.match(css, /\.trust-stat strong\s*\{[\s\S]*?font-size:\s*30px;[\s\S]*?font-weight:\s*900;/);
+});
+
 test("웹 디자인 원본 파일은 첨부 ZIP과 바이트 단위로 동일하다", async () => {
   const source = await readFile(new URL("app/original-design.dc.html", projectRoot));
   assert.equal(
