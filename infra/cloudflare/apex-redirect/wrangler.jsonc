@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dongnegogo-apex-redirect",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-12",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "dongnegogo.com/*",
+      "zone_name": "dongnegogo.com"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
