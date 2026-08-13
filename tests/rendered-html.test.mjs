@@ -73,13 +73,17 @@ test("첨부된 원안의 화면 이미지와 레이아웃 문구를 그대로 �
   assert.match(html, /uploads\/Screenshot 2026-08-11 at 3\.35\.17 PM\.png/);
   assert.match(html, /uploads\/b24d3c0f-525c-43b8-b8fc-27b46f137b6f\.png/);
   assert.match(html, /uploads\/program-detail-summer-mediawall\.png/);
+  assert.match(html, /uploads\/program-detail-summer-poster\.png/);
   assert.match(html, /2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면/);
   assert.match(html, /data-r="program-detail-phone"/);
+  assert.match(html, /data-r="program-detail-screen"/);
+  assert.match(html, /data-r="program-detail-poster-inset"/);
   assert.match(html, /assets\/beodeuli-wave\.png/);
   assert.equal((html.match(/data-r="screenshot-apply-cta"/g) ?? []).length, 5);
   assert.match(css, /\[data-r="screenshot-apply-cta"\]::after\s*\{[\s\S]*?content:\s*"신청하러 가기"/);
-  assert.match(css, /\[data-r="program-detail-phone"\]\s*\{[\s\S]*?width:\s*185px\s*!important;[\s\S]*?max-height:\s*272px;/);
-  assert.match(css, /\[data-r="program-detail-phone"\]\s*>\s*img\s*\{[\s\S]*?max-height:\s*262px;[\s\S]*?object-fit:\s*contain;/);
+  assert.match(css, /\[data-r="program-detail-phone"\]\s*\{[\s\S]*?width:\s*200px\s*!important;[\s\S]*?padding:\s*5px 5px 0\s*!important;/);
+  assert.match(css, /\[data-r="program-detail-poster-inset"\]\s*\{[\s\S]*?inset:\s*33\.82% 0 0;[\s\S]*?padding:\s*4px 10px 3px;/);
+  assert.match(css, /\[data-r="program-detail-poster-inset"\]\s*>\s*img\s*\{[\s\S]*?object-fit:\s*contain;/);
   assert.doesNotMatch(html, /support\.js|text\/x-dc|<x-dc/i);
 });
 

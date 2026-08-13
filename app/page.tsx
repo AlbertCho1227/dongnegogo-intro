@@ -45,7 +45,7 @@ const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
       <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">신청까지 네 걸음이면</span><br data-r="mobile-break"><span data-r="responsive-line">충분해요</span></div>
     </div>`;
 const ORIGINAL_PROGRAM_DETAIL_PHONE = '<div style="width:200px;flex:none;background:#20241F;border-radius:24px;padding:5px 5px 0;box-shadow:0 12px 28px rgba(24,40,28,0.2)"><img src="uploads/52BE0BAF-8B8E-4A2F-B0F8-3B6A535B8079.png" alt="" style="display:block;width:100%;border-radius:20px 20px 0 0"></div>';
-const SUMMER_MEDIAWALL_PROGRAM_DETAIL_PHONE = '<div data-r="program-detail-phone" style="width:200px;flex:none;background:#20241F;border-radius:24px;padding:5px;box-shadow:0 12px 28px rgba(24,40,28,0.2);overflow:hidden"><img src="uploads/program-detail-summer-mediawall.png" alt="2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면" style="display:block;width:100%;height:auto;border-radius:20px"></div>';
+const SUMMER_MEDIAWALL_PROGRAM_DETAIL_PHONE = '<div data-r="program-detail-phone" style="width:200px;flex:none;background:#20241F;border-radius:24px;padding:5px 5px 0;box-shadow:0 12px 28px rgba(24,40,28,0.2);overflow:hidden"><div data-r="program-detail-screen"><img data-r="program-detail-shell" src="uploads/program-detail-summer-mediawall.png" alt="2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면"><div data-r="program-detail-poster-inset"><img src="uploads/program-detail-summer-poster.png" alt="2026 동네고고 미디어아트 전시 여름빛 미디어월 포스터"></div></div></div>';
 const APPLY_CTA_SCREENSHOT_SOURCES = [
   "uploads/FE2D2D30-598E-4626-BB5A-F2D2351B395D.png",
   "uploads/B1377FC3-141D-4979-9291-317027F3A4F2.png",
