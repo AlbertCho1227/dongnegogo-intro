@@ -45,6 +45,43 @@ body { margin: 0; }
   filter: drop-shadow(0 12px 20px rgba(24, 60, 30, .18));
 }
 
+[data-r="screenshot-apply-cta"] {
+  position: relative;
+  display: block;
+  width: 100%;
+  container-type: inline-size;
+}
+[data-r="screenshot-apply-cta"] > img {
+  display: block;
+  width: 100%;
+}
+[data-r="screenshot-apply-cta"]::before,
+[data-r="screenshot-apply-cta"]::after {
+  position: absolute;
+  left: 4.83%;
+  top: 82.09%;
+  width: 90.34%;
+  height: 6.42%;
+  pointer-events: none;
+}
+[data-r="screenshot-apply-cta"]::before {
+  content: "";
+  border-radius: 999px;
+  background: linear-gradient(90deg, #80d342 0%, #2fbc57 100%);
+}
+[data-r="screenshot-apply-cta"]::after {
+  content: "신청하러 가기";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 4.35cqi;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -.025em;
+  white-space: nowrap;
+}
+
 [data-r="hero-mascot"] {
   position: relative !important;
   inset: auto !important;

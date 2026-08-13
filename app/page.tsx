@@ -46,6 +46,16 @@ const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
     </div>`;
 const ORIGINAL_PROGRAM_DETAIL_IMAGE = '<img src="uploads/52BE0BAF-8B8E-4A2F-B0F8-3B6A535B8079.png" alt="" style="display:block;width:100%;border-radius:20px 20px 0 0">';
 const SUMMER_MEDIAWALL_PROGRAM_DETAIL_IMAGE = '<img src="uploads/program-detail-summer-mediawall.png" alt="2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면" style="display:block;width:100%;border-radius:20px 20px 0 0">';
+const APPLY_CTA_SCREENSHOT_SOURCES = [
+  "uploads/FE2D2D30-598E-4626-BB5A-F2D2351B395D.png",
+  "uploads/B1377FC3-141D-4979-9291-317027F3A4F2.png",
+  "uploads/870070A2-5F2B-44EB-B526-B80D2CBC915A.png",
+  "uploads/CA4CE2C6-584D-40DB-AFCB-CE8D08BBECE8.png",
+  "uploads/78508C0A-EA7C-41C3-8003-A1E3B47F24BE.png",
+] as const;
+const ORIGINAL_APPLY_CTA = ">바로 신청하기</div>";
+const ORIGINAL_URGENT_APPLY_CTA = ">지금 바로 신청하기</div>";
+const UPDATED_APPLY_CTA = ">신청하러 가기</div>";
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
 
@@ -65,6 +75,21 @@ function replaceRequired(source: string, marker: string, replacement: string) {
     throw new Error(`Original responsive marker is missing: ${marker}`);
   }
   return source.replace(marker, replacement);
+}
+
+function wrapScreenshotApplyCta(source: string, imageSource: string) {
+  const marker = `<img src="${imageSource}"`;
+  const imageStart = source.indexOf(marker);
+  const imageEnd = source.indexOf(">", imageStart) + 1;
+
+  if (imageStart < 0 || imageEnd <= imageStart) {
+    throw new Error(`Apply screenshot marker is missing: ${imageSource}`);
+  }
+
+  const imageMarkup = source.slice(imageStart, imageEnd);
+  return source.slice(0, imageStart)
+    + `<span data-r="screenshot-apply-cta">${imageMarkup}</span>`
+    + source.slice(imageEnd);
 }
 
 const originalDesignStyles = sliceRequired(
@@ -102,7 +127,7 @@ const originalPageMarkup = (() => {
 
   <!-- 4-up -->`;
 
-  return [
+  const responsiveMarkup = [
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
@@ -124,7 +149,14 @@ const originalPageMarkup = (() => {
     [CLOSING_CTA_COPY_OPEN, CLOSING_CTA_COPY_MARKED],
     [TO_TOP_OPEN, TO_TOP_MARKED],
     [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
+    [ORIGINAL_APPLY_CTA, UPDATED_APPLY_CTA],
+    [ORIGINAL_URGENT_APPLY_CTA, UPDATED_APPLY_CTA],
   ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);
+
+  return APPLY_CTA_SCREENSHOT_SOURCES.reduce(
+    (markup, imageSource) => wrapScreenshotApplyCta(markup, imageSource),
+    responsiveMarkup,
+  );
 })();
 
 function formatCount(value: number) {

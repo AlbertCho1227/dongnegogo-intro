@@ -43,6 +43,8 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.match(html, /AI 쉬운 설명/);
   assert.match(html, /오픈런 알림/);
   assert.match(html, /가족 도우미 모드/);
+  assert.match(html, /신청하러 가기/);
+  assert.doesNotMatch(html, />바로 신청하기<|>지금 바로 신청하기</);
   assert.match(html, /39,844/);
   assert.match(html, /16,929/);
   assert.match(html, /2,390/);
@@ -66,12 +68,15 @@ test("지도 SDK와 데이터 클라이언트를 웹 문서에 포함하지 않�
 test("첨부된 원안의 화면 이미지와 레이아웃 문구를 그대로 사용한다", async () => {
   const response = await render();
   const html = await response.text();
+  const css = await readFile(new URL("app/globals.css", projectRoot), "utf8");
   assert.match(html, /uploads\/B93E5F67-2560-45D3-A5A5-08A0A8E75E1B\.png/);
   assert.match(html, /uploads\/Screenshot 2026-08-11 at 3\.35\.17 PM\.png/);
   assert.match(html, /uploads\/b24d3c0f-525c-43b8-b8fc-27b46f137b6f\.png/);
   assert.match(html, /uploads\/program-detail-summer-mediawall\.png/);
   assert.match(html, /2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면/);
   assert.match(html, /assets\/beodeuli-wave\.png/);
+  assert.equal((html.match(/data-r="screenshot-apply-cta"/g) ?? []).length, 5);
+  assert.match(css, /\[data-r="screenshot-apply-cta"\]::after\s*\{[\s\S]*?content:\s*"신청하러 가기"/);
   assert.doesNotMatch(html, /support\.js|text\/x-dc|<x-dc/i);
 });
 
