@@ -45,6 +45,16 @@ body { margin: 0; }
   filter: drop-shadow(0 12px 20px rgba(24, 60, 30, .18));
 }
 
+[data-r="program-detail-phone"] {
+  width: 185px !important;
+  max-height: 272px;
+}
+[data-r="program-detail-phone"] > img {
+  max-width: 100%;
+  max-height: 262px;
+  object-fit: contain;
+}
+
 [data-r="screenshot-apply-cta"] {
   position: relative;
   display: block;
