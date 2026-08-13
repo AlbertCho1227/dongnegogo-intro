@@ -35,7 +35,7 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /data-r="hero-title"[\s\S]*?우리 주변의 배움과[\s\S]*?data-r="mobile-break"[\s\S]*?즐거움을 한눈에[\s\S]*?동네고고 하나로/);
+  assert.match(html, /data-r="hero-title"[\s\S]*?우리 주변의 배움(?:&nbsp;|&#xA0;|\s)+과(?:&nbsp;|&#xA0;|\s)+[\s\S]*?data-r="mobile-break"[\s\S]*?즐거움을 한눈에[\s\S]*?동네고고 하나로/);
   assert.match(html, /data-r="map-heading"[\s\S]*?강좌와 행사가 지도 위에[\s\S]*?data-r="mobile-break"[\s\S]*?아이콘으로 떠 있어요/);
   assert.match(html, /신청까지 네 걸음이면[\s\S]*?data-r="mobile-break"[\s\S]*?충분해요/);
   assert.match(html, /data-r="four-step-heading"/);
@@ -69,6 +69,8 @@ test("첨부된 원안의 화면 이미지와 레이아웃 문구를 그대로 �
   assert.match(html, /uploads\/B93E5F67-2560-45D3-A5A5-08A0A8E75E1B\.png/);
   assert.match(html, /uploads\/Screenshot 2026-08-11 at 3\.35\.17 PM\.png/);
   assert.match(html, /uploads\/b24d3c0f-525c-43b8-b8fc-27b46f137b6f\.png/);
+  assert.match(html, /uploads\/program-detail-summer-mediawall\.png/);
+  assert.match(html, /2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면/);
   assert.match(html, /assets\/beodeuli-wave\.png/);
   assert.doesNotMatch(html, /support\.js|text\/x-dc|<x-dc/i);
 });

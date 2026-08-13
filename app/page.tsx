@@ -44,6 +44,8 @@ const FOUR_STEP_HEADING_WITH_MASCOT = `    <div data-r="four-step-heading">
       <img src="assets/beodeuli-search.png" alt="돋보기로 프로그램을 찾는 버들이">
       <div style="font-size:26px;font-weight:900;letter-spacing:-0.02em"><span data-r="responsive-line">신청까지 네 걸음이면</span><br data-r="mobile-break"><span data-r="responsive-line">충분해요</span></div>
     </div>`;
+const ORIGINAL_PROGRAM_DETAIL_IMAGE = '<img src="uploads/52BE0BAF-8B8E-4A2F-B0F8-3B6A535B8079.png" alt="" style="display:block;width:100%;border-radius:20px 20px 0 0">';
+const SUMMER_MEDIAWALL_PROGRAM_DETAIL_IMAGE = '<img src="uploads/program-detail-summer-mediawall.png" alt="2026 동네고고 미디어아트 전시 여름빛 미디어월 프로그램 상세 화면" style="display:block;width:100%;border-radius:20px 20px 0 0">';
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
 
@@ -115,6 +117,7 @@ const originalPageMarkup = (() => {
     [ROUTE_SHOTS_OPEN, `<div data-r="route-gallery"><div data-r="route-carousel" style="display:flex;gap:20px;justify-content:center">`],
     [ROUTE_SHOTS_CLOSE, routePager],
     [FOUR_STEP_HEADING, FOUR_STEP_HEADING_WITH_MASCOT],
+    [ORIGINAL_PROGRAM_DETAIL_IMAGE, SUMMER_MEDIAWALL_PROGRAM_DETAIL_IMAGE],
     [PROOF_ACTIONS_OPEN, PROOF_ACTIONS_OPEN.replace("<div", '<div data-r="proof-actions"')],
     [OPENRUN_TIMING_OPEN, OPENRUN_TIMING_MARKED],
     [FAMILY_ACTIONS_OPEN, FAMILY_ACTIONS_MARKED],
