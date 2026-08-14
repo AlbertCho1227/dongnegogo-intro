@@ -14,7 +14,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="1. 처리 원칙과 책임자">
         <p>포레스트 이음(Forest Ieum)은 서비스 제공에 필요한 최소한의 개인정보만 처리하며 목적이 끝난 정보는 지체 없이 삭제합니다. 개인정보 보호 관련 문의·열람·정정·삭제·처리정지 요청은 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>에서 접수합니다.</p>
-        <Callout>개인정보 보호책임자: 조재완 · 연락처: <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a></Callout>
+        <Callout>개인정보 보호책임자: 정재은 · 대표번호: <a href="tel:07080987879">070-8098-7879</a> · 이메일: <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a></Callout>
       </LegalSection>
 
       <LegalSection title="2. 인증과 사용자 데이터 흐름">

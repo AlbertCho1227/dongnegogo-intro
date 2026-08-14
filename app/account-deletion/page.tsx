@@ -45,7 +45,7 @@ export default function AccountDeletionPage() {
       </LegalSection>
 
       <LegalSection title="5. 처리 제한과 문의">
-        <p>분쟁 처리, 수사 협조 등 법령상 보존 의무가 있는 정보는 다른 정보와 분리하고 법정 기간이 끝나면 삭제합니다. 삭제 완료 후에는 복구할 수 없습니다. 포레스트 이음(Forest Ieum)의 개인정보 보호책임자 조재완에게 보내는 문의는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>으로 접수합니다.</p>
+        <p>분쟁 처리, 수사 협조 등 법령상 보존 의무가 있는 정보는 다른 정보와 분리하고 법정 기간이 끝나면 삭제합니다. 삭제 완료 후에는 복구할 수 없습니다. 포레스트 이음(Forest Ieum)의 개인정보 보호책임자 정재은에게 보내는 문의는 대표번호 <a href="tel:07080987879">070-8098-7879</a> 또는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>으로 접수합니다.</p>
       </LegalSection>
     </LegalPage>
   );

@@ -17,12 +17,12 @@ export default function LocationTermsPage() {
         <DataTable headers={["항목", "내용"]} rows={[
           ["상호", "포레스트 이음(Forest Ieum)"],
           ["대표자", "정재은"],
-          ["사업장 주소", "서울시 북악산로 851, 101동 603호"],
+          ["사업장 주소", "서울시 강남구 테헤란로79길 6 JS타워 3층 브이1462"],
           ["사업자등록번호", "689-01-03864"],
-          ["연락처", <a key="location-contact" href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>],
-          ["위치정보관리책임자", "조재완"],
+          ["연락처", <span key="location-contact"><a href="tel:07080987879">070-8098-7879</a> · <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a></span>],
+          ["위치정보관리책임자", "정재은"],
         ]} />
-        <p>전화 고객센터는 현재 운영하지 않으며 위치정보 관련 문의와 권리 행사는 위 이메일로 접수합니다.</p>
+        <p>위치정보 관련 문의와 권리 행사는 대표번호 또는 위 이메일로 접수합니다.</p>
         <Callout>iOS 앱은 운영체제 위치 권한을 요청하기 전에 이 약관과 위치 이용 목적을 별도로 안내하고 동의를 받습니다. Android·앱인토스 정식 출시 전에도 같은 동의 절차를 적용하며, 위치기반서비스사업 신고 대상과 시점을 확인해 필요한 신고를 완료합니다.</Callout>
       </LegalSection>
 

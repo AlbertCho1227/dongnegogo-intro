@@ -252,8 +252,9 @@ test("공공데이터 정책은 공공누리 공식 마크와 확인된 출처 �
   assert.match(html, /Kakao·Naver·Apple/);
 });
 
-test("운영자 정보는 반영하고 주거 주소는 위치약관에만 제한한다", async () => {
-  const address = /서울시(?:<!-- -->)? 북악산로(?:<!-- -->)? 851,(?:<!-- -->)? 101동(?:<!-- -->)? 603호/;
+test("운영자 정보는 반영하고 사업장 주소는 위치약관에만 제한한다", async () => {
+  const address = /서울시(?:<!-- -->)? 강남구(?:<!-- -->)? 테헤란로79길(?:<!-- -->)? 6(?:<!-- -->)? JS타워(?:<!-- -->)? 3층(?:<!-- -->)? 브이1462/;
+  const oldAddress = /서울시(?:<!-- -->)? 북악산로(?:<!-- -->)? 851,(?:<!-- -->)? 101동(?:<!-- -->)? 603호/;
 
   for (const pathname of ["/terms", "/privacy", "/public-data", "/account-deletion"]) {
     const response = await render(pathname);
@@ -261,13 +262,18 @@ test("운영자 정보는 반영하고 주거 주소는 위치약관에만 제�
     assert.match(html, /포레스트 이음/);
     assert.match(html, /689-01-03864/);
     assert.doesNotMatch(html, address, pathname);
+    assert.doesNotMatch(html, oldAddress, pathname);
+    assert.doesNotMatch(html, /조재완/, pathname);
   }
 
   const locationResponse = await render("/location-terms");
   const locationHtml = await locationResponse.text();
   assert.match(locationHtml, address);
+  assert.doesNotMatch(locationHtml, oldAddress);
   assert.match(locationHtml, /위치정보관리책임자/);
-  assert.match(locationHtml, /조재완/);
+  assert.match(locationHtml, /정재은/);
+  assert.match(locationHtml, /070-8098-7879/);
+  assert.doesNotMatch(locationHtml, /조재완/);
 });
 
 test("공공누리 1~4유형과 출처 표시 원칙을 모두 고지한다", async () => {
