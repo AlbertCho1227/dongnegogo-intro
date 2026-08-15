@@ -31,6 +31,17 @@ body { margin: 0; }
   outline: 4px solid rgba(47, 168, 79, .28);
   outline-offset: 4px;
 }
+[data-r="web-version-link"] {
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+[data-r="web-version-link"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(47, 180, 87, .3) !important;
+}
+[data-r="web-version-link"]:focus-visible {
+  outline: 4px solid rgba(47, 168, 79, .25);
+  outline-offset: 3px;
+}
 
 [data-r="four-step-heading"] {
   display: flex;
@@ -229,6 +240,12 @@ body { margin: 0; }
 }
 
 @media (max-width: 767px) {
+  [data-r="header-actions"] {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  [data-r="web-version-link"] { order: -1; }
   [data-r="to-top"] {
     right: 16px !important;
     right: max(16px, env(safe-area-inset-right)) !important;

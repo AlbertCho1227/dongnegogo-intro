@@ -223,12 +223,35 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(openApp, /window\.setTimeout/);
 });
 
-test("브라우저 산출물에는 Kakao SDK와 Supabase 클라이언트가 없다", async () => {
+test("웹 버전만 Kakao SDK를 사용하고 Supabase 쓰기 클라이언트는 브라우저에 포함하지 않는다", async () => {
   const clientArtifacts = (await collectTextArtifacts(new URL("dist/client/", projectRoot))).join("\n");
+  assert.match(clientArtifacts, /dapi\.kakao\.com\/v2\/maps\/sdk\.js/);
   assert.doesNotMatch(
     clientArtifacts,
-    /dapi\.kakao\.com|maps\/sdk\.js|NEXT_PUBLIC_KAKAO|@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_|support\.js|DCLogic|<x-dc/i,
+    /@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_|service_role|sb_secret_|support\.js|DCLogic|<x-dc/i,
   );
+});
+
+test("소개 페이지의 웹 버전 버튼과 독립 지도 화면을 제공한다", async () => {
+  const home = await render();
+  const homeHtml = await home.text();
+  assert.match(homeHtml, /data-r="web-version-link"[^>]*href="\/web"[^>]*>웹 버전<\/a>/);
+
+  const web = await render("/web");
+  assert.equal(web.status, 200);
+  const webHtml = await web.text();
+  assert.match(webHtml, /웹 버전 \| 동네고고/);
+  assert.match(webHtml, /프로그램 탐색 패널/);
+  assert.match(webHtml, /Kakao 지도/);
+});
+
+test("웹 프로그램 API는 공개 SELECT 전용이며 DB 쓰기 동작을 포함하지 않는다", async () => {
+  const data = await readFile(new URL("lib/web-program-data.ts", projectRoot), "utf8");
+  const route = await readFile(new URL("app/api/web-programs/route.ts", projectRoot), "utf8");
+  assert.match(data, /method:\s*"GET"/);
+  assert.match(data, /\/rest\/v1\/programs/);
+  assert.match(data, /sb_publishable_/);
+  assert.doesNotMatch(`${data}\n${route}`, /service_role|sb_secret_|method:\s*"(?:POST|PUT|PATCH|DELETE)"|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
 });
 
 test("원안 하단의 법적 고지는 실제 정책 페이지로 연결된다", async () => {

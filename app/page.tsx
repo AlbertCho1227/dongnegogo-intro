@@ -11,6 +11,11 @@ const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
 const PRIMARY_NAV_OPEN = '    <div style="flex:1 1 auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;font-size:15px;font-weight:600;color:#42473F;white-space:nowrap">';
+const HEADER_ACTIONS_OPEN = '    <div style="display:flex;align-items:center;gap:12px">\n      \n';
+const HEADER_ACTIONS_WITH_WEB = `    <div data-r="header-actions" style="display:flex;align-items:center;gap:12px">
+	      <a data-r="web-version-link" href="/web" style="height:44px;padding:0 18px;border-radius:13px;display:flex;align-items:center;justify-content:center;white-space:nowrap;background:linear-gradient(135deg,#86CE45 0%,#2FB457 100%);color:#FFFFFF;font-size:14px;font-weight:850;box-shadow:0 5px 14px rgba(47,180,87,0.22)">웹 버전</a>
+
+`;
 const HERO_BADGE_OPEN = '    <div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #DDF0C9;border-radius:999px;padding:9px 18px;font-size:15px;font-weight:700;color:#2FA84F;box-shadow:0 2px 8px rgba(58,178,79,0.1)">';
 const HERO_BADGE_COPY = '      공공데이터 기반 · AI 쉬운 설명 · 신청 링크 확인됨';
 const HERO_BADGE_COPY_RESPONSIVE = '      <span data-r="hero-badge-primary">공공데이터 기반 · AI 쉬운 설명</span><span data-r="hero-badge-secondary">신청 링크 확인됨</span>';
@@ -129,6 +134,7 @@ const originalPageMarkup = (() => {
 
   const responsiveMarkup = [
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
+    [HEADER_ACTIONS_OPEN, HEADER_ACTIONS_WITH_WEB],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
     [HERO_TITLE, HERO_TITLE_RESPONSIVE],
