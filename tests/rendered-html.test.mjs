@@ -195,6 +195,7 @@ test("통계 모듈은 서버 전용 native fetch와 하루 캐시만 사용한�
 
 test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크롤형 카드 템플릿을 사용한다", async () => {
   const page = await readFile(new URL("app/program/[id]/page.tsx", projectRoot), "utf8");
+  const shareImage = await readFile(new URL("app/program/[id]/opengraph-image.tsx", projectRoot), "utf8");
   const styles = await readFile(new URL("app/program/[id]/program-share.module.css", projectRoot), "utf8");
   const data = await readFile(new URL("lib/program-share-data.ts", projectRoot), "utf8");
   const openApp = await readFile(new URL("app/program/[id]/OpenAppButton.tsx", projectRoot), "utf8");
@@ -207,6 +208,18 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(page, /네이버 지도/);
   assert.match(page, /구글 지도/);
   assert.match(page, /program\.images\.map/);
+  assert.match(page, /\[동네고고\] - \$\{program\.name\}/);
+  assert.doesNotMatch(page, /openGraph:[\s\S]*images:\s*image/);
+  assert.match(shareImage, /ImageResponse/);
+  assert.match(shareImage, /동네고고에서 찾았어요/);
+  assert.match(shareImage, /이 프로그램은요/);
+  assert.match(shareImage, /알림을 켜두면 놓치지 않아요/);
+  assert.match(shareImage, /‘동네고고’ 앱 이동은 여기서/);
+  assert.match(shareImage, /지도 바로가기/);
+  assert.match(shareImage, /카카오 지도/);
+  assert.match(shareImage, /네이버 지도/);
+  assert.match(shareImage, /구글 지도/);
+  assert.match(shareImage, /max-age=300/);
   assert.match(styles, /background:\s*#f7f4e9/);
   assert.match(styles, /background:\s*#087a42/);
   assert.match(styles, /scroll-snap-type:\s*x mandatory/);

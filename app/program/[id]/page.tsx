@@ -9,8 +9,6 @@ import styles from "./program-share.module.css";
 
 type PageProps = { params: Promise<{ id: string }> };
 
-const PROGRAM_LINK_CALL_TO_ACTION = "교통, 지도 및 자세한 정보  동네고고 에서 확인하기";
-
 function cleanID(value: string): string {
   try { return decodeURIComponent(value).trim(); } catch { return value.trim(); }
 }
@@ -65,24 +63,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { id } = await params;
   const program = await getSharedProgram(cleanID(id)).catch(() => null);
   if (!program) return { title: "프로그램을 찾을 수 없어요 | 동네고고" };
-  const image = program.images[0]?.url;
+  const shareTitle = `[동네고고] - ${program.name}`;
   return {
-    title: `${program.name} | 동네고고`,
+    title: shareTitle,
     description: program.description,
     alternates: { canonical: `/program/${encodeURIComponent(program.id)}` },
     openGraph: {
-      title: PROGRAM_LINK_CALL_TO_ACTION,
+      title: shareTitle,
       description: `${program.name} · ${program.facility} · ${program.status}`,
       type: "article",
       siteName: "동네고고",
       locale: "ko_KR",
-      images: image ? [{ url: image, alt: `${program.name} 프로그램 이미지` }] : undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: PROGRAM_LINK_CALL_TO_ACTION,
+      title: shareTitle,
       description: `${program.name} · ${program.facility} · ${program.status}`,
-      images: image ? [image] : undefined,
     },
   };
 }
