@@ -193,6 +193,36 @@ test("통계 모듈은 서버 전용 native fetch와 하루 캐시만 사용한�
   assert.doesNotMatch(source, /@supabase\/supabase-js|createClient|NEXT_PUBLIC_/);
 });
 
+test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크롤형 카드 템플릿을 사용한다", async () => {
+  const page = await readFile(new URL("app/program/[id]/page.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/program/[id]/program-share.module.css", projectRoot), "utf8");
+  const data = await readFile(new URL("lib/program-share-data.ts", projectRoot), "utf8");
+  const openApp = await readFile(new URL("app/program/[id]/OpenAppButton.tsx", projectRoot), "utf8");
+
+  assert.match(page, /동네고고에서 찾았어요/);
+  assert.match(page, /이 프로그램은요/);
+  assert.match(page, /알림을 켜두면 놓치지 않아요/);
+  assert.match(page, /지도에서 더 자세히 보기/);
+  assert.match(page, /카카오 지도/);
+  assert.match(page, /네이버 지도/);
+  assert.match(page, /구글 지도/);
+  assert.match(page, /program\.images\.map/);
+  assert.match(styles, /background:\s*#f7f4e9/);
+  assert.match(styles, /background:\s*#087a42/);
+  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
+  assert.match(styles, /width:\s*min\(100%, 390px\)/);
+  assert.match(data, /import "server-only"/);
+  assert.match(data, /program_media_public/);
+  assert.match(data, /program_facility_media/);
+  assert.match(data, /rights_verified/);
+  assert.match(data, /DONGNEGOGO_SUPABASE_URL/);
+  assert.match(data, /DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(data, /startsWith\("sb_publishable_"\)/);
+  assert.doesNotMatch(data, /service_role|sb_secret_|NEXT_PUBLIC_/i);
+  assert.match(openApp, /dongnegogo:\/\/program\?id=/);
+  assert.match(openApp, /window\.setTimeout/);
+});
+
 test("브라우저 산출물에는 Kakao SDK와 Supabase 클라이언트가 없다", async () => {
   const clientArtifacts = (await collectTextArtifacts(new URL("dist/client/", projectRoot))).join("\n");
   assert.doesNotMatch(

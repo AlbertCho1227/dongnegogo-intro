@@ -1,0 +1,156 @@
+.page {
+  min-height: 100vh;
+  padding: 8px 8px 28px;
+  color: #153b29;
+  background: #e7e9e3;
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+}
+
+.shareSheet {
+  width: min(100%, 390px);
+  min-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #cbd8c6;
+  border-radius: 23px;
+  background: #087a42;
+  box-shadow: 0 18px 46px rgba(22, 51, 34, .16);
+}
+
+.hero {
+  position: relative;
+  z-index: 1;
+  padding: 34px 20px 45px;
+  border-radius: 0 0 50% 50% / 0 0 14% 14%;
+  background: #f7f4e9;
+}
+
+.brandRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 27px;
+  color: #0d7542;
+  font-size: 16px;
+  letter-spacing: -.04em;
+}
+
+.brandRow img { width: 39px; height: 39px; border-radius: 10px; box-shadow: 0 4px 10px rgba(17, 97, 54, .16); }
+
+.heroGallery {
+  display: flex;
+  width: min(238px, 76vw);
+  margin: 0 auto;
+  overflow-x: auto;
+  border-radius: 3px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.heroGallery::-webkit-scrollbar, .photoRail::-webkit-scrollbar { display: none; }
+.heroSlide { flex: 0 0 100%; height: 208px; margin: 0; scroll-snap-align: center; background: rgba(255, 255, 255, .46); }
+.heroSlide img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.imageFallback { display: flex; width: 100%; height: 208px; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #53705e; font-size: 13px; }
+.imageFallback img { width: 74px; height: 74px; border-radius: 18px; }
+.swipeHint { margin: 10px 0 -20px; color: #6f7d72; font-size: 11px; text-align: center; }
+
+.programCard {
+  position: relative;
+  z-index: 2;
+  margin: -19px 21px 0;
+  padding: 16px 16px 18px;
+  border: 1px solid #d8dfd7;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(4, 75, 38, .18);
+}
+.cardTopRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.badges { display: flex; flex-wrap: wrap; gap: 5px; }
+.badges span { padding: 4px 8px; border-radius: 7px; color: #14884d; background: #ecf8e9; font-size: 11px; font-weight: 800; line-height: 1; }
+.badges .audienceBadge { color: #7254c6; background: #f0ebff; }
+.cardIcons { display: flex; flex: none; gap: 7px; }
+.cardIcons span { display: grid; width: 36px; height: 36px; place-items: center; border: 2px solid #1caf61; border-radius: 50%; background: #fff; font-size: 20px; }
+.cardIcons span:last-child { color: #fff; background: #1caf61; font-size: 24px; font-weight: 900; }
+.programCard h1 { margin: 7px 0 4px; color: #141c17; font-size: 18px; font-weight: 900; line-height: 1.24; letter-spacing: -.04em; word-break: keep-all; }
+.subline, .schedule { margin: 0; color: #626e66; font-size: 12px; line-height: 1.45; word-break: keep-all; }
+.schedule { margin-top: 2px; }
+.about { margin-top: 15px; padding-top: 13px; border-top: 1px solid #e6ebe6; }
+.about h2 { margin: 0 0 6px; color: #0b7040; font-size: 17px; line-height: 1.2; letter-spacing: -.04em; }
+.about p { display: -webkit-box; margin: 0; overflow: hidden; color: #20352a; font-size: 13px; line-height: 1.52; white-space: pre-line; word-break: keep-all; -webkit-box-orient: vertical; -webkit-line-clamp: 7; }
+.placeFacts { display: grid; gap: 8px; margin: 14px 0 0; padding-top: 13px; border-top: 1px solid #e6ebe6; }
+.placeFacts div { display: grid; grid-template-columns: 19px 1fr; align-items: start; gap: 5px; }
+.placeFacts dt, .placeFacts dd { margin: 0; }
+.placeFacts dd { color: #394b40; font-size: 12px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+
+.deadline {
+  display: flex;
+  margin: 13px 22px 0;
+  padding: 12px;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 15px;
+  color: #fff;
+  background: rgba(255, 255, 255, .22);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.deadline strong { font-size: 14px; }
+
+.appButton {
+  display: flex;
+  min-height: 50px;
+  margin: 13px 22px 0;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 15px;
+  color: #0a6339;
+  background: #fff;
+  font-size: 16px;
+  font-weight: 900;
+  text-decoration: none;
+}
+.appButton span { color: #17a85a; font-size: 15px; }
+.appButton:focus-visible, .mapButtons a:focus-visible, .footer a:focus-visible { outline: 4px solid rgba(255, 255, 255, .45); outline-offset: 3px; }
+.appFallback { margin: 7px 22px 0; color: rgba(255,255,255,.78); font-size: 10px; text-align: center; }
+
+.morePhotos, .mapSection {
+  margin: 22px 14px 0;
+  padding: 18px;
+  border-radius: 20px;
+  background: #f7f4e9;
+}
+.morePhotos h2, .mapSection h2 { margin: 0 0 12px; color: #123c29; font-size: 18px; line-height: 1.25; letter-spacing: -.04em; }
+.photoRail { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.photoRail figure { flex: 0 0 86%; margin: 0; scroll-snap-align: center; }
+.photoRail img { display: block; width: 100%; height: 265px; border-radius: 12px; background: #fff; object-fit: contain; }
+.photoRail figcaption { display: flex; margin-top: 7px; flex-wrap: wrap; gap: 3px 8px; color: #68746d; font-size: 10px; line-height: 1.35; }
+.photoRail figcaption a { color: #0b7040; }
+.mapSection { margin-bottom: 18px; }
+.mapSection > p { margin: -4px 0 14px; color: #657269; font-size: 12px; line-height: 1.45; }
+.mapButtons { display: grid; gap: 8px; }
+.mapButtons a { display: flex; min-height: 48px; align-items: center; gap: 11px; padding: 0 14px; border: 1px solid #dde3da; border-radius: 13px; color: #1d2d23; background: #fff; font-size: 14px; font-weight: 800; text-decoration: none; }
+.mapButtons span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 8px; font-weight: 900; }
+.kakaoMark { color: #2b2110; background: #fee500; }
+.naverMark { color: #fff; background: #03c75a; }
+.googleMark { color: #1769e0; background: conic-gradient(#4285f4, #34a853, #fbbc05, #ea4335, #4285f4); }
+.footer { display: flex; justify-content: center; gap: 8px; padding: 4px 16px 21px; color: rgba(255,255,255,.72); font-size: 10px; }
+.footer a { color: inherit; }
+
+@media (min-width: 700px) {
+  .page { padding-top: 26px; padding-bottom: 40px; }
+  .shareSheet { width: 390px; }
+}
+
+@media (max-width: 350px) {
+  .page { padding: 0; }
+  .shareSheet { border-radius: 0; }
+  .programCard { margin-inline: 14px; }
+  .deadline, .appButton { margin-inline: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heroGallery, .photoRail { scroll-behavior: auto; }
+}
+
