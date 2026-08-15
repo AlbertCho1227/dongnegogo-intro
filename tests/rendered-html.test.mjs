@@ -272,13 +272,17 @@ test("운영 소개 페이지에서는 웹 버전 버튼을 숨기고 독립 지
   assert.match(webHtml, /Kakao 지도/);
 });
 
-test("웹 프로그램 API는 공개 SELECT 전용이며 DB 쓰기 동작을 포함하지 않는다", async () => {
+test("웹 프로그램 API는 공개 SELECT와 읽기 전용 RPC만 사용하며 DB 쓰기 동작을 포함하지 않는다", async () => {
   const data = await readFile(new URL("lib/web-program-data.ts", projectRoot), "utf8");
   const route = await readFile(new URL("app/api/web-programs/route.ts", projectRoot), "utf8");
   assert.match(data, /method:\s*"GET"/);
   assert.match(data, /\/rest\/v1\/programs/);
   assert.match(data, /sb_publishable_/);
-  assert.doesNotMatch(`${data}\n${route}`, /service_role|sb_secret_|method:\s*"(?:POST|PUT|PATCH|DELETE)"|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
+  assert.match(data, /get_program_map_viewport_v4/);
+  assert.match(data, /search_program_candidates_v2/);
+  const rpcNames = [...data.matchAll(/rpc\("([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(rpcNames.sort(), ["get_program_map_viewport_v4", "search_program_candidates_v2"]);
+  assert.doesNotMatch(`${data}\n${route}`, /service_role|sb_secret_|method:\s*"(?:PUT|PATCH|DELETE)"|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
 });
 
 test("원안 하단의 법적 고지는 실제 정책 페이지로 연결된다", async () => {

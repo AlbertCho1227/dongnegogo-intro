@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchWebPrograms } from "@/lib/web-program-data";
+import { fetchWebPrograms, fetchWebSearchCandidates } from "@/lib/web-program-data";
 
 function numeric(value: string | null): number | undefined {
   if (value === null || value === "") return undefined;
@@ -10,7 +10,12 @@ function numeric(value: string | null): number | undefined {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   try {
-    const programs = await fetchWebPrograms({
+    const subjectTerms = url.searchParams.getAll("subject");
+    const areaTerms = url.searchParams.getAll("area");
+    const generalTerms = url.searchParams.getAll("general");
+    const programs = subjectTerms.length || areaTerms.length || generalTerms.length
+      ? await fetchWebSearchCandidates({ subjectTerms, areaTerms, generalTerms })
+      : await fetchWebPrograms({
       south: numeric(url.searchParams.get("south")),
       west: numeric(url.searchParams.get("west")),
       north: numeric(url.searchParams.get("north")),
@@ -18,7 +23,7 @@ export async function GET(request: Request) {
       limit: numeric(url.searchParams.get("limit")),
       query: url.searchParams.get("q") ?? undefined,
       id: url.searchParams.get("id") ?? undefined,
-    });
+      });
     return NextResponse.json({ programs }, {
       headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
     });
@@ -27,4 +32,3 @@ export async function GET(request: Request) {
     return NextResponse.json({ programs: [], message }, { status: 503 });
   }
 }
-

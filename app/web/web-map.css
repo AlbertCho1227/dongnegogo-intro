@@ -34,7 +34,14 @@
 .dg-search input::placeholder { color: #a8aea9; }
 .dg-search button { border: 0; cursor: pointer; }
 .dg-clear { width: 25px; height: 25px; border-radius: 50%; background: #c7ccc8; color: #fff; font-size: 19px; line-height: 1; }
+.dg-voice { width: 28px; height: 28px; border-radius: 50%; color: var(--dg-green-deep); background: #edf8e7; font-size: 13px; font-weight: 900; }
 .dg-search-button { height: 38px; padding: 0 13px; border-radius: 12px; background: var(--dg-green); color: #fff; font-size: 13px; font-weight: 800; }
+.dg-intent-chips { margin-top: 9px; display: flex; gap: 6px; overflow-x: auto; }
+.dg-intent-chips span { flex: none; padding: 6px 9px; border-radius: 999px; color: var(--dg-green-deep); background: #edf8e7; font-size: 11px; font-weight: 800; }
+.dg-search-suggestions { margin-top: 10px; max-height: 112px; display: flex; gap: 6px; flex-wrap: wrap; overflow-y: auto; }
+.dg-search-suggestions button, .dg-relaxed-search button { padding: 7px 9px; border: 1px solid #dce8d9; border-radius: 10px; color: #4c5b4e; background: #fff; font-size: 11px; font-weight: 750; cursor: pointer; }
+.dg-search-suggestions small { width: 100%; color: #89918a; font-weight: 800; }
+.dg-relaxed-search { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; }
 .dg-location-row { margin-top: 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .dg-location-row button { padding: 7px 12px; border: 0; border-radius: 999px; color: var(--dg-green-deep); background: #edf8e7; font-size: 13px; font-weight: 800; cursor: pointer; }
 .dg-location-row span { color: #697069; font-size: 13px; font-weight: 700; }
@@ -81,11 +88,17 @@
 .dg-map-caption strong { font-size: 14px; }
 .dg-map-caption span { color: #7c847d; font-size: 11.5px; }
 
-.dg-map-marker { position: relative; width: 66px; height: 66px; padding: 0; border: 5px solid var(--dg-green); border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 5px 14px rgba(20,40,25,.23); transition: transform .16s ease, box-shadow .16s ease; }
+.dg-map-marker { position: relative; width: 52px; height: 52px; padding: 3px; border: 4px solid #2fa84f; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 5px 14px rgba(20,40,25,.23); transition: transform .16s ease, box-shadow .16s ease; }
 .dg-map-marker:hover, .dg-map-marker.is-selected { transform: translateY(-4px) scale(1.08); box-shadow: 0 9px 20px rgba(20,40,25,.3); }
 .dg-map-marker > img { width: 100%; height: 100%; display: block; border-radius: 50%; object-fit: cover; }
-.dg-map-marker > span { position: absolute; top: -8px; right: -9px; min-width: 25px; height: 25px; padding: 0 5px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #ff793b; font-size: 11px; font-weight: 900; }
-.dg-map-marker > small { position: absolute; top: 68px; left: 50%; max-width: 120px; padding: 3px 6px; overflow: hidden; transform: translateX(-50%); border-radius: 5px; color: #3c443d; background: rgba(255,255,255,.88); font-size: 10px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; text-shadow: 0 1px 2px #fff; white-space: nowrap; }
+.dg-map-marker > span { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 3px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #ff7a3c; font-size: 8.5px; font-weight: 900; }
+.dg-map-marker > small { position: absolute; top: 55px; left: 50%; max-width: 120px; padding: 3px 6px; overflow: hidden; transform: translateX(-50%); border-radius: 5px; color: #3c443d; background: rgba(255,255,255,.9); font-size: 10px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; text-shadow: 0 1px 2px #fff; white-space: nowrap; }
+.dg-cluster-marker { min-width: 136px; max-width: 190px; min-height: 54px; padding: 8px 11px; border: 2px solid rgba(47,168,79,.68); border-radius: 15px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 2px 7px; align-items: center; color: #263229; background: rgba(255,255,255,.97); box-shadow: 0 5px 15px rgba(20,40,25,.2); cursor: pointer; text-align: left; }
+.dg-cluster-marker:hover { transform: translateY(-2px); }
+.dg-cluster-marker strong { overflow: hidden; font-size: 13px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.dg-cluster-marker span { min-width: 26px; padding: 4px 6px; border-radius: 999px; color: #fff; background: #2fa84f; font-size: 10px; font-weight: 900; text-align: center; }
+.dg-cluster-marker small { grid-column: 1 / -1; overflow: hidden; color: #718076; font-size: 9.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.dg-cluster-district, .dg-cluster-city, .dg-cluster-province { min-height: 46px; border-radius: 13px; }
 
 .dg-detail { min-height: 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
 .dg-detail-hero { flex: none; padding: 18px 20px 22px; background: linear-gradient(145deg, #eef9e7, #dff3dc); }
@@ -116,10 +129,13 @@
 .dg-info-list strong { font-size: 14px; line-height: 1.45; }
 .dg-info-list span { color: #7f8780; font-size: 12.5px; line-height: 1.45; }
 .dg-distance-card { padding: 17px; border: 1px solid var(--dg-line); border-radius: 18px; }
-.dg-distance-card > div:first-child { display: flex; align-items: center; justify-content: space-between; }
-.dg-distance-card > div:first-child span { color: #8c938d; font-size: 13px; font-weight: 700; }
-.dg-distance-card > div:first-child strong { color: var(--dg-green-deep); font-size: 22px; }
+.dg-route-metrics { display: grid !important; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.dg-route-metrics > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dg-route-metrics > div + div { padding-left: 12px; border-left: 1px solid var(--dg-line); }
+.dg-route-metrics span { color: #8c938d; font-size: 12px; font-weight: 700; }
+.dg-route-metrics strong { color: var(--dg-green-deep); font-size: 20px; }
 .dg-distance-card > p { margin: 9px 0 14px; color: #8d948e; font-size: 12px; }
+.dg-distance-card .dg-location-warning { margin-top: -5px; padding: 8px 10px; border-radius: 9px; color: #7b6120; background: #fff7dc; font-weight: 700; }
 .dg-transport-tabs { display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px; }
 .dg-transport-tabs button { min-width: 0; padding: 10px 3px; border: 0; border-radius: 11px; color: #606860; background: #f1f4f1; font-size: 11px; font-weight: 750; cursor: pointer; }
 .dg-transport-tabs button.active { color: #fff; background: var(--dg-green); }
@@ -195,4 +211,3 @@
   .dg-map-marker, .dg-program-card, .dg-preference i, .dg-preference i::after { transition: none; }
   .dg-map-skeleton img { animation: none; }
 }
-
