@@ -232,10 +232,14 @@ test("웹 버전만 Kakao SDK를 사용하고 Supabase 쓰기 클라이언트는
   );
 });
 
-test("소개 페이지의 웹 버전 버튼과 독립 지도 화면을 제공한다", async () => {
+test("운영 소개 페이지에서는 웹 버전 버튼을 숨기고 독립 지도 화면은 유지한다", async () => {
   const home = await render();
   const homeHtml = await home.text();
-  assert.match(homeHtml, /data-r="web-version-link"[^>]*href="\/web"[^>]*>웹 버전<\/a>/);
+  assert.doesNotMatch(homeHtml, /data-r="web-version-link"|>웹 버전<\/a>/);
+
+  const homeSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(homeSource, /process\.env\.NODE_ENV === "development"/);
+  assert.match(homeSource, /SHOW_LOCAL_WEB_VERSION_LINK \? HEADER_ACTIONS_WITH_WEB : HEADER_ACTIONS_WITHOUT_WEB/);
 
   const web = await render("/web");
   assert.equal(web.status, 200);
