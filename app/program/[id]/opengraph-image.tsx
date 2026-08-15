@@ -47,15 +47,15 @@ async function fetchImageDataURL(rawURL: string | undefined): Promise<string | n
   }
 }
 
-function categoryMarker(program: SharedProgram): string {
+function categorySymbol(program: SharedProgram): string {
   const value = `${program.category} ${program.field} ${program.name}`;
-  if (/수영|아쿠아/.test(value)) return "icon_swimming.png";
-  if (/전시|미술|공예/.test(value)) return "icon_exhibition.png";
-  if (/공연|연극|뮤지컬/.test(value)) return "icon_theater.png";
-  if (/음악|악기|노래/.test(value)) return "icon_music.png";
-  if (/체육|운동|요가|필라테스/.test(value)) return "icon_sports.png";
-  if (/교육|강좌|학습|외국어/.test(value)) return "icon_lifestyle.png";
-  return "icon_other.png";
+  if (/수영|아쿠아/.test(value)) return "🏊";
+  if (/전시|미술|공예/.test(value)) return "🎨";
+  if (/공연|연극|뮤지컬/.test(value)) return "🎭";
+  if (/음악|악기|노래/.test(value)) return "🎵";
+  if (/체육|운동|요가|필라테스/.test(value)) return "🏃";
+  if (/교육|강좌|학습|외국어/.test(value)) return "📚";
+  return "🌿";
 }
 
 function deadlineCopy(program: SharedProgram): string {
@@ -89,10 +89,8 @@ export default async function ProgramShareImage({ params }: ImageProps) {
   const place = [program.area, program.facility, program.room]
     .filter((value, index, items) => value && items.indexOf(value) === index)
     .join(" · ");
-  const [poster, marker] = await Promise.all([
-    fetchImageDataURL(posterURL),
-    fetchImageDataURL(`${SITE_ORIGIN}/markers/${categoryMarker(program)}`),
-  ]);
+  const poster = await fetchImageDataURL(posterURL);
+  const marker = categorySymbol(program);
 
   return new ImageResponse(
     <div style={{
@@ -145,7 +143,7 @@ export default async function ProgramShareImage({ params }: ImageProps) {
           </div>
           <div style={{ display: "flex", flex: "none", gap: 12 }}>
             <span style={{ display: "flex", width: 64, height: 64, alignItems: "center", justifyContent: "center", border: "4px solid #1caf61", borderRadius: 32, background: "#fff" }}>
-              {marker ? <img src={marker} alt="" width={48} height={48} style={{ objectFit: "contain" }} /> : <span style={{ color: "#14884d", fontSize: 24, fontWeight: 900 }}>동네</span>}
+              <span style={{ fontSize: 34 }}>{marker}</span>
             </span>
             <span style={{ display: "flex", width: 64, height: 64, alignItems: "center", justifyContent: "center", borderRadius: 32, color: "#fff", background: "#1caf61", fontSize: 24, fontWeight: 900 }}>지도</span>
           </div>
