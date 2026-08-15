@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 
+import { OFFICIAL_MAP_ICONS } from "@/lib/official-map-icons";
 import { getSharedProgram, type SharedProgram } from "@/lib/program-share-data";
 
 type ImageProps = { params: Promise<{ id: string }> };
@@ -8,7 +9,6 @@ export const alt = "동네고고 프로그램 전체 공유 카드";
 export const contentType = "image/png";
 export const size = { width: 780, height: 1960 };
 
-const SITE_ORIGIN = "https://www.dongnegogo.com";
 const MAX_IMAGE_BYTES = 3_500_000;
 
 function cleanID(value: string): string {
@@ -186,13 +186,17 @@ export default async function ProgramShareImage({ params }: ImageProps) {
         <div style={{ display: "flex", color: "#123c29", fontSize: 34, fontWeight: 900 }}>지도 바로가기</div>
         <div style={{ display: "flex", marginTop: 6, color: "#657269", fontSize: 21 }}>원하는 지도 앱에서 목적지 위치와 가는 길을 확인하세요.</div>
         <div style={{ display: "flex", marginTop: 18, gap: 12 }}>
-          {[{ mark: "K", name: "카카오 지도", bg: "#fee500", color: "#2b2110" }, { mark: "N", name: "네이버 지도", bg: "#03c75a", color: "#fff" }, { mark: "G", name: "구글 지도", bg: "#4285f4", color: "#fff" }].map((map) => (
-            <div key={map.mark} style={{
+          {[
+            { icon: OFFICIAL_MAP_ICONS.kakao.dataURL, name: "카카오 지도" },
+            { icon: OFFICIAL_MAP_ICONS.naver.dataURL, name: "네이버 지도" },
+            { icon: OFFICIAL_MAP_ICONS.google.dataURL, name: "구글 지도" },
+          ].map((map) => (
+            <div key={map.name} style={{
               display: "flex", minHeight: 82, flex: 1, alignItems: "center", justifyContent: "center",
               gap: 10, border: "2px solid #dde3da", borderRadius: 20, color: "#1d2d23",
               background: "#fff", fontSize: 21, fontWeight: 800,
             }}>
-              <span style={{ display: "flex", width: 42, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 10, color: map.color, background: map.bg, fontWeight: 900 }}>{map.mark}</span>
+              <img src={map.icon} alt="" width={42} height={42} style={{ objectFit: "contain", borderRadius: 10 }} />
               <span>{map.name}</span>
             </div>
           ))}

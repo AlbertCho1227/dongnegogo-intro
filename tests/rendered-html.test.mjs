@@ -198,6 +198,7 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   const shareImage = await readFile(new URL("app/program/[id]/opengraph-image.tsx", projectRoot), "utf8");
   const styles = await readFile(new URL("app/program/[id]/program-share.module.css", projectRoot), "utf8");
   const data = await readFile(new URL("lib/program-share-data.ts", projectRoot), "utf8");
+  const mapIcons = await readFile(new URL("lib/official-map-icons.ts", projectRoot), "utf8");
   const openApp = await readFile(new URL("app/program/[id]/OpenAppButton.tsx", projectRoot), "utf8");
 
   assert.match(page, /동네고고에서 찾았어요/);
@@ -207,6 +208,9 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(page, /카카오 지도/);
   assert.match(page, /네이버 지도/);
   assert.match(page, /구글 지도/);
+  assert.match(page, /OFFICIAL_MAP_ICONS\.kakao\.publicPath/);
+  assert.match(page, /OFFICIAL_MAP_ICONS\.naver\.publicPath/);
+  assert.match(page, /OFFICIAL_MAP_ICONS\.google\.publicPath/);
   assert.match(page, /program\.images\.map/);
   assert.match(page, /\[동네고고\] - \$\{program\.name\}/);
   assert.doesNotMatch(page, /openGraph:[\s\S]*images:\s*image/);
@@ -219,7 +223,13 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(shareImage, /카카오 지도/);
   assert.match(shareImage, /네이버 지도/);
   assert.match(shareImage, /구글 지도/);
+  assert.match(shareImage, /OFFICIAL_MAP_ICONS\.kakao\.dataURL/);
+  assert.match(shareImage, /OFFICIAL_MAP_ICONS\.naver\.dataURL/);
+  assert.match(shareImage, /OFFICIAL_MAP_ICONS\.google\.dataURL/);
   assert.match(shareImage, /max-age=300/);
+  assert.match(mapIcons, /https:\/\/map\.kakao\.com\/favicon\.ico/);
+  assert.match(mapIcons, /https:\/\/ssl\.pstatic\.net\/static\/maps\/assets\/icons\/favicon\.ico/);
+  assert.match(mapIcons, /https:\/\/www\.google\.com\/images\/branding\/product\/ico\/web_maps_icon_32dp\.ico/);
   assert.match(styles, /background:\s*#f7f4e9/);
   assert.match(styles, /background:\s*#087a42/);
   assert.match(styles, /scroll-snap-type:\s*x mandatory/);

@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { OFFICIAL_MAP_ICONS } from "@/lib/official-map-icons";
 import { getSharedProgram, type SharedProgram } from "@/lib/program-share-data";
 
 import { OpenAppButton } from "./OpenAppButton";
@@ -169,9 +170,9 @@ export default async function ProgramSharePage({ params }: PageProps) {
           <h2 id="shared-program-maps">지도에서 더 자세히 보기</h2>
           <p>원하는 지도 앱에서 목적지 위치와 가는 길을 확인하세요.</p>
           <div className={styles.mapButtons}>
-            <a href={maps.kakao} target="_blank" rel="noreferrer"><span className={styles.kakaoMark}>K</span>카카오 지도</a>
-            <a href={maps.naver} target="_blank" rel="noreferrer"><span className={styles.naverMark}>N</span>네이버 지도</a>
-            <a href={maps.google} target="_blank" rel="noreferrer"><span className={styles.googleMark}>G</span>구글 지도</a>
+            <a href={maps.kakao} target="_blank" rel="noreferrer"><img src={OFFICIAL_MAP_ICONS.kakao.publicPath} alt="" width={28} height={28} />카카오 지도</a>
+            <a href={maps.naver} target="_blank" rel="noreferrer"><img src={OFFICIAL_MAP_ICONS.naver.publicPath} alt="" width={28} height={28} />네이버 지도</a>
+            <a href={maps.google} target="_blank" rel="noreferrer"><img src={OFFICIAL_MAP_ICONS.google.publicPath} alt="" width={28} height={28} />구글 지도</a>
           </div>
         </section>
 
