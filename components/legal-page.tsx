@@ -39,7 +39,7 @@ export function LegalPage({
           <p>{description}</p>
           <div className="legal-status" role="note">
             <strong>운영자 정보</strong>
-            <span>포레스트 이음(Forest Ieum) · 대표 정재은 · 사업자등록번호 689-01-03864 · 정식 서비스 출시 전 테스트 단계</span>
+            <span>포레스트 이음(Forest Ieum) · 대표 정재은 · 사업자등록번호 689-01-03864</span>
           </div>
         </div>
 

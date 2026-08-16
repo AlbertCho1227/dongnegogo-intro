@@ -322,6 +322,21 @@ test("법적 고지 페이지 5개를 독립 경로로 제공한다", async () =
   }
 });
 
+test("신규 계정 삭제는 즉시 파기되고 30일 복구를 제공하지 않는다", async () => {
+  const deletionResponse = await render("/account-deletion");
+  const deletionHtml = await deletionResponse.text();
+  assert.match(deletionHtml, /즉시 파기/);
+  assert.match(deletionHtml, /30일 복구·유예 기간은 운영하지 않습니다/);
+  assert.match(deletionHtml, /모든 이용자 계정·인증·작성 콘텐츠를 제거/);
+  assert.doesNotMatch(deletionHtml, /30일 안에 다시 로그인하면 되돌릴 수/);
+
+  const privacyResponse = await render("/privacy");
+  const privacyHtml = await privacyResponse.text();
+  assert.match(privacyHtml, /계정 관련 로컬 저장값과 캐시도 함께 삭제/);
+  assert.match(privacyHtml, /최대 7일/);
+  assert.match(privacyHtml, /삭제 전 백업은 운영 서비스에 그대로 복원하지 않/);
+});
+
 test("공공데이터 정책은 공공누리 공식 마크와 확인된 출처 조건만 표시한다", async () => {
   const response = await render("/public-data");
   const html = await response.text();

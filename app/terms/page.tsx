@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <LegalPage eyebrow="서비스 정책" title="동네고고 이용약관" description="공공 프로그램을 찾고 비교하고 신청 페이지까지 이동하는 과정에서 지켜야 할 기준을 안내합니다.">
-      <LegalMeta>공개일 2026년 8월 11일 · 정식 시행일은 서비스 출시 전에 별도 고지합니다.</LegalMeta>
+      <LegalMeta>공개일 2026년 8월 11일 · 최종 수정·시행 2026년 8월 17일</LegalMeta>
 
       <LegalSection title="1. 목적과 운영 주체">
         <p>이 약관은 포레스트 이음(Forest Ieum, 대표자 정재은, 사업자등록번호 689-01-03864, 이하 “운영자”)이 제공하는 모바일 앱, 앱인토스 및 웹 서비스의 이용 조건과 권리·의무를 정합니다. 고객 문의는 <a href="mailto:forestieum@gmail.com">forestieum@gmail.com</a>에서 접수합니다.</p>
@@ -38,10 +38,10 @@ export default function TermsPage() {
 
       <LegalSection title="4. 계정과 소셜 로그인">
         <DataTable headers={["구분", "내용"]} rows={[
-          ["지원 방식", "Apple, Google, Kakao 계정으로 로그인하며 동네고고가 별도 비밀번호를 받지 않습니다."],
+          ["지원 방식", "Apple, Google, Kakao 또는 앱인토스 로그인으로 접속하며 동네고고가 별도 비밀번호를 받지 않습니다."],
           ["계정 식별", "인증 제공자 식별자와 Supabase 사용자 UUID로 후기, 찜, 가족 정보, 알림을 본인 계정과 연결합니다."],
           ["이용자 책임", "본인 계정과 기기를 안전하게 관리하고 무단 사용을 발견하면 즉시 운영자에게 알려야 합니다."],
-          ["탈퇴", "iOS 앱의 내정보에서 계정 삭제를 선택하거나 계정·데이터 삭제 페이지의 권리행사 창구를 통해 전체 계정과 연결 데이터를 삭제할 수 있습니다."],
+          ["탈퇴", "iOS·Android·앱인토스의 내정보에서 계정 삭제를 선택하거나 계정·데이터 삭제 페이지의 권리행사 창구를 이용할 수 있습니다. 최종 확인 뒤 운영 계정과 연결 데이터는 즉시 삭제되며 복구되지 않습니다."],
         ]} />
       </LegalSection>
 
