@@ -238,6 +238,9 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(data, /program_media_public/);
   assert.match(data, /program_facility_media/);
   assert.match(data, /rights_verified/);
+  assert.match(data, /image_sha256/);
+  assert.match(data, /imageContentIdentity/);
+  assert.match(data, /program-share-v2-content-dedup/);
   assert.match(data, /DONGNEGOGO_SUPABASE_URL/);
   assert.match(data, /DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(data, /startsWith\("sb_publishable_"\)/);

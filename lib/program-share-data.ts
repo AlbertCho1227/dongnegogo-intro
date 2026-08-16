@@ -2,6 +2,8 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
+import { dedupeImagesByContent, imageContentIdentity } from "@/lib/image-content-identity";
+
 const REQUEST_TIMEOUT_MS = 2_500;
 const CACHE_SECONDS = 300;
 const MAX_PROGRAM_ID_LENGTH = 180;
@@ -76,6 +78,7 @@ type FacilityMediaRow = {
   attribution?: unknown;
   license?: unknown;
   license_url?: unknown;
+  image_sha256?: unknown;
 };
 
 function stringValue(value: unknown): string | null {
@@ -183,7 +186,7 @@ function collectImages(
   programMedia: ProgramMediaRow[],
   facilityMedia: FacilityMediaRow[],
 ): SharedProgramImage[] {
-  const candidates: SharedProgramImage[] = [];
+  const candidates: Array<SharedProgramImage & { contentIdentity: string }> = [];
   const primary = safeHttpsURL(program.primary_image_url);
   if (primary) {
     candidates.push({
@@ -193,37 +196,50 @@ function collectImages(
       attribution: stringValue(program.primary_image_source),
       license: null,
       licenseUrl: null,
+      contentIdentity: imageContentIdentity(null, primary),
     });
   }
 
   for (const row of programMedia) {
     const url = safeHttpsURL(row.image_url);
     if (!url) continue;
+    const thumbnailUrl = safeHttpsURL(row.thumbnail_url);
     candidates.push({
       url,
-      thumbnailUrl: safeHttpsURL(row.thumbnail_url),
+      thumbnailUrl,
       role: stringValue(row.media_role) ?? "program_image",
       attribution: stringValue(row.attribution),
       license: stringValue(row.license),
       licenseUrl: safeHttpsURL(row.license_url),
+      contentIdentity: imageContentIdentity(null, url, thumbnailUrl),
     });
   }
 
   for (const row of facilityMedia) {
     const url = safeHttpsURL(row.photo_url);
     if (!url) continue;
+    const thumbnailUrl = safeHttpsURL(row.thumbnail_url);
     candidates.push({
       url,
-      thumbnailUrl: safeHttpsURL(row.thumbnail_url),
+      thumbnailUrl,
       role: stringValue(row.photo_role) ?? "facility_photo",
       attribution: stringValue(row.attribution),
       license: stringValue(row.license),
       licenseUrl: safeHttpsURL(row.license_url),
+      contentIdentity: imageContentIdentity(row.image_sha256, url, thumbnailUrl),
     });
   }
 
-  const seen = new Set<string>();
-  return candidates.filter((image) => !seen.has(image.url) && !!seen.add(image.url)).slice(0, 10);
+  return dedupeImagesByContent(candidates)
+    .map<SharedProgramImage>((image) => ({
+      url: image.url,
+      thumbnailUrl: image.thumbnailUrl,
+      role: image.role,
+      attribution: image.attribution,
+      license: image.license,
+      licenseUrl: image.licenseUrl,
+    }))
+    .slice(0, 10);
 }
 
 async function fetchSharedProgramUncached(programID: string): Promise<SharedProgram | null> {
@@ -255,7 +271,7 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
   const facilityMediaQuery = new URLSearchParams({
     program_id: `eq.${id}`,
     rights_verified: "eq.true",
-    select: "photo_url,thumbnail_url,photo_role,attribution,license,license_url,is_primary,updated_at",
+    select: "photo_url,thumbnail_url,photo_role,attribution,license,license_url,is_primary,updated_at,image_sha256",
     order: "is_primary.desc,updated_at.desc",
     limit: "10",
   });
@@ -297,11 +313,10 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
 
 const getCachedSharedProgram = unstable_cache(
   fetchSharedProgramUncached,
-  ["dongnegogo", "program-share-v1"],
+  ["dongnegogo", "program-share-v2-content-dedup"],
   { revalidate: CACHE_SECONDS },
 );
 
 export async function getSharedProgram(programID: string): Promise<SharedProgram | null> {
   return getCachedSharedProgram(programID);
 }
-
