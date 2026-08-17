@@ -328,13 +328,25 @@ test("신규 계정 삭제는 즉시 파기되고 30일 복구를 제공하지 �
   assert.match(deletionHtml, /즉시 파기/);
   assert.match(deletionHtml, /30일 복구·유예 기간은 운영하지 않습니다/);
   assert.match(deletionHtml, /모든 이용자 계정·인증·작성 콘텐츠를 제거/);
+  assert.match(deletionHtml, /같은 동네고고 사용자 UUID/);
+  assert.match(deletionHtml, /다른 기기에서 삭제되었다는 안내/);
+  assert.match(deletionHtml, /백그라운드에 있거나 오프라인인 기기/);
+  assert.match(deletionHtml, /앱을 다시 열거나 네트워크가 연결되는 즉시/);
   assert.doesNotMatch(deletionHtml, /30일 안에 다시 로그인하면 되돌릴 수/);
+  assert.doesNotMatch(deletionHtml, /모든 기기[^.]*즉시 로그아웃/);
 
   const privacyResponse = await render("/privacy");
   const privacyHtml = await privacyResponse.text();
-  assert.match(privacyHtml, /계정 관련 로컬 저장값과 캐시도 함께 삭제/);
+  assert.match(privacyHtml, /삭제를 요청한 기기의 계정 관련 로컬 저장값과 캐시도 함께 삭제/);
+  assert.match(privacyHtml, /다른 iOS·Android·앱인토스 기기/);
+  assert.match(privacyHtml, /다음 실행·활성화·네트워크 연결 시 처리/);
   assert.match(privacyHtml, /최대 7일/);
   assert.match(privacyHtml, /삭제 전 백업은 운영 서비스에 그대로 복원하지 않/);
+
+  const termsResponse = await render("/terms");
+  const termsHtml = await termsResponse.text();
+  assert.match(termsHtml, /같은 동네고고 계정의 서버 세션은 함께 종료/);
+  assert.match(termsHtml, /종료·백그라운드·오프라인 기기/);
 });
 
 test("공공데이터 정책은 공공누리 공식 마크와 확인된 출처 조건만 표시한다", async () => {
