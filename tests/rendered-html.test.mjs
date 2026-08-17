@@ -349,6 +349,21 @@ test("신규 계정 삭제는 즉시 파기되고 30일 복구를 제공하지 �
   assert.match(termsHtml, /종료·백그라운드·오프라인 기기/);
 });
 
+test("가입·로그인 시 중복 계정을 확인하고 최신 세션만 유지한다고 고지한다", async () => {
+  const privacyResponse = await render("/privacy");
+  const privacyHtml = await privacyResponse.text();
+  assert.match(privacyHtml, /가입·로그인 과정에서는 인증 제공자 식별자의 고유성/);
+  assert.match(privacyHtml, /서로 다른 사용자 UUID에 같은 확인 이메일/);
+  assert.match(privacyHtml, /가장 최근 로그인을 제외한 기존 서버 세션을 종료/);
+  assert.match(privacyHtml, /한 번에 하나의 최신 서버 세션만 유지/);
+
+  const termsResponse = await render("/terms");
+  const termsHtml = await termsResponse.text();
+  assert.match(termsHtml, /가입·로그인 시 제공자 식별자/);
+  assert.match(termsHtml, /가장 최근에 완료된 로그인 한 건만 유지/);
+  assert.match(termsHtml, /이전 기기에는 자동 로그아웃 안내/);
+});
+
 test("공공데이터 정책은 공공누리 공식 마크와 확인된 출처 조건만 표시한다", async () => {
   const response = await render("/public-data");
   const html = await response.text();
