@@ -203,7 +203,7 @@ function buildStatsMarkup(stats: PublicStats) {
       <p class="trust-updated">
         <time datetime="${stats.snapshotDate}">${formatSnapshotDate(stats.snapshotDate)} 기준</time>
         <span aria-hidden="true">·</span>
-        활성 프로그램 기준
+        현재·예정 프로그램 기준
         <span aria-hidden="true">·</span>
         매일 갱신
         <span aria-hidden="true">·</span>

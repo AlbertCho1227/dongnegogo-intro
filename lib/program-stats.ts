@@ -3,7 +3,10 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 const STATS_RPC = "get_public_program_stats_v1";
-const CACHE_SECONDS = 86_400;
+// The database snapshot is refreshed daily after every collection job, while
+// this shorter server cache makes a corrected/manual snapshot visible on the
+// homepage within 15 minutes instead of remaining stale for up to 24 hours.
+const CACHE_SECONDS = 900;
 const REQUEST_TIMEOUT_MS = 2_000;
 const FALLBACK_RETRY_SECONDS = 300;
 
@@ -17,15 +20,15 @@ export type PublicProgramStats = {
   source: "rpc" | "fallback";
 };
 
-// Verified against the Seoul production RPC on 2026-08-11. This is used only
+// Verified against the Seoul production RPC on 2026-08-20. This is used only
 // when runtime bindings, the network, or the response contract are unavailable.
 const LAST_KNOWN_PROGRAM_STATS: PublicProgramStats = Object.freeze({
-  snapshotDate: "2026-08-11",
-  totalCount: 39_844,
-  cultureCount: 16_929,
-  performanceCount: 2_390,
-  educationCount: 12_960,
-  sportsCount: 9_315,
+  snapshotDate: "2026-08-20",
+  totalCount: 20_030,
+  cultureCount: 2_156,
+  performanceCount: 1_243,
+  educationCount: 14_255,
+  sportsCount: 2_569,
   source: "fallback",
 });
 

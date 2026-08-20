@@ -45,13 +45,13 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.match(html, /가족 도우미 모드/);
   assert.match(html, /신청하러 가기/);
   assert.doesNotMatch(html, />바로 신청하기<|>지금 바로 신청하기</);
-  assert.match(html, /39,844/);
-  assert.match(html, /16,929/);
-  assert.match(html, /2,390/);
-  assert.match(html, /12,960/);
-  assert.match(html, /9,315/);
-  assert.match(html, /2026년 8월 11일(?:<!-- -->)? 기준/);
-  assert.match(html, /활성 프로그램 기준/);
+  assert.match(html, /20,030/);
+  assert.match(html, /2,156/);
+  assert.match(html, /1,243/);
+  assert.match(html, /14,255/);
+  assert.match(html, /2,569/);
+  assert.match(html, /2026년 8월 20일(?:<!-- -->)? 기준/);
+  assert.match(html, /현재·예정 프로그램 기준/);
   assert.match(html, /매일 갱신/);
   assert.match(html, /공연은 다른 분야와 중복될 수 있어요/);
   assert.match(html, /data-stats-source="fallback"/);
@@ -178,7 +178,7 @@ test("웹 디자인 원본 파일은 첨부 ZIP과 바이트 단위로 동일하
   );
 });
 
-test("통계 모듈은 서버 전용 native fetch와 하루 캐시만 사용한다", async () => {
+test("통계 모듈은 서버 전용 native fetch와 짧은 검증 캐시만 사용한다", async () => {
   const source = await readFile(new URL("lib/program-stats.ts", projectRoot), "utf8");
   assert.match(source, /import "server-only"/);
   assert.match(source, /DONGNEGOGO_SUPABASE_URL/);
@@ -186,7 +186,7 @@ test("통계 모듈은 서버 전용 native fetch와 하루 캐시만 사용한�
   assert.match(source, /startsWith\("sb_publishable_"\)/);
   assert.match(source, /get_public_program_stats_v1/);
   assert.match(source, /unstable_cache/);
-  assert.match(source, /86_400/);
+  assert.match(source, /CACHE_SECONDS = 900/);
   assert.match(source, /FALLBACK_RETRY_SECONDS = 300/);
   assert.match(source, /REQUEST_TIMEOUT_MS = 2_000/);
   assert.match(source, /await fetch\(/);
