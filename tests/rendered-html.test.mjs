@@ -45,13 +45,13 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.match(html, /가족 도우미 모드/);
   assert.match(html, /신청하러 가기/);
   assert.doesNotMatch(html, />바로 신청하기<|>지금 바로 신청하기</);
-  assert.match(html, /20,030/);
-  assert.match(html, /2,156/);
-  assert.match(html, /1,243/);
+  assert.match(html, /41,723/);
+  assert.match(html, /16,957/);
+  assert.match(html, /2,496/);
   assert.match(html, /14,255/);
-  assert.match(html, /2,569/);
+  assert.match(html, /9,461/);
   assert.match(html, /2026년 8월 20일(?:<!-- -->)? 기준/);
-  assert.match(html, /현재·예정 프로그램 기준/);
+  assert.match(html, /프로그램·문화공간·체육시설 포함/);
   assert.match(html, /매일 갱신/);
   assert.match(html, /공연은 다른 분야와 중복될 수 있어요/);
   assert.match(html, /data-stats-source="fallback"/);

@@ -196,14 +196,14 @@ function buildStatsMarkup(stats: PublicStats) {
     <section class="trust-strip" aria-labelledby="program-stats-title" data-stats-source="${source}">
       <div class="trust-heading">
         <h2 id="program-stats-title">지금 동네고고에서 만날 수 있어요</h2>
-        <p>현재 이용 가능한 공공 프로그램을 한눈에 확인하세요.</p>
+        <p>현재·예정 프로그램과 공공 문화·체육시설을 한눈에 확인하세요.</p>
       </div>
       <div class="trust-stats">${statsMarkup}
       </div>
       <p class="trust-updated">
         <time datetime="${stats.snapshotDate}">${formatSnapshotDate(stats.snapshotDate)} 기준</time>
         <span aria-hidden="true">·</span>
-        현재·예정 프로그램 기준
+        프로그램·문화공간·체육시설 포함
         <span aria-hidden="true">·</span>
         매일 갱신
         <span aria-hidden="true">·</span>

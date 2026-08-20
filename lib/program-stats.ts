@@ -24,11 +24,11 @@ export type PublicProgramStats = {
 // when runtime bindings, the network, or the response contract are unavailable.
 const LAST_KNOWN_PROGRAM_STATS: PublicProgramStats = Object.freeze({
   snapshotDate: "2026-08-20",
-  totalCount: 20_030,
-  cultureCount: 2_156,
-  performanceCount: 1_243,
+  totalCount: 41_723,
+  cultureCount: 16_957,
+  performanceCount: 2_496,
   educationCount: 14_255,
-  sportsCount: 2_569,
+  sportsCount: 9_461,
   source: "fallback",
 });
 
