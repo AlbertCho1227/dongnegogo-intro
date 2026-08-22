@@ -110,7 +110,7 @@ test("접근 보호가 있는 서울시·공유누리 링크는 상세 주소를
   assert.doesNotMatch(map, /className="dg-apply" href=\{program\.applyUrl\}/);
 });
 
-test("프로그램 대표 사진은 중앙 오버레이 없이 작은 카테고리 배지만 표시한다", async () => {
+test("대표 사진은 작은 배지를, 사진이 없거나 깨지면 중앙 대형 마커만 표시한다", async () => {
   const article = await readFile(new URL("app/blog/program/[id]/page.tsx", projectRoot), "utf8");
   const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
 
@@ -119,9 +119,15 @@ test("프로그램 대표 사진은 중앙 오버레이 없이 작은 카테고�
   const hero = article.slice(heroStart, heroEnd);
   assert.ok(heroStart >= 0);
   assert.doesNotMatch(hero, /blog-program-media-fallback|blog-marker-image/);
-  assert.match(hero, /images\[0\] && <ProgramMediaImage/);
+  assert.match(hero, /images\[0\] \? <>/);
+  assert.match(hero, /<ProgramMediaImage/);
   assert.match(hero, /className="blog-marker-badge"/);
-  assert.match(styles, /\.blog-program-hero-media > img\.is-media-fallback:not\(\.blog-marker-badge\) \{ opacity: 0; \}/);
+  assert.match(hero, /className="blog-program-marker-fallback"/);
+  assert.doesNotMatch(hero, /동네고고 분류 마커/);
+  assert.match(styles, /img\.blog-program-marker-fallback, \.blog-program-hero-media > img\.is-media-fallback/);
+  assert.match(styles, /width: min\(52%, 220px\)/);
+  assert.match(styles, /:has\(> img\.is-media-fallback:not\(\.blog-marker-badge\)\).*\.blog-marker-badge/);
+  assert.match(styles, /:has\(> img\.is-media-fallback:not\(\.blog-marker-badge\)\) > span \{ display: none; \}/);
 });
 
 test("시설 사진이 한 장이면 제목과 같은 본문 기준선에 맞춘다", async () => {
