@@ -121,6 +121,36 @@ test("프로그램 대표 사진은 중앙 오버레이 없이 작은 카테고�
   assert.match(styles, /\.blog-program-hero-media > img\.is-media-fallback:not\(\.blog-marker-badge\) \{ opacity: 0; \}/);
 });
 
+test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이지·카테고리 검색으로 탐색한다", async () => {
+  const page = await readFile(new URL("app/blog/page.tsx", projectRoot), "utf8");
+  const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
+  const explorer = await readFile(new URL("components/program-story-explorer.tsx", projectRoot), "utf8");
+
+  assert.doesNotMatch(page, /slice\(0, 120\)|getBlogProgramCategoryPage\("교육", 44\)/);
+  assert.match(page, /getBlogProgramArchivePage/);
+  assert.match(data, /BLOG_ARCHIVE_PAGE_SIZE = 48/);
+  assert.match(data, /"교육·강좌": \{ categories: \["교육"\] \}/);
+  assert.match(data, /"취미·체험": \{ categories: \["교육", "문화", "문화행사"\]/);
+  assert.match(data, /params\.append\("name", "not\.ilike\.\*주차장\*"\)/);
+  assert.match(explorer, /className="blog-pagination"/);
+  assert.match(explorer, /전체 \{total\.toLocaleString\("ko-KR"\)\}개 중/);
+});
+
+test("교육·강좌와 취미·체험 보관함은 Supabase 전체 결과를 서버에서 나눠 보여준다", {
+  skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
+}, async () => {
+  for (const category of ["교육·강좌", "취미·체험"]) {
+    const response = await render(`/blog?category=${encodeURIComponent(category)}`);
+    const html = await response.text();
+    const plainText = html.replace(/<!--[\s\S]*?-->|<[^>]+>/g, "");
+    const count = plainText.match(/전체 ([\d,]+)개 중/)?.[1];
+    assert.equal(response.status, 200);
+    assert.ok(count && Number(count.replaceAll(",", "")) > 120);
+    assert.match(html, /aria-label="프로그램 글 페이지"/);
+    assert.match(html, new RegExp(`${category}[^<]*<\\/a>`));
+  }
+});
+
 test("서울시 예약 프로그램 글은 첫 클릭에 내부 확인 방법을 열고 상세 예약 주소를 노출하지 않는다", {
   skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
 }, async () => {

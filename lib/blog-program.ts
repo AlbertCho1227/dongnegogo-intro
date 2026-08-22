@@ -6,9 +6,10 @@ const PARKING_PATTERN = /주차장|공영\s*주차|주차\s*시설|parking/i;
 const SWIMMING_PATTERN = /수영|아쿠아|물놀이/;
 const PERFORMANCE_PATTERN = /공연|연극|뮤지컬|콘서트|오페라|무용|발레|국악|연주/;
 const EXHIBITION_PATTERN = /전시|미술|그림|사진전|박물관|미술관|공예/;
-const EVENT_PATTERN = /행사|축제|페스티벌|체험|마켓|박람회/;
+const HOBBY_PATTERN = /취미|체험|공방|만들기|요리|원예|도예|서예|바둑|보드게임|악기|뜨개/;
+const EVENT_PATTERN = /행사|축제|페스티벌|마켓|박람회/;
 const SPORTS_PATTERN = /체육|운동|수영|축구|야구|농구|테니스|배드민턴|요가|필라테스|댄스|빙상|탁구/;
-const EDUCATION_PATTERN = /교육|강좌|강의|수업|학습|교실|아카데미|코딩|외국어|취미|공방|문해/;
+const EDUCATION_PATTERN = /교육|강좌|강의|수업|학습|교실|아카데미|코딩|외국어|문해/;
 
 export type BlogProgramKind = "교육·강좌" | "공연·연극·뮤지컬" | "전시·예술" | "문화·행사" | "체육·수영" | "취미·체험";
 export type BlogAccent = "lime" | "violet" | "blue";
@@ -33,6 +34,7 @@ export function blogProgramKind(program: Pick<SharedProgram, "name" | "category"
   if (PERFORMANCE_PATTERN.test(value)) return "공연·연극·뮤지컬";
   if (EXHIBITION_PATTERN.test(value) || program.category === "전시") return "전시·예술";
   if (SPORTS_PATTERN.test(value) || program.category === "체육") return "체육·수영";
+  if (HOBBY_PATTERN.test(value)) return "취미·체험";
   if (EVENT_PATTERN.test(value) || program.category === "문화행사") return "문화·행사";
   if (EDUCATION_PATTERN.test(value) || program.category === "교육") return "교육·강좌";
   return "취미·체험";

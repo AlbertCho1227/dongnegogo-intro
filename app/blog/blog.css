@@ -123,13 +123,14 @@
 .blog-section-heading > p { max-width: 390px; margin: 0 0 5px; color: var(--blog-muted); font-size: 14px; font-weight: 500; line-height: 1.7; }
 .blog-tools { margin-top: 34px; padding: 15px; border: 1px solid var(--blog-line); border-radius: 20px; display: flex; align-items: center; justify-content: space-between; gap: 18px; background: var(--blog-paper); }
 .blog-chips { display: flex; flex-wrap: wrap; gap: 7px; }
-.blog-chips button { min-height: 40px; padding: 0 15px; border: 0; border-radius: 999px; color: #5c655e; background: transparent; font-size: 13px; font-weight: 800; cursor: pointer; }
-.blog-chips button:hover, .blog-chips button:focus-visible { background: #eaf4e8; color: var(--blog-green); }
-.blog-chips button.is-active { color: #fff; background: var(--blog-ink); }
+.blog-chips a { min-height: 40px; padding: 0 15px; border-radius: 999px; display: inline-flex; align-items: center; color: #5c655e; background: transparent; font-size: 13px; font-weight: 800; }
+.blog-chips a:hover, .blog-chips a:focus-visible { background: #eaf4e8; color: var(--blog-green); }
+.blog-chips a.is-active { color: #fff; background: var(--blog-ink); }
 .blog-search { width: min(300px, 100%); min-height: 44px; padding: 0 14px; border: 1px solid var(--blog-line); border-radius: 13px; display: flex; align-items: center; gap: 8px; background: #fff; }
 .blog-search > span:not(.sr-only) { color: #7b847c; font-size: 22px; }
 .blog-search input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--blog-ink); background: transparent; font-size: 13px; }
 .blog-search input::placeholder { color: #9ba29c; }
+.blog-search button { min-height: 32px; padding: 0 10px; border: 0; border-radius: 9px; color: #fff; background: var(--blog-ink); font-size: 11px; font-weight: 900; cursor: pointer; }
 .blog-result-count { margin: 22px 0 16px; color: #818982; font-size: 12px; font-weight: 700; }
 .blog-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
 .blog-card { min-width: 0; overflow: hidden; border: 1px solid var(--blog-line); border-radius: 24px; background: #fff; transition: transform .22s ease, box-shadow .22s ease; }
@@ -175,6 +176,13 @@
 .blog-program-card h3 a:hover { color: var(--accent-deep); }
 .blog-program-card__body > p { min-height: 44px; margin: 0; overflow: hidden; color: var(--blog-muted); font-size: 12px; line-height: 1.7; word-break: keep-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .blog-program-card__read { margin-top: 17px; padding-top: 15px; border-top: 1px solid #edf0ec; display: flex; justify-content: space-between; color: #3d4840; font-size: 12px; font-weight: 900; }
+.blog-pagination { margin-top: 38px; display: grid; grid-template-columns: 92px 1fr 92px; align-items: center; gap: 14px; }
+.blog-pagination > div { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.blog-pagination > div > span { display: flex; align-items: center; gap: 7px; }
+.blog-pagination i { color: #99a199; font-style: normal; }
+.blog-pagination a { min-width: 40px; min-height: 40px; padding: 0 10px; border: 1px solid #dce5da; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #4f5a52; background: #fff; font-size: 12px; font-weight: 900; }
+.blog-pagination a:hover, .blog-pagination a:focus-visible, .blog-pagination a.is-active { border-color: var(--blog-ink); color: #fff; background: var(--blog-ink); }
+.blog-pagination__edge:last-child { justify-self: end; }
 
 .blog-promise { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 94px 0; display: grid; grid-template-columns: .82fr 1.2fr; gap: 56px 76px; align-items: start; }
 .blog-promise h2 { margin: 10px 0 0; font-size: clamp(36px, 4.2vw, 54px); line-height: 1.25; letter-spacing: -.055em; }
@@ -323,6 +331,9 @@
   .blog-archive-stats { align-items: flex-start; flex-direction: column; gap: 2px; }
   .blog-program-grid { grid-template-columns: 1fr; }
   .blog-program-card__media { height: 240px; }
+  .blog-pagination { grid-template-columns: 1fr 1fr; }
+  .blog-pagination > div { grid-column: 1 / -1; grid-row: 1; }
+  .blog-pagination__edge { grid-row: 2; }
   .blog-card:last-child { grid-column: auto; display: block; }
   .blog-card:last-child .blog-card__visual { height: 210px; min-height: 0; }
   .blog-card h3, .blog-card__body > p { min-height: 0; }

@@ -3,26 +3,24 @@ import Link from "next/link";
 import { BlogExplorer } from "@/components/blog-explorer";
 import { BlogHeader } from "@/components/blog-header";
 import { ProgramStoryExplorer } from "@/components/program-story-explorer";
-import { isParkingProgram } from "@/lib/blog-program";
 import { BLOG_POSTS, blogPostUrl } from "@/lib/blog-posts";
-import { getBlogProgramCategoryPage, getBlogProgramPage, getBlogProgramSearchPage, type BlogProgramSummary } from "@/lib/blog-program-data";
+import { getBlogProgramArchivePage } from "@/lib/blog-program-data";
 
-export default async function BlogPage() {
+type BlogPageProps = { searchParams: Promise<Record<string, string | string[] | undefined>> };
+
+function first(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+export default async function BlogPage({ searchParams }: BlogPageProps) {
   const featured = BLOG_POSTS[0];
-  const [live, education, culture, exhibition, sports, events, swimming] = await Promise.all([
-    getBlogProgramPage(0, 1),
-    getBlogProgramCategoryPage("교육", 44),
-    getBlogProgramCategoryPage("문화", 44),
-    getBlogProgramCategoryPage("전시", 44),
-    getBlogProgramCategoryPage("체육", 44),
-    getBlogProgramCategoryPage("문화행사", 44),
-    getBlogProgramSearchPage("수영", 16),
-  ]).catch(() => Array.from({ length: 7 }, () => ({ programs: [] as BlogProgramSummary[], total: 0 })));
-  const eligible = (program: BlogProgramSummary) => !isParkingProgram(program) && program.imageUrl && program.area && program.facility;
-  const groups = [education.programs, culture.programs, exhibition.programs, sports.programs, events.programs].map((items) => items.filter(eligible));
-  const balanced: BlogProgramSummary[] = swimming.programs.filter(eligible);
-  for (let index = 0; index < 44; index += 1) for (const group of groups) if (group[index]) balanced.push(group[index]);
-  const programs = [...new Map(balanced.map((program) => [program.id, program])).values()].slice(0, 120);
+  const queryParams = await searchParams;
+  const requestedPage = Number.parseInt(first(queryParams.page), 10);
+  const archive = await getBlogProgramArchivePage({
+    page: Number.isFinite(requestedPage) ? requestedPage : 1,
+    category: first(queryParams.category),
+    searchTerm: first(queryParams.q),
+  }).catch(() => ({ programs: [], total: 0, page: 1, pageSize: 48, category: "전체" as const, searchTerm: "" }));
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -79,7 +77,7 @@ export default async function BlogPage() {
 
         <BlogExplorer posts={BLOG_POSTS} />
 
-        <ProgramStoryExplorer programs={programs} total={live.total} />
+        <ProgramStoryExplorer {...archive} />
 
         <section className="blog-promise" aria-labelledby="editorial-promise-title">
           <div>
