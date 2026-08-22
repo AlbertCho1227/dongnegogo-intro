@@ -11,8 +11,8 @@ const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
 const PRIMARY_NAV_OPEN = '    <div style="flex:1 1 auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;font-size:15px;font-weight:600;color:#42473F;white-space:nowrap">';
-const PRIMARY_NAV_LAST_LINK = '      <a href="#stories" style="color:#42473F">이용 사례</a>';
-const PRIMARY_NAV_LAST_LINK_WITH_BLOG = `${PRIMARY_NAV_LAST_LINK}\n      <a data-r="blog-link" href="/blog" style="color:#238E4D;font-weight:850">블로그</a>`;
+const PRIMARY_NAV_MAP_LINK = '      <a href="#map" style="color:#42473F">지도 탐색</a>';
+const PRIMARY_NAV_MAP_LINK_WITH_BLOG = `      <a data-r="blog-link" href="/blog" style="color:#238E4D;font-weight:850">블로그</a>\n${PRIMARY_NAV_MAP_LINK}`;
 const HEADER_ACTIONS_OPEN = '    <div style="display:flex;align-items:center;gap:12px">\n      \n';
 const HEADER_ACTIONS_WITHOUT_WEB = HEADER_ACTIONS_OPEN.replace("<div", '<div data-r="header-actions"');
 const HEADER_ACTIONS_WITH_WEB = `    <div data-r="header-actions" style="display:flex;align-items:center;gap:12px">
@@ -140,7 +140,7 @@ const originalPageMarkup = (() => {
 
   const responsiveMarkup = [
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
-    [PRIMARY_NAV_LAST_LINK, PRIMARY_NAV_LAST_LINK_WITH_BLOG],
+    [PRIMARY_NAV_MAP_LINK, PRIMARY_NAV_MAP_LINK_WITH_BLOG],
     [HEADER_ACTIONS_OPEN, SHOW_LOCAL_WEB_VERSION_LINK ? HEADER_ACTIONS_WITH_WEB : HEADER_ACTIONS_WITHOUT_WEB],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],

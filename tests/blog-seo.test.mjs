@@ -20,6 +20,7 @@ test("홈 상단과 하단에서 공개 블로그로 이동할 수 있다", asyn
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /data-r="blog-link"[^>]*href="\/blog"/);
+  assert.ok(html.indexOf('data-r="blog-link"') < html.indexOf('href="#map"'), "블로그 메뉴가 지도 탐색 왼쪽에 있어야 합니다.");
   assert.ok((html.match(/href="\/blog"/g) ?? []).length >= 2);
 });
 
