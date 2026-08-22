@@ -90,6 +90,35 @@ test("검색 공유 이미지는 프로젝트에 포함되고 외부 사진을 �
   assert.doesNotMatch(data, /primary_image_url|program-posters|culture\.go\.kr|yeyak\.seoul\.go\.kr\/web\/common\/file/);
 });
 
+test("접근 보호가 있는 서울시 예약 링크는 상세 주소를 우회하지 않고 공식 홈 검색으로 안내한다", async () => {
+  const access = await readFile(new URL("lib/official-program-access.ts", projectRoot), "utf8");
+  const article = await readFile(new URL("app/blog/program/[id]/page.tsx", projectRoot), "utf8");
+  const map = await readFile(new URL("app/web/web-map-app.tsx", projectRoot), "utf8");
+
+  assert.match(access, /SEOUL_RESERVATION_HOST = "yeyak\.seoul\.go\.kr"/);
+  assert.match(access, /SEOUL_RESERVATION_HOME = `https:\/\/\$\{SEOUL_RESERVATION_HOST\}\//);
+  assert.match(access, /requiresHomepageSearch: true/);
+  assert.match(article, /상세 주소로 바로 이동하지 않습니다/);
+  assert.match(article, /접근 제한 화면이 보이면 반복해서 누르지 말고/);
+  assert.match(article, /rel="external nofollow noopener noreferrer"/);
+  assert.match(article, /referrerPolicy="no-referrer"/);
+  assert.match(map, /공식 예약 홈에서 검색/);
+  assert.doesNotMatch(article, /href=\{program\.applyUrl\}/);
+  assert.doesNotMatch(map, /className="dg-apply" href=\{program\.applyUrl\}/);
+});
+
+test("서울시 예약 프로그램 글은 첫 클릭에 내부 확인 방법을 열고 상세 예약 주소를 노출하지 않는다", {
+  skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
+}, async () => {
+  const id = encodeURIComponent("program:reservations:a8e9888b02694976");
+  const response = await render(`/blog/program/${id}`);
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /서울시 공식 확인 방법 보기/);
+  assert.match(html, /href="https:\/\/yeyak\.seoul\.go\.kr\/"/);
+  assert.doesNotMatch(html, /selectReservView\.do|rsv_svc_id=/);
+});
+
 test("실제 프로그램 글은 포스터·시설 사진 출처, 영구 보존 안내, AEO 스키마를 제공한다", {
   skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
 }, async () => {

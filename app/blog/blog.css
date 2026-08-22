@@ -229,6 +229,15 @@
 .blog-program-cta > span { color: #9bd07d; font-size: 11px; font-weight: 900; letter-spacing: .09em; }
 .blog-program-cta h2 { margin: 9px 0 8px; font-size: 22px; line-height: 1.5; }
 .blog-program-cta p { margin: 0; color: #bdc7bf; font-size: 13px; line-height: 1.7; }
+.blog-official-guide { margin-top: 22px; border: 1px solid #526057; border-radius: 16px; background: #253129; }
+.blog-official-guide summary { padding: 16px 18px; color: #e9f3eb; cursor: pointer; font-size: 14px; font-weight: 900; }
+.blog-official-guide > div { padding: 0 18px 18px; }
+.blog-official-guide > div > strong { display: block; margin-bottom: 6px; color: #b9e48e; font-size: 13px; }
+.blog-official-guide > div > p { color: #cbd4cd; }
+.blog-official-guide code { margin-top: 14px; padding: 12px 14px; border-radius: 10px; display: block; color: #f6fff1; background: #18221b; font-family: inherit; font-size: 13px; font-weight: 800; line-height: 1.65; word-break: keep-all; }
+.blog-official-guide__actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 9px; }
+.blog-official-guide__actions a { min-height: 42px; padding: 0 14px; border: 1px solid #6b786f; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; color: #eff7f1; font-size: 12px; font-weight: 900; }
+.blog-official-guide__actions a:first-child { border-color: #86ce45; color: #152219; background: #9cdd5d; }
 .blog-program-cta__actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 9px; }
 .blog-program-cta__actions a { min-height: 46px; padding: 0 16px; border: 1px solid #4b584f; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; }
 .blog-program-cta__actions a:first-child { border-color: #86ce45; color: #152219; background: #9cdd5d; }
@@ -334,6 +343,7 @@
   .blog-facts dl div { grid-template-columns: 1fr; gap: 4px; }
   .blog-prose h2 { font-size: 24px; }
   .blog-program-cta { padding: 24px; }
+  .blog-official-guide__actions a { width: 100%; }
   .blog-program-cta__actions a { width: 100%; }
   .blog-next { padding: 58px 0 68px; }
   .blog-media-story { width: calc(100vw - 32px); margin-top: 50px; margin-bottom: 60px; }

@@ -19,6 +19,7 @@ import {
   visibleSource,
 } from "@/lib/blog-program";
 import { getSharedProgram, type SharedProgram } from "@/lib/program-share-data";
+import { officialProgramAccess } from "@/lib/official-program-access";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -117,7 +118,7 @@ export default async function ProgramBlogPage({ params }: PageProps) {
   const title = programLongTailTitle(program);
   const url = blogProgramURL(program.id);
   const guide = editorialGuide(program);
-  const officialUrl = program.applyUrl || `/program/${encodeURIComponent(program.id)}`;
+  const officialAccess = officialProgramAccess(program.applyUrl);
   const published = program.updatedAt || "2026-08-22T00:00:00+09:00";
   const images = program.images.slice(0, 8);
   const eventSchema = program.lectureStart ? {
@@ -129,8 +130,8 @@ export default async function ProgramBlogPage({ params }: PageProps) {
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     location: { "@type": "Place", name: program.facility, address: program.address || program.area },
     image: images.map((image) => image.url),
-    organizer: { "@type": "Organization", name: program.facility, ...(program.applyUrl ? { url: program.applyUrl } : {}) },
-    offers: program.applyUrl ? { "@type": "Offer", url: program.applyUrl, availability: ended ? "https://schema.org/SoldOut" : "https://schema.org/InStock", ...(program.isFree ? { price: 0, priceCurrency: "KRW" } : {}) } : undefined,
+    organizer: { "@type": "Organization", name: program.facility, ...(officialAccess ? { url: officialAccess.href } : {}) },
+    offers: officialAccess && !officialAccess.requiresHomepageSearch ? { "@type": "Offer", url: officialAccess.href, availability: ended ? "https://schema.org/SoldOut" : "https://schema.org/InStock", ...(program.isFree ? { price: 0, priceCurrency: "KRW" } : {}) } : undefined,
   } : null;
   const faq = [
     { q: `${program.name}은 어디에서 하나요?`, a: `${[program.area, program.facility, program.room].filter(Boolean).join(" · ")}에서 진행됩니다. 정확한 입구와 회차별 장소는 운영기관 안내를 확인하세요.` },
@@ -202,7 +203,7 @@ export default async function ProgramBlogPage({ params }: PageProps) {
               <section><h2>자주 묻는 질문</h2><div className="blog-faq">{faq.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div></section>
             </div>
 
-            <aside className="blog-program-cta"><span>CHECK THE LATEST NOTICE</span><h2>{program.name}</h2><p>동네고고 데이터는 <strong>{program.status}</strong>으로 표시됩니다. 운영기관의 실시간 잔여석·변경 공지를 마지막으로 확인하세요.</p><div className="blog-program-cta__actions"><a href={officialUrl} target={program.applyUrl ? "_blank" : undefined} rel={program.applyUrl ? "noreferrer" : undefined}>공식 신청·안내 확인 ↗</a><Link href={`/program/${encodeURIComponent(program.id)}`}>동네고고 프로그램 보기</Link><Link href="/web">지도에서 주변 찾기</Link></div></aside>
+            <aside className="blog-program-cta"><span>CHECK THE LATEST NOTICE</span><h2>{program.name}</h2><p>동네고고 데이터는 <strong>{program.status}</strong>으로 표시됩니다. 운영기관의 실시간 잔여석·변경 공지를 마지막으로 확인하세요.</p>{officialAccess?.requiresHomepageSearch && <details className="blog-official-guide"><summary>서울시 공식 확인 방법 보기</summary><div><strong>상세 주소로 바로 이동하지 않습니다.</strong><p>서울시 예약 사이트의 접근 보호 정책을 존중해 공식 홈페이지 첫 화면으로 연결합니다. 홈페이지에서 아래 프로그램명을 검색해 주세요. 접근 제한 화면이 보이면 반복해서 누르지 말고 브라우저를 종료한 뒤 운영기관에 문의하세요.</p><code>{program.name}</code><div className="blog-official-guide__actions"><a href={officialAccess.href} target="_blank" rel="external nofollow noopener noreferrer" referrerPolicy="no-referrer">서울시 공식 예약 홈 열기 ↗</a>{program.phone && <a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>운영기관 전화 문의</a>}</div></div></details>}<div className="blog-program-cta__actions">{officialAccess && !officialAccess.requiresHomepageSearch ? <a href={officialAccess.href} target="_blank" rel="external nofollow noopener noreferrer" referrerPolicy="no-referrer">공식 신청·안내 확인 ↗</a> : !officialAccess && <Link href={`/program/${encodeURIComponent(program.id)}`}>동네고고 안내에서 확인</Link>}<Link href={`/program/${encodeURIComponent(program.id)}`}>동네고고 프로그램 보기</Link><Link href="/web">지도에서 주변 찾기</Link></div></aside>
             <p className="blog-source-note"><strong>정보·이미지 출처</strong> {program.source || "운영기관 공개 데이터"}. 표시된 사진마다 확인 가능한 출처와 이용조건을 함께 적었습니다. 본문 안내 문장은 공개된 사실 정보를 바탕으로 동네고고가 새로 구성했으며, 일정·비용·접수 상태는 운영기관 사정에 따라 변경될 수 있습니다.</p>
             <div className="blog-tags"><span>#{program.area.replaceAll(" ", "")}{kind.replaceAll("·", "")}</span><span>#{program.isFree ? "무료프로그램" : "지역프로그램"}</span><span>#{program.facility.replaceAll(" ", "")}</span></div>
           </div>
