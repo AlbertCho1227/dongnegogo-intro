@@ -177,19 +177,15 @@ async function readBindings() {
   const processBindings = typeof process !== "undefined"
     ? process.env
     : {} as Record<string, string | undefined>;
-  let baseUrl = textValue(processBindings.DONGNEGOGO_SUPABASE_URL)
-    ?? textValue(processBindings.NEXT_PUBLIC_SUPABASE_URL);
-  let publishableKey = textValue(processBindings.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY)
-    ?? textValue(processBindings.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  let baseUrl = textValue(processBindings.DONGNEGOGO_SUPABASE_URL);
+  let publishableKey = textValue(processBindings.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY);
 
   if (!baseUrl || !publishableKey) {
     try {
       const { env } = await import("cloudflare:workers");
       const bindings = env as unknown as Record<string, unknown>;
-      baseUrl ??= textValue(bindings.DONGNEGOGO_SUPABASE_URL)
-        ?? textValue(bindings.NEXT_PUBLIC_SUPABASE_URL);
-      publishableKey ??= textValue(bindings.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY)
-        ?? textValue(bindings.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+      baseUrl ??= textValue(bindings.DONGNEGOGO_SUPABASE_URL);
+      publishableKey ??= textValue(bindings.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY);
     } catch {
       // The Node build does not expose Cloudflare runtime bindings.
     }

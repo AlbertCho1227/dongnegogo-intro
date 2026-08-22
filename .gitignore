@@ -20,7 +20,13 @@
 
 # misc
 .DS_Store
+*.p8
+*.p12
+*.pfx
 *.pem
+*.key
+serviceAccountKey.json
+*service-account*.json
 
 # debug
 npm-debug.log*
@@ -30,6 +36,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+env.production
 !.env.example
 
 # vercel
