@@ -254,8 +254,7 @@
 /* Program editorial article */
 .blog-program-hero-media { background: #e7eee6; }
 .blog-program-hero-media > img:not(.blog-marker-badge) { position: relative; z-index: 1; width: 100%; height: 100%; color: transparent; font-size: 0; object-fit: cover; background: transparent; filter: none; transform: none; }
-.blog-program-hero-media > img.is-media-fallback:not(.blog-marker-badge) { padding: 28%; object-fit: contain; background: var(--accent-soft); }
-.blog-program-hero-media .blog-marker-image { width: 150px !important; height: 150px !important; object-fit: contain !important; filter: drop-shadow(0 20px 20px rgba(24,34,28,.22)) !important; transform: rotate(-3deg) !important; }
+.blog-program-hero-media > img.is-media-fallback:not(.blog-marker-badge) { opacity: 0; }
 .blog-program-hero-media::before, .blog-program-hero-media::after { display: none; }
 .blog-program-media-fallback { position: absolute; inset: 0; display: grid; place-items: center; background: var(--accent-soft); }
 .blog-program-media-fallback img { width: 112px; height: 112px; object-fit: contain; opacity: .72; }

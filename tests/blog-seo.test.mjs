@@ -107,6 +107,20 @@ test("접근 보호가 있는 서울시 예약 링크는 상세 주소를 우회
   assert.doesNotMatch(map, /className="dg-apply" href=\{program\.applyUrl\}/);
 });
 
+test("프로그램 대표 사진은 중앙 오버레이 없이 작은 카테고리 배지만 표시한다", async () => {
+  const article = await readFile(new URL("app/blog/program/[id]/page.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
+
+  const heroStart = article.indexOf('<div className="blog-article__visual blog-program-hero-media">');
+  const heroEnd = article.indexOf("</div>", heroStart);
+  const hero = article.slice(heroStart, heroEnd);
+  assert.ok(heroStart >= 0);
+  assert.doesNotMatch(hero, /blog-program-media-fallback|blog-marker-image/);
+  assert.match(hero, /images\[0\] && <ProgramMediaImage/);
+  assert.match(hero, /className="blog-marker-badge"/);
+  assert.match(styles, /\.blog-program-hero-media > img\.is-media-fallback:not\(\.blog-marker-badge\) \{ opacity: 0; \}/);
+});
+
 test("서울시 예약 프로그램 글은 첫 클릭에 내부 확인 방법을 열고 상세 예약 주소를 노출하지 않는다", {
   skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
 }, async () => {

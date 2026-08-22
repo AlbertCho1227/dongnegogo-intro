@@ -173,8 +173,7 @@ export default async function ProgramBlogPage({ params }: PageProps) {
               <div className="blog-article__byline"><strong>동네고고 프로그램 편집</strong><time dateTime={published}>{koreanDateOnly(published)}</time><span>공개 데이터 기반</span></div>
             </div>
             <div className="blog-article__visual blog-program-hero-media">
-              <span className="blog-program-media-fallback" aria-hidden="true"><img src={icon} alt="" /></span>
-              {images[0] ? <ProgramMediaImage src={images[0].thumbnailUrl || images[0].url} fallbackSrc={icon} alt={`${program.name} 대표 이미지`} /> : <img className="blog-marker-image" src={icon} alt={`${kind} 동네고고 마커`} />}
+              {images[0] && <ProgramMediaImage src={images[0].thumbnailUrl || images[0].url} fallbackSrc={icon} alt={`${program.name} 대표 이미지`} />}
               <img className="blog-marker-badge" src={icon} alt="" width="54" height="54" />
               <span>사진 출처: {images[0] ? visibleSource(images[0], program.source) : "동네고고 분류 마커"}</span>
             </div>
