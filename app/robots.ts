@@ -6,7 +6,10 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://www.dongnegogo.com/sitemap.xml",
+    sitemap: [
+      "https://www.dongnegogo.com/sitemap.xml",
+      "https://www.dongnegogo.com/blog/sitemap-index.xml",
+    ],
     host: "https://www.dongnegogo.com",
   };
 }

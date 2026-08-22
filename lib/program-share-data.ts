@@ -31,11 +31,22 @@ export type SharedProgram = {
   isFree: boolean;
   feeText: string;
   status: string;
+  receiptStart: string | null;
   receiptEnd: string | null;
+  lectureStart: string | null;
+  lectureEnd: string | null;
   scheduleText: string | null;
   periodText: string | null;
   audiences: string[];
   description: string;
+  applyUrl: string | null;
+  phone: string | null;
+  source: string | null;
+  updatedAt: string | null;
+  requirement: string | null;
+  preparation: string | null;
+  maxClassName: string | null;
+  minClassName: string | null;
   images: SharedProgramImage[];
 };
 
@@ -53,13 +64,24 @@ type ProgramRow = {
   is_free?: unknown;
   fee_text?: unknown;
   status?: unknown;
+  receipt_start?: unknown;
   receipt_end?: unknown;
+  lecture_start?: unknown;
+  lecture_end?: unknown;
   schedule_text?: unknown;
   period_text?: unknown;
   audiences?: unknown;
   summary?: unknown;
   primary_image_url?: unknown;
   primary_image_source?: unknown;
+  apply_url?: unknown;
+  phone?: unknown;
+  source?: unknown;
+  updated_at?: unknown;
+  requirement?: unknown;
+  preparation?: unknown;
+  max_class_nm?: unknown;
+  min_class_nm?: unknown;
 };
 
 type DescriptionRow = { summary?: unknown };
@@ -249,7 +271,7 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
   const { projectUrl, publishableKey } = await readServerBindings();
   const programQuery = new URLSearchParams({
     id: `eq.${id}`,
-    select: "id,name,category,field,facility,room,address,area,latitude,longitude,is_free,fee_text,status,receipt_end,schedule_text,period_text,audiences,summary,primary_image_url,primary_image_source",
+    select: "id,name,category,field,facility,room,address,area,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,period_text,audiences,summary,primary_image_url,primary_image_source,apply_url,phone,source,updated_at,requirement,preparation,max_class_nm,min_class_nm",
     limit: "1",
   });
   const programs = await fetchRows<ProgramRow>(projectUrl, publishableKey, "programs", programQuery);
@@ -302,11 +324,22 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
     isFree: program.is_free === true,
     feeText: stringValue(program.fee_text) ?? "이용료는 신청 페이지에서 확인",
     status: stringValue(program.status) ?? "일정 확인",
+    receiptStart: stringValue(program.receipt_start),
     receiptEnd: stringValue(program.receipt_end),
+    lectureStart: stringValue(program.lecture_start),
+    lectureEnd: stringValue(program.lecture_end),
     scheduleText: stringValue(program.schedule_text),
     periodText: stringValue(program.period_text),
     audiences,
     description: readableSummary(descriptions[0]?.summary ?? program.summary),
+    applyUrl: safeHttpsURL(program.apply_url),
+    phone: stringValue(program.phone),
+    source: stringValue(program.source),
+    updatedAt: stringValue(program.updated_at),
+    requirement: stringValue(program.requirement),
+    preparation: stringValue(program.preparation),
+    maxClassName: stringValue(program.max_class_nm),
+    minClassName: stringValue(program.min_class_nm),
     images: collectImages(program, programMedia, facilityMedia),
   };
 }

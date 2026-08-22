@@ -8,7 +8,10 @@ export const metadata: Metadata = {
   description: "교육, 문화, 체육, 전시와 공공 혜택을 가까운 곳부터 쉽고 빠르게 찾는 동네 생활 정보 서비스입니다.",
   applicationName: "동네고고",
   keywords: ["동네고고", "공공프로그램", "문화센터", "평생교육", "생활체육", "문화행사"],
-  alternates: { canonical: "/" },
+  alternates: {
+    canonical: "/",
+    types: { "application/rss+xml": "https://www.dongnegogo.com/blog/rss.xml" },
+  },
   icons: { icon: "/brand/app-icon.png", apple: "/brand/app-icon.png" },
   openGraph: {
     title: "동네고고 | 우리 동네의 새로운 하루",

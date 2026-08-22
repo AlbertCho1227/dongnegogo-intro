@@ -42,6 +42,24 @@ body { margin: 0; }
   outline: 4px solid rgba(47, 168, 79, .25);
   outline-offset: 3px;
 }
+[data-r="blog-link"] {
+  position: relative;
+}
+[data-r="blog-link"]::after {
+  content: "NEW";
+  position: absolute;
+  left: 50%;
+  top: -16px;
+  transform: translateX(-50%);
+  color: #238e4d;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+[data-r="blog-link"]:hover,
+[data-r="blog-link"]:focus-visible {
+  color: #166f3a !important;
+}
 
 [data-r="four-step-heading"] {
   display: flex;
@@ -262,6 +280,7 @@ body { margin: 0; }
     min-width: 0;
     white-space: nowrap;
   }
+  [data-r="primary-nav"] > [data-r="blog-link"] { grid-column: 2; }
   [data-r="hero-badge"] {
     display: grid !important;
     grid-template-columns: auto auto;

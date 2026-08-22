@@ -11,6 +11,8 @@ const PAGE_CLOSE = "</x-dc>";
 const ORIGINAL_STATS_OPEN = '    <div data-r="stats"';
 const MASCOT_OPEN = '  <div style="position: absolute; left: 40px;';
 const PRIMARY_NAV_OPEN = '    <div style="flex:1 1 auto;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 14px;font-size:15px;font-weight:600;color:#42473F;white-space:nowrap">';
+const PRIMARY_NAV_LAST_LINK = '      <a href="#stories" style="color:#42473F">이용 사례</a>';
+const PRIMARY_NAV_LAST_LINK_WITH_BLOG = `${PRIMARY_NAV_LAST_LINK}\n      <a data-r="blog-link" href="/blog" style="color:#238E4D;font-weight:850">블로그</a>`;
 const HEADER_ACTIONS_OPEN = '    <div style="display:flex;align-items:center;gap:12px">\n      \n';
 const HEADER_ACTIONS_WITHOUT_WEB = HEADER_ACTIONS_OPEN.replace("<div", '<div data-r="header-actions"');
 const HEADER_ACTIONS_WITH_WEB = `    <div data-r="header-actions" style="display:flex;align-items:center;gap:12px">
@@ -65,6 +67,8 @@ const ORIGINAL_URGENT_APPLY_CTA = ">지금 바로 신청하기</div>";
 const UPDATED_APPLY_CTA = ">신청하러 가기</div>";
 const ORIGINAL_LEGAL_LINKS = '<div style="display:flex;gap:18px"><span>이용약관</span><span>개인정보처리방침</span><span>공공데이터 이용정책</span></div>';
 const LINKED_LEGAL_LINKS = '<nav aria-label="법적 고지" style="display:flex;gap:18px;flex-wrap:wrap"><a href="/terms">이용약관</a><a href="/privacy">개인정보처리방침</a><a href="/location-terms">위치기반서비스 이용약관</a><a href="/public-data">공공데이터 이용정책</a><a href="/account-deletion">계정·데이터 삭제</a></nav>';
+const FOOTER_STORIES_LINK = '          <a href="#stories" style="font-size:14.5px;font-weight:500;color:#878D87">이용 사례</a>';
+const FOOTER_STORIES_LINK_WITH_BLOG = `${FOOTER_STORIES_LINK}\n          <a href="/blog" style="font-size:14.5px;font-weight:700;color:#5C9B47">블로그</a>`;
 
 function sliceRequired(source: string, startMarker: string, endMarker: string) {
   const start = source.indexOf(startMarker);
@@ -136,6 +140,7 @@ const originalPageMarkup = (() => {
 
   const responsiveMarkup = [
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
+    [PRIMARY_NAV_LAST_LINK, PRIMARY_NAV_LAST_LINK_WITH_BLOG],
     [HEADER_ACTIONS_OPEN, SHOW_LOCAL_WEB_VERSION_LINK ? HEADER_ACTIONS_WITH_WEB : HEADER_ACTIONS_WITHOUT_WEB],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
@@ -157,6 +162,7 @@ const originalPageMarkup = (() => {
     [CLOSING_CTA_COPY_OPEN, CLOSING_CTA_COPY_MARKED],
     [TO_TOP_OPEN, TO_TOP_MARKED],
     [ORIGINAL_LEGAL_LINKS, LINKED_LEGAL_LINKS],
+    [FOOTER_STORIES_LINK, FOOTER_STORIES_LINK_WITH_BLOG],
     [ORIGINAL_APPLY_CTA, UPDATED_APPLY_CTA],
     [ORIGINAL_URGENT_APPLY_CTA, UPDATED_APPLY_CTA],
   ].reduce((markup, [marker, replacement]) => replaceRequired(markup, marker, replacement), withoutOriginalStats);
