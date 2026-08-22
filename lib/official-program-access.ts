@@ -6,6 +6,8 @@ export type OfficialProgramAccess = {
 
 const SEOUL_RESERVATION_HOST = "yeyak.seoul.go.kr";
 const SEOUL_RESERVATION_HOME = `https://${SEOUL_RESERVATION_HOST}/`;
+const ESHARE_HOSTS = new Set(["eshare.go.kr", "www.eshare.go.kr"]);
+const ESHARE_HOME = "https://www.eshare.go.kr/";
 
 /**
  * Some public-service sites reject external deep links as abnormal traffic.
@@ -26,6 +28,14 @@ export function officialProgramAccess(value: string | null | undefined): Officia
     return {
       href: SEOUL_RESERVATION_HOME,
       providerName: "서울시 공공서비스예약",
+      requiresHomepageSearch: true,
+    };
+  }
+
+  if (ESHARE_HOSTS.has(url.hostname.toLowerCase())) {
+    return {
+      href: ESHARE_HOME,
+      providerName: "공유누리",
       requiresHomepageSearch: true,
     };
   }
