@@ -55,3 +55,31 @@ test("중복 사진은 한 장만 유지하면서 출처와 이용조건을 합�
   assert.equal(result[0].license, "공공누리 제1유형");
   assert.equal(result[0].licenseUrl, "https://www.kogl.or.kr/info/licenseType1.do");
 });
+
+test("원본 주소와 검증 저장 주소가 달라도 원본 별칭으로 한 장만 유지한다", () => {
+  const sourceIdentity = imageContentIdentity(null, "https://www.eshare.go.kr/UserPortal/Upv/68279/fileDetail.do?file_sn=1");
+  const storedIdentity = `sha256:${hash}`;
+  const result = dedupeImagesByContent([
+    {
+      contentIdentity: sourceIdentity,
+      url: "https://www.eshare.go.kr/UserPortal/Upv/68279/fileDetail.do?file_sn=1",
+      thumbnailUrl: null,
+      attribution: "eShare",
+      license: null,
+      licenseUrl: null,
+    },
+    {
+      contentIdentity: storedIdentity,
+      contentAliases: [sourceIdentity],
+      url: `https://project.supabase.co/storage/v1/object/public/facility-media/verified/key/${hash}.jpg`,
+      thumbnailUrl: `https://project.supabase.co/storage/v1/render/image/public/facility-media/verified/key/${hash}.jpg?width=900`,
+      attribution: "공유누리",
+      license: null,
+      licenseUrl: null,
+    },
+  ]);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].thumbnailUrl?.includes(hash), true);
+  assert.equal(result[0].attribution, "eShare · 공유누리");
+});

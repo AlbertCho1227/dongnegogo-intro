@@ -96,11 +96,13 @@ type ProgramMediaRow = {
 type FacilityMediaRow = {
   photo_url?: unknown;
   thumbnail_url?: unknown;
+  external_url?: unknown;
   photo_role?: unknown;
   attribution?: unknown;
   license?: unknown;
   license_url?: unknown;
   image_sha256?: unknown;
+  metadata?: unknown;
 };
 
 function stringValue(value: unknown): string | null {
@@ -139,6 +141,22 @@ function readableSummary(value: unknown): string {
   const shortened = text.slice(0, 520);
   const boundary = Math.max(shortened.lastIndexOf("."), shortened.lastIndexOf(" "));
   return `${shortened.slice(0, boundary > 360 ? boundary + 1 : 520).trim()}…`;
+}
+
+function facilitySourceAliases(row: FacilityMediaRow): string[] {
+  const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+    ? row.metadata as Record<string, unknown>
+    : {};
+  const aliases = [
+    row.external_url,
+    metadata.original_photo_url,
+    metadata.original_image_url,
+    metadata.source_url,
+  ]
+    .map(safeHttpsURL)
+    .filter((url): url is string => !!url)
+    .map((url) => imageContentIdentity(null, url));
+  return [...new Set(aliases)];
 }
 
 function numberValue(value: unknown): number | null {
@@ -249,6 +267,7 @@ function collectImages(
       license: stringValue(row.license),
       licenseUrl: safeHttpsURL(row.license_url),
       contentIdentity: imageContentIdentity(row.image_sha256, url, thumbnailUrl),
+      contentAliases: facilitySourceAliases(row),
     });
   }
 
@@ -293,7 +312,7 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
   const facilityMediaQuery = new URLSearchParams({
     program_id: `eq.${id}`,
     rights_verified: "eq.true",
-    select: "photo_url,thumbnail_url,photo_role,attribution,license,license_url,is_primary,updated_at,image_sha256",
+    select: "photo_url,thumbnail_url,external_url,photo_role,attribution,license,license_url,is_primary,updated_at,image_sha256,metadata",
     order: "is_primary.desc,updated_at.desc",
     limit: "10",
   });
@@ -346,7 +365,7 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
 
 const getCachedSharedProgram = unstable_cache(
   fetchSharedProgramUncached,
-  ["dongnegogo", "program-share-v2-content-dedup"],
+  ["dongnegogo", "program-share-v3-source-alias-dedup"],
   { revalidate: CACHE_SECONDS },
 );
 

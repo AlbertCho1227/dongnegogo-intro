@@ -41,6 +41,7 @@ export function imageContentIdentity(explicitHash: unknown, ...urls: Array<strin
 
 export type ContentImageCandidate = {
   contentIdentity: string;
+  contentAliases?: string[];
   thumbnailUrl: string | null;
   attribution: string | null;
   license: string | null;
@@ -62,13 +63,17 @@ export function dedupeImagesByContent<T extends ContentImageCandidate>(candidate
   const indexByIdentity = new Map<string, number>();
 
   for (const candidate of candidates) {
-    const duplicateIndex = indexByIdentity.get(candidate.contentIdentity);
+    const identities = [...new Set([candidate.contentIdentity, ...(candidate.contentAliases ?? [])])];
+    const duplicateIndex = identities
+      .map((identity) => indexByIdentity.get(identity))
+      .find((index): index is number => index !== undefined);
     if (duplicateIndex === undefined) {
-      indexByIdentity.set(candidate.contentIdentity, deduplicated.length);
+      for (const identity of identities) indexByIdentity.set(identity, deduplicated.length);
       deduplicated.push(candidate);
       continue;
     }
 
+    for (const identity of identities) indexByIdentity.set(identity, duplicateIndex);
     const preferred = deduplicated[duplicateIndex];
     deduplicated[duplicateIndex] = {
       ...preferred,

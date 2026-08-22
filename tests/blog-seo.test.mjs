@@ -195,6 +195,16 @@ test("공유누리 차단 상세 링크는 홈 검색으로 바꾸고 정상 운
   assert.doesNotMatch(directPlainHtml, /공유누리 공식 확인 방법 보기/);
 });
 
+test("공유누리 원본과 검증 저장본이 같은 시설 사진이면 한 장만 표시한다", {
+  skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
+}, async () => {
+  const response = await render(`/blog/program/${encodeURIComponent("program:eshare:08ebf85c71574867")}`);
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal((html.match(/alt="올림픽기념국민생활관 (?:프로그램|시설) 사진 \d+"/g) ?? []).length, 1);
+  assert.match(html, /blog-media-grid blog-media-grid--single/);
+});
+
 test("실제 프로그램 글은 포스터·시설 사진 출처, 영구 보존 안내, AEO 스키마를 제공한다", {
   skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
 }, async () => {
