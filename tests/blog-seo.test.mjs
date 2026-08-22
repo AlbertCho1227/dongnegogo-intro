@@ -156,6 +156,7 @@ test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이
   const page = await readFile(new URL("app/blog/page.tsx", projectRoot), "utf8");
   const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
   const explorer = await readFile(new URL("components/program-story-explorer.tsx", projectRoot), "utf8");
+  const pagination = await readFile(new URL("components/blog-pagination.tsx", projectRoot), "utf8");
   const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
 
   assert.doesNotMatch(page, /slice\(0, 120\)|getBlogProgramCategoryPage\("교육", 44\)/);
@@ -164,12 +165,29 @@ test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이
   assert.match(data, /"교육·강좌": \{ categories: \["교육"\] \}/);
   assert.match(data, /"취미·체험": \{ categories: \["교육", "문화", "문화행사"\]/);
   assert.match(data, /params\.append\("name", "not\.ilike\.\*주차장\*"\)/);
-  assert.match(explorer, /className="blog-pagination"/);
-  assert.match(explorer, /blog-pagination__edge-slot blog-pagination__edge-slot--previous/);
-  assert.match(explorer, /blog-pagination__edge-slot blog-pagination__edge-slot--next/);
+  assert.match(explorer, /<BlogPagination/);
+  assert.match(pagination, /className="blog-pagination"/);
+  assert.match(pagination, /blog-pagination__edge-slot blog-pagination__edge-slot--previous/);
+  assert.match(pagination, /blog-pagination__edge-slot blog-pagination__edge-slot--next/);
   assert.match(styles, /\.blog-pagination__edge-slot--previous \{ justify-self: start; \}/);
   assert.match(styles, /\.blog-pagination__edge-slot--next \{ justify-self: end; \}/);
   assert.match(explorer, /전체 \{total\.toLocaleString\("ko-KR"\)\}개 중/);
+});
+
+test("페이지 번호와 이전·다음은 인접 결과를 미리 준비하고 전체 개수는 페이지마다 다시 세지 않는다", async () => {
+  const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
+  const pagination = await readFile(new URL("components/blog-pagination.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
+
+  assert.match(data, /cachedArchiveRows/);
+  assert.match(data, /cachedArchiveTotal/);
+  assert.match(data, /Promise\.all\(\[/);
+  assert.match(data, /method: "HEAD"/);
+  assert.match(pagination, /router\.prefetch\(previousHref\)/);
+  assert.match(pagination, /router\.prefetch\(nextHref\)/);
+  assert.match(pagination, /requestIdleCallback/);
+  assert.match(pagination, /aria-busy=\{Boolean\(pendingHref\)\}/);
+  assert.match(styles, /\.blog-pagination a\.is-loading/);
 });
 
 test("교육·강좌와 취미·체험 보관함은 Supabase 전체 결과를 서버에서 나눠 보여준다", {

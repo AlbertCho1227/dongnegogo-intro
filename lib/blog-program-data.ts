@@ -111,7 +111,7 @@ function tsQueryTerms(values: readonly string[]): string {
     .join(" | ");
 }
 
-async function fetchIndexedArchivePage(projectUrl: URL, publishableKey: string, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string) {
+function indexedArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string) {
   const indexEndpoint = new URL("/rest/v1/program_search_documents_v3", projectUrl);
   const indexParams = new URLSearchParams({
     select: "program_id,source_updated_at",
@@ -126,16 +126,37 @@ async function fetchIndexedArchivePage(projectUrl: URL, publishableKey: string, 
   const searchQuery = tsQueryTerms([searchTerm]);
   if (searchQuery) indexParams.set("general_fts", `fts(simple).(${searchQuery})`);
   indexEndpoint.search = indexParams.toString();
+  return indexEndpoint;
+}
+
+function standardArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[] }) {
+  const endpoint = new URL("/rest/v1/programs", projectUrl);
+  const params = new URLSearchParams({
+    select: ARCHIVE_SELECT,
+    category: `in.(${filter.categories.join(",")})`,
+    order: "updated_at.desc.nullslast,id.asc",
+    offset: String(Math.max(0, offset)),
+    limit: String(limit),
+  });
+  // 프로그램명이 명시적으로 주차장인 행은 데이터 단계에서 제외합니다.
+  // 시설·분야에만 주차 표기가 남은 드문 행은 응답 정규화 뒤 한 번 더 제외합니다.
+  params.append("name", "not.ilike.*주차장*");
+  params.append("name", "not.ilike.*parking*");
+  endpoint.search = params.toString();
+  return endpoint;
+}
+
+async function fetchIndexedArchiveRows(projectUrl: URL, publishableKey: string, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string) {
+  const indexEndpoint = indexedArchiveEndpoint(projectUrl, offset, limit, filter, searchTerm);
   const indexResponse = await fetch(indexEndpoint, {
-    headers: { accept: "application/json", apikey: publishableKey, Prefer: "count=exact" },
+    headers: { accept: "application/json", apikey: publishableKey },
     cache: "no-store",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!indexResponse.ok) throw new Error(`Blog search index request failed with ${indexResponse.status}.`);
   const indexPayload: unknown = await indexResponse.json();
   const ids = Array.isArray(indexPayload) ? indexPayload.map((row) => textValue((row as Row).program_id)).filter((id): id is string => Boolean(id)) : [];
-  const total = Number(indexResponse.headers.get("content-range")?.split("/")[1] ?? 0);
-  if (!ids.length) return { programs: [] as BlogProgramSummary[], total: Number.isFinite(total) ? total : 0 };
+  if (!ids.length) return [] as BlogProgramSummary[];
 
   const programsEndpoint = new URL("/rest/v1/programs", projectUrl);
   programsEndpoint.search = new URLSearchParams({ select: ARCHIVE_SELECT, id: `in.(${ids.map((id) => `"${id}"`).join(",")})` }).toString();
@@ -149,7 +170,7 @@ async function fetchIndexedArchivePage(projectUrl: URL, publishableKey: string, 
   const byId = new Map(Array.isArray(programsPayload)
     ? programsPayload.map((row) => normalize(row as Row)).filter((row): row is BlogProgramSummary => Boolean(row)).map((row) => [row.id, row])
     : []);
-  return { programs: ids.map((id) => byId.get(id)).filter((row): row is BlogProgramSummary => Boolean(row) && !isParkingProgram(row)), total: Number.isFinite(total) ? total : 0 };
+  return ids.map((id) => byId.get(id)).filter((row): row is BlogProgramSummary => Boolean(row) && !isParkingProgram(row));
 }
 
 async function fetchPageUncached(offset: number, requestedLimit: number, category = "", searchTerm = ""): Promise<{ programs: BlogProgramSummary[]; total: number }> {
@@ -182,39 +203,45 @@ async function fetchPageUncached(offset: number, requestedLimit: number, categor
 
 const cachedPage = unstable_cache(fetchPageUncached, ["dongnegogo", "blog-program-index-v1"], { revalidate: 900 });
 
-async function fetchArchivePageUncached(offset: number, requestedLimit: number, category: BlogArchiveCategory, searchTerm: string): Promise<{ programs: BlogProgramSummary[]; total: number }> {
+async function fetchArchiveRowsUncached(offset: number, requestedLimit: number, category: BlogArchiveCategory, searchTerm: string): Promise<BlogProgramSummary[]> {
   const { projectUrl, publishableKey } = await bindings();
   const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, requestedLimit));
   const filter = ARCHIVE_FILTERS[category] ?? ARCHIVE_FILTERS["전체"];
-  if (filter.terms?.length || searchTerm) return fetchIndexedArchivePage(projectUrl, publishableKey, offset, limit, filter, searchTerm);
-  const endpoint = new URL("/rest/v1/programs", projectUrl);
-  const params = new URLSearchParams({
-    select: ARCHIVE_SELECT,
-    category: `in.(${filter.categories.join(",")})`,
-    order: "updated_at.desc.nullslast,id.asc",
-    offset: String(Math.max(0, offset)),
-    limit: String(limit),
-  });
-  // 프로그램명이 명시적으로 주차장인 행은 데이터 단계에서 제외합니다.
-  // 시설·분야에만 주차 표기가 남은 드문 행은 응답 정규화 뒤 한 번 더 제외합니다.
-  params.append("name", "not.ilike.*주차장*");
-  params.append("name", "not.ilike.*parking*");
-  endpoint.search = params.toString();
+  if (filter.terms?.length || searchTerm) return fetchIndexedArchiveRows(projectUrl, publishableKey, offset, limit, filter, searchTerm);
+  const endpoint = standardArchiveEndpoint(projectUrl, offset, limit, filter);
   const response = await fetch(endpoint, {
-    headers: { accept: "application/json", apikey: publishableKey, Prefer: "count=exact" },
+    headers: { accept: "application/json", apikey: publishableKey },
     cache: "no-store",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`Blog archive request failed with ${response.status}.`);
   const payload: unknown = await response.json();
-  const total = Number(response.headers.get("content-range")?.split("/")[1] ?? 0);
-  const programs = Array.isArray(payload)
+  return Array.isArray(payload)
     ? payload.map((row) => normalize(row as Row)).filter((row): row is BlogProgramSummary => Boolean(row))
     : [];
-  return { programs, total: Number.isFinite(total) ? total : 0 };
 }
 
-const cachedArchivePage = unstable_cache(fetchArchivePageUncached, ["dongnegogo", "blog-program-archive-v2"], { revalidate: 900 });
+async function fetchArchiveTotalUncached(category: BlogArchiveCategory, searchTerm: string): Promise<number> {
+  const { projectUrl, publishableKey } = await bindings();
+  const filter = ARCHIVE_FILTERS[category] ?? ARCHIVE_FILTERS["전체"];
+  const endpoint = filter.terms?.length || searchTerm
+    ? indexedArchiveEndpoint(projectUrl, 0, 1, filter, searchTerm)
+    : standardArchiveEndpoint(projectUrl, 0, 1, filter);
+  endpoint.searchParams.set("select", filter.terms?.length || searchTerm ? "program_id" : "id");
+  endpoint.searchParams.delete("order");
+  const response = await fetch(endpoint, {
+    method: "HEAD",
+    headers: { accept: "application/json", apikey: publishableKey, Prefer: "count=exact" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`Blog archive count request failed with ${response.status}.`);
+  const total = Number(response.headers.get("content-range")?.split("/")[1] ?? 0);
+  return Number.isFinite(total) ? total : 0;
+}
+
+const cachedArchiveRows = unstable_cache(fetchArchiveRowsUncached, ["dongnegogo", "blog-program-archive-rows-v3"], { revalidate: 900 });
+const cachedArchiveTotal = unstable_cache(fetchArchiveTotalUncached, ["dongnegogo", "blog-program-archive-total-v3"], { revalidate: 900 });
 
 export async function getBlogProgramPage(offset = 0, limit = 120) {
   return cachedPage(offset, limit, "", "");
@@ -233,6 +260,11 @@ export async function getBlogProgramArchivePage(input: { page?: number; category
   const page = Number.isInteger(input.page) && Number(input.page) > 0 ? Math.min(Number(input.page), 2_000) : 1;
   const pageSize = Math.max(12, Math.min(96, input.pageSize ?? BLOG_ARCHIVE_PAGE_SIZE));
   const searchTerm = safeFilterTerm(input.searchTerm ?? "");
-  const result = await cachedArchivePage((page - 1) * pageSize, pageSize, category, searchTerm);
-  return { ...result, page, pageSize, category, searchTerm };
+  // 전체 개수는 페이지 번호와 무관하므로 한 번만 캐시하고, 목록과 병렬로 읽습니다.
+  // 이전 방식은 페이지를 넘길 때마다 동일한 exact count를 다시 계산했습니다.
+  const [programs, total] = await Promise.all([
+    cachedArchiveRows((page - 1) * pageSize, pageSize, category, searchTerm),
+    cachedArchiveTotal(category, searchTerm),
+  ]);
+  return { programs, total, page, pageSize, category, searchTerm };
 }

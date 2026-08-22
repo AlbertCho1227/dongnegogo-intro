@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 
+import { BlogPagination } from "@/components/blog-pagination";
 import { ProgramMediaImage } from "@/components/program-media-image";
 import { blogProgramAccent, blogProgramIcon, blogProgramKind } from "@/lib/blog-program";
 import { BLOG_ARCHIVE_CATEGORIES, type BlogArchiveCategory, type BlogProgramSummary } from "@/lib/blog-program-data";
@@ -14,10 +15,6 @@ function archiveHref(page: number, category: BlogArchiveCategory, query: string)
   return suffix ? `/blog?${suffix}#program-archive-title` : "/blog#program-archive-title";
 }
 
-function visiblePages(page: number, totalPages: number): number[] {
-  return [...new Set([1, page - 1, page, page + 1, totalPages])].filter((value) => value >= 1 && value <= totalPages).sort((a, b) => a - b);
-}
-
 export function ProgramStoryExplorer({ programs, total, page, pageSize, category, searchTerm }: {
   programs: BlogProgramSummary[];
   total: number;
@@ -29,7 +26,6 @@ export function ProgramStoryExplorer({ programs, total, page, pageSize, category
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const start = total ? (page - 1) * pageSize + 1 : 0;
   const end = total ? Math.min(start + programs.length - 1, total) : 0;
-  const pages = visiblePages(page, totalPages);
 
   return (
     <section className="blog-live-explorer" aria-labelledby="program-archive-title">
@@ -59,11 +55,7 @@ export function ProgramStoryExplorer({ programs, total, page, pageSize, category
         </article>;
       })}</div>
       {!programs.length && <div className="blog-empty"><strong>일치하는 프로그램 글이 없어요.</strong><p>검색어를 줄이거나 다른 카테고리를 선택해 보세요.</p></div>}
-      {totalPages > 1 && <nav className="blog-pagination" aria-label="프로그램 글 페이지">
-        <span className="blog-pagination__edge-slot blog-pagination__edge-slot--previous">{page > 1 && <Link className="blog-pagination__edge" href={archiveHref(page - 1, category, searchTerm)}>← 이전</Link>}</span>
-        <div>{pages.map((item, index) => <span key={item}>{index > 0 && item - pages[index - 1] > 1 && <i aria-hidden="true">…</i>}<Link className={item === page ? "is-active" : undefined} aria-current={item === page ? "page" : undefined} href={archiveHref(item, category, searchTerm)}>{item.toLocaleString("ko-KR")}</Link></span>)}</div>
-        <span className="blog-pagination__edge-slot blog-pagination__edge-slot--next">{page < totalPages && <Link className="blog-pagination__edge" href={archiveHref(page + 1, category, searchTerm)}>다음 →</Link>}</span>
-      </nav>}
+      {totalPages > 1 && <BlogPagination page={page} totalPages={totalPages} category={category} searchTerm={searchTerm} />}
     </section>
   );
 }
