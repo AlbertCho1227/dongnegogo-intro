@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { BlogScrollToTop } from "@/components/blog-scroll-to-top";
+
 import "./blog.css";
 
 export const metadata: Metadata = {
@@ -31,6 +33,5 @@ export const metadata: Metadata = {
 };
 
 export default function BlogLayout({ children }: { children: ReactNode }) {
-  return children;
+  return <>{children}<BlogScrollToTop /></>;
 }
-

@@ -24,6 +24,20 @@ test("홈 상단과 하단에서 공개 블로그로 이동할 수 있다", asyn
   assert.ok((html.match(/href="\/blog"/g) ?? []).length >= 2);
 });
 
+test("블로그 전체 페이지에 초록색 위로 가기 버튼과 스크롤 기능을 제공한다", async () => {
+  const layout = await readFile(new URL("app/blog/layout.tsx", projectRoot), "utf8");
+  const button = await readFile(new URL("components/blog-scroll-to-top.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
+
+  assert.match(layout, /<BlogScrollToTop \/>/);
+  assert.match(button, /window\.scrollY >= SHOW_AFTER_PX/);
+  assert.match(button, /window\.scrollTo\(\{ top: 0, behavior:/);
+  assert.match(button, /prefers-reduced-motion: reduce/);
+  assert.match(button, /aria-label="페이지 맨 위로 이동"/);
+  assert.match(styles, /\.blog-scroll-top \{[^}]*position: fixed;[^}]*border-radius: 50%;[^}]*background: #238e4d;/);
+  assert.match(styles, /\.blog-scroll-top\.is-visible \{[^}]*opacity: 1;[^}]*pointer-events: auto;/);
+});
+
 test("블로그는 세 개의 원본 글과 검색·카테고리 탐색을 제공한다", async () => {
   const response = await render("/blog");
   const html = await response.text();
