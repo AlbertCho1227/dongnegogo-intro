@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { dominantProgram, programIconName } from "../lib/web-icon-mapper.ts";
 import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
+
+const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
+const webMapStyle = readFileSync(new URL("../app/web/web-map.css", import.meta.url), "utf8");
 
 function program(overrides = {}) {
   return {
@@ -51,4 +55,22 @@ test("iOS 마커 우선순위와 동일 좌표 대표 아이콘을 재현한다"
     program({ id: "swim-a", name: "성인 수영", status: "접수중" }),
   ], (item) => item.status === "접수중" ? 0 : 1);
   assert.equal(representative.id, "swim-a");
+});
+
+test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
+  for (const copy of [
+    "같은 장소 프로그램",
+    "누구를 위한 프로그램인가요?",
+    "세부 종목 선택",
+    "선택한 조건으로",
+    "무더위쉼터",
+    "목적지 주변 가게 보기",
+    "오픈런 알림",
+    "최근 7일 동안 열어본 프로그램이에요",
+  ]) assert.ok(webMapSource.includes(copy), `${copy} UI가 빠졌습니다.`);
+  assert.match(webMapSource, /aria-label="이전 달"/);
+  assert.match(webMapSource, /aria-label="다음 달"/);
+  assert.match(webMapSource, /\[100, 300, 500, 1000\]/);
+  assert.match(webMapStyle, /\.dg-calendar-grid/);
+  assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });

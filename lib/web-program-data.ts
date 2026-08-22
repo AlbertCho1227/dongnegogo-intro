@@ -59,6 +59,54 @@ export type WebMapViewportResult = {
   revision: string;
 };
 
+export type WebHeatShelter = {
+  id: string;
+  name: string;
+  facilityType: string | null;
+  facilitySubtype: string | null;
+  address: string | null;
+  roadAddress: string | null;
+  detailPosition: string | null;
+  capacity: number | null;
+  fanCount: number | null;
+  airconCount: number | null;
+  isNightOpen: boolean | null;
+  isWeekendHolidayOpen: boolean | null;
+  isStayAvailable: boolean | null;
+  weekdayOpenTime: string | null;
+  weekdayCloseTime: string | null;
+  weekendHolidayOpenTime: string | null;
+  weekendHolidayCloseTime: string | null;
+  notes: string | null;
+  longitude: number;
+  latitude: number;
+  sourceUrl: string | null;
+};
+
+export type WebNearbyPlace = {
+  id: number;
+  name: string;
+  branchName: string | null;
+  placeType: "restaurant" | "cafe" | "fast_food" | "convenience_store" | "other_food";
+  categoryLargeName: string | null;
+  categoryMediumName: string | null;
+  categorySmallName: string | null;
+  phone: string | null;
+  address: string | null;
+  longitude: number;
+  latitude: number;
+  distanceMeters: number;
+  businessStatusName: string | null;
+};
+
+export type WebNearbyPlacesSummary = {
+  places: WebNearbyPlace[];
+  mapPlaces: WebNearbyPlace[];
+  totalCount: number;
+  categoryCounts: Record<string, number>;
+  isComplete: boolean;
+};
+
 type ProgramRow = Record<string, unknown>;
 
 type ProgramQuery = {
@@ -217,6 +265,117 @@ async function rpc(functionName: string, body: Record<string, unknown>): Promise
   });
   if (!response.ok) throw new Error(`공개 프로그램을 불러오지 못했습니다. (${response.status})`);
   return response.json();
+}
+
+function nullableBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function normalizeHeatShelter(value: unknown): WebHeatShelter | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const id = textValue(row.id);
+  const name = textValue(row.name);
+  const latitude = numberValue(row.latitude);
+  const longitude = numberValue(row.longitude);
+  if (!id || !name || latitude === null || longitude === null) return null;
+  return {
+    id,
+    name,
+    facilityType: textValue(row.facility_type),
+    facilitySubtype: textValue(row.facility_subtype),
+    address: textValue(row.address),
+    roadAddress: textValue(row.road_address),
+    detailPosition: textValue(row.detail_position),
+    capacity: numberValue(row.capacity),
+    fanCount: numberValue(row.fan_count),
+    airconCount: numberValue(row.aircon_count),
+    isNightOpen: nullableBoolean(row.is_night_open),
+    isWeekendHolidayOpen: nullableBoolean(row.is_weekend_holiday_open),
+    isStayAvailable: nullableBoolean(row.is_stay_available),
+    weekdayOpenTime: textValue(row.weekday_open_time),
+    weekdayCloseTime: textValue(row.weekday_close_time),
+    weekendHolidayOpenTime: textValue(row.weekend_holiday_open_time),
+    weekendHolidayCloseTime: textValue(row.weekend_holiday_close_time),
+    notes: textValue(row.notes),
+    longitude,
+    latitude,
+    sourceUrl: safePublicUrl(row.source_url),
+  };
+}
+
+function nearbyPlaceType(value: unknown): WebNearbyPlace["placeType"] | null {
+  return value === "restaurant" || value === "cafe" || value === "fast_food"
+    || value === "convenience_store" || value === "other_food" ? value : null;
+}
+
+function normalizeNearbyPlace(value: unknown): WebNearbyPlace | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const id = numberValue(row.id);
+  const name = textValue(row.name);
+  const placeType = nearbyPlaceType(row.place_type);
+  const latitude = numberValue(row.latitude);
+  const longitude = numberValue(row.longitude);
+  if (id === null || !name || !placeType || latitude === null || longitude === null) return null;
+  return {
+    id: Math.round(id),
+    name,
+    branchName: textValue(row.branch_name),
+    placeType,
+    categoryLargeName: textValue(row.category_large_name),
+    categoryMediumName: textValue(row.category_medium_name),
+    categorySmallName: textValue(row.category_small_name),
+    phone: textValue(row.phone),
+    address: textValue(row.road_address) ?? textValue(row.lot_address),
+    longitude,
+    latitude,
+    distanceMeters: Math.max(0, Math.round(numberValue(row.distance_m) ?? 0)),
+    businessStatusName: textValue(row.business_status_name),
+  };
+}
+
+export async function fetchWebHeatShelters(input: {
+  south: number; west: number; north: number; east: number; centerLatitude: number; centerLongitude: number; limit?: number;
+}): Promise<WebHeatShelter[]> {
+  const rows = await rpc("get_heat_shelters_in_bounds", {
+    p_south: Math.min(input.south, input.north),
+    p_west: Math.min(input.west, input.east),
+    p_north: Math.max(input.south, input.north),
+    p_east: Math.max(input.west, input.east),
+    p_center_lat: input.centerLatitude,
+    p_center_lon: input.centerLongitude,
+    p_limit: Math.max(1, Math.min(1_200, input.limit ?? 600)),
+  });
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  return rows.map(normalizeHeatShelter).filter((item): item is WebHeatShelter => Boolean(item) && !seen.has(item!.id) && Boolean(seen.add(item!.id)));
+}
+
+export async function fetchWebNearbyPlaces(input: {
+  latitude: number; longitude: number; radiusMeters: number; limit?: number;
+}): Promise<WebNearbyPlacesSummary> {
+  const payload = await rpc("nearby_places_summary_v2", {
+    p_latitude: input.latitude,
+    p_longitude: input.longitude,
+    p_radius_m: Math.max(100, Math.min(1_000, Math.round(input.radiusMeters))),
+    p_place_types: ["restaurant", "cafe", "fast_food", "convenience_store", "other_food"],
+    p_limit: Math.max(1, Math.min(400, input.limit ?? 300)),
+  });
+  const row = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const places = Array.isArray(row.places) ? row.places.map(normalizeNearbyPlace).filter((item): item is WebNearbyPlace => Boolean(item)) : [];
+  const mapPlaces = Array.isArray(row.map_places) ? row.map_places.map(normalizeNearbyPlace).filter((item): item is WebNearbyPlace => Boolean(item)) : places;
+  const rawCounts = row.category_counts && typeof row.category_counts === "object" ? row.category_counts as Record<string, unknown> : {};
+  return {
+    places,
+    mapPlaces,
+    totalCount: Math.max(0, Math.round(numberValue(row.total_count) ?? places.length)),
+    categoryCounts: Object.fromEntries(Object.entries(rawCounts).flatMap(([key, value]) => {
+      const count = numberValue(value);
+      return count === null ? [] : [[key, Math.max(0, Math.round(count))]];
+    })),
+    isComplete: row.is_complete === true,
+  };
 }
 
 function compactProgram(value: unknown): WebProgram | null {
