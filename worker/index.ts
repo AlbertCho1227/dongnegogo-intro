@@ -19,13 +19,36 @@ interface ExecutionContext {
   passThroughOnException(): void;
 }
 
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "form-action 'self'",
+  "script-src 'self' 'unsafe-inline' https://dapi.kakao.com https://*.daumcdn.net https://*.kakao.com https://*.kakaocdn.net",
+  "script-src-attr 'none'",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.daumcdn.net",
+  "font-src 'self' data: https://cdn.jsdelivr.net https://*.daumcdn.net",
+  "img-src 'self' data: blob: https:",
+  "media-src 'self' https:",
+  "connect-src 'self' https://*.supabase.co https://dapi.kakao.com https://*.daum.net https://*.daumcdn.net https://*.kakao.com https://*.kakaocdn.net",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 function withSecurityHeaders(request: Request, response: Response) {
   const headers = new Headers(response.headers);
-  headers.set("Content-Security-Policy", "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests");
-  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self), payment=(), usb=()");
+  headers.set("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  headers.set("Permissions-Policy", "browsing-topics=(), camera=(), geolocation=(self), microphone=(self), payment=(), usb=()");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  headers.set("Origin-Agent-Cluster", "?1");
+  headers.set("X-DNS-Prefetch-Control", "off");
+  headers.set("X-Permitted-Cross-Domain-Policies", "none");
   if (new URL(request.url).protocol === "https:") {
     headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }

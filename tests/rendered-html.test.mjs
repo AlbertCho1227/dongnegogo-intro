@@ -21,14 +21,39 @@ async function collectTextArtifacts(directory) {
   return texts;
 }
 
-async function render(pathname = "/") {
+async function render(pathname = "/", origin = "http://localhost") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(new Request(`http://localhost${pathname}`, { headers: { accept: "text/html" } }), {
+  return worker.fetch(new Request(`${origin}${pathname}`, { headers: { accept: "text/html" } }), {
     ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
   }, { waitUntil() {}, passThroughOnException() {} });
 }
+
+test("운영 응답에 브라우저 보안 경계를 강제한다", async () => {
+  const response = await render("/", "https://www.dongnegogo.com");
+  const csp = response.headers.get("content-security-policy") ?? "";
+
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /object-src 'none'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /script-src-attr 'none'/);
+  assert.match(csp, /https:\/\/dapi\.kakao\.com/);
+  assert.equal(response.headers.get("strict-transport-security"), "max-age=31536000; includeSubDomains");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
+  assert.equal(response.headers.get("cross-origin-opener-policy"), "same-origin-allow-popups");
+  assert.equal(response.headers.get("origin-agent-cluster"), "?1");
+  assert.equal(response.headers.get("x-permitted-cross-domain-policies"), "none");
+  assert.match(response.headers.get("permissions-policy") ?? "", /camera=\(\)/);
+  assert.match(response.headers.get("permissions-policy") ?? "", /geolocation=\(self\)/);
+  assert.match(response.headers.get("permissions-policy") ?? "", /microphone=\(self\)/);
+});
+
+test("평문 개발 응답에는 HSTS를 잘못 부착하지 않는다", async () => {
+  const response = await render();
+  assert.equal(response.headers.get("strict-transport-security"), null);
+});
 
 test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () => {
   const response = await render();
