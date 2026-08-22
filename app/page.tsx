@@ -19,6 +19,9 @@ const HEADER_ACTIONS_WITH_WEB = `    <div data-r="header-actions" style="display
 	      <a data-r="web-version-link" href="/web" style="height:44px;padding:0 18px;border-radius:13px;display:flex;align-items:center;justify-content:center;white-space:nowrap;background:linear-gradient(135deg,#86CE45 0%,#2FB457 100%);color:#FFFFFF;font-size:14px;font-weight:850;box-shadow:0 5px 14px rgba(47,180,87,0.22)">웹 버전</a>
 
 `;
+const APP_STORE_BUTTON_END = '        <span style="font-size:13.5px;font-weight:800;color:#FFFFFF">App Store</span>\n      </div>';
+const APP_STORE_BUTTON_WITH_RELEASE_NOTE = `${APP_STORE_BUTTON_END}
+      <p data-r="app-release-note">애플 &amp; 안드로이드 앱이 곧 출시될 예정이에요</p>`;
 const SHOW_LOCAL_WEB_VERSION_LINK = process.env.NODE_ENV === "development";
 const HERO_BADGE_OPEN = '    <div style="display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #DDF0C9;border-radius:999px;padding:9px 18px;font-size:15px;font-weight:700;color:#2FA84F;box-shadow:0 2px 8px rgba(58,178,79,0.1)">';
 const HERO_BADGE_COPY = '      공공데이터 기반 · AI 쉬운 설명 · 신청 링크 확인됨';
@@ -142,6 +145,7 @@ const originalPageMarkup = (() => {
     [PRIMARY_NAV_OPEN, PRIMARY_NAV_OPEN.replace("<div", '<div data-r="primary-nav"')],
     [PRIMARY_NAV_MAP_LINK, PRIMARY_NAV_MAP_LINK_WITH_BLOG],
     [HEADER_ACTIONS_OPEN, SHOW_LOCAL_WEB_VERSION_LINK ? HEADER_ACTIONS_WITH_WEB : HEADER_ACTIONS_WITHOUT_WEB],
+    [APP_STORE_BUTTON_END, APP_STORE_BUTTON_WITH_RELEASE_NOTE],
     [HERO_BADGE_OPEN, HERO_BADGE_OPEN.replace("<div", '<div data-r="hero-badge"')],
     [HERO_BADGE_COPY, HERO_BADGE_COPY_RESPONSIVE],
     [HERO_TITLE, HERO_TITLE_RESPONSIVE],

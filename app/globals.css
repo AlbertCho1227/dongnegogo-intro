@@ -61,6 +61,31 @@ body { margin: 0; }
   color: #166f3a !important;
 }
 
+[data-r="header-actions"] {
+  width: max-content;
+  padding: 12px 14px 10px;
+  border: 2px solid #2fa84f;
+  border-radius: 20px;
+  display: grid !important;
+  grid-template-columns: repeat(2, max-content);
+  align-items: center;
+  justify-content: center;
+  gap: 9px 12px !important;
+  background: #fff;
+  box-shadow: 0 7px 20px rgba(47,168,79,.12);
+}
+[data-r="app-release-note"] {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #238e4d;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+  text-align: center;
+  white-space: nowrap;
+}
+[data-r="web-version-link"] { grid-column: 1 / -1; }
+
 [data-r="four-step-heading"] {
   display: flex;
   align-items: center;
@@ -259,9 +284,9 @@ body { margin: 0; }
 
 @media (max-width: 767px) {
   [data-r="header-actions"] {
-    width: 100%;
+    width: min(100%, 360px);
+    margin: 0 auto;
     justify-content: center;
-    flex-wrap: wrap;
   }
   [data-r="web-version-link"] { order: -1; }
   [data-r="to-top"] {

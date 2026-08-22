@@ -135,6 +135,9 @@ test("휴대폰 반응형 보정과 두 장 화면 넘기기를 제공한다", a
   assert.match(html, /data-r="openrun-timing"/);
   assert.match(html, /data-r="family-actions"/);
   assert.match(html, /data-r="closing-cta-copy"/);
+  assert.match(html, /data-r="app-release-note">애플 &amp; 안드로이드 앱이 곧 출시될 예정이에요<\/p>/);
+  assert.match(css, /\[data-r="header-actions"\] \{[\s\S]*?border: 2px solid #2fa84f;[\s\S]*?border-radius: 20px;[\s\S]*?display: grid !important;/);
+  assert.match(css, /\[data-r="app-release-note"\] \{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?text-align: center;/);
   assert.match(css, /@media \(max-width:\s*1023px\)[\s\S]*?\[data-r="hero-mascot"\]\s*\{\s*margin-top:\s*88px;\s*\}/);
   assert.match(css, /\[data-r="primary-nav"\][\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /\[data-r="hero-badge"\][\s\S]*?grid-template-areas:[\s\S]*?"star primary"[\s\S]*?"secondary secondary"/);
