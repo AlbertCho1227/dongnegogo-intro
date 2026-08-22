@@ -255,6 +255,11 @@ export async function getBlogProgramSearchPage(searchTerm: string, limit = 16) {
   return cachedPage(0, limit, "", searchTerm);
 }
 
+export async function getLatestBlogPrograms(limit = 3) {
+  const safeLimit = Math.max(1, Math.min(3, Math.trunc(limit)));
+  return cachedArchiveRows(0, safeLimit, "전체", "");
+}
+
 export async function getBlogProgramArchivePage(input: { page?: number; category?: string; searchTerm?: string; pageSize?: number } = {}) {
   const category = BLOG_ARCHIVE_CATEGORIES.includes(input.category as BlogArchiveCategory) ? input.category as BlogArchiveCategory : "전체";
   const page = Number.isInteger(input.page) && Number(input.page) > 0 ? Math.min(Number(input.page), 2_000) : 1;

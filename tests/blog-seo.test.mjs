@@ -38,19 +38,35 @@ test("블로그 전체 페이지에 초록색 위로 가기 버튼과 스크롤 
   assert.match(styles, /\.blog-scroll-top\.is-visible \{[^}]*opacity: 1;[^}]*pointer-events: auto;/);
 });
 
-test("블로그는 세 개의 원본 글과 검색·카테고리 탐색을 제공한다", async () => {
+test("블로그는 편집 추천과 전국 프로그램 검색·카테고리 탐색을 제공한다", async () => {
   const response = await render("/blog");
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(html, /오늘의 동네를/);
-  assert.match(html, /지금 읽기 좋은 동네 이야기/);
-  assert.match(html, /블로그 검색/);
+  assert.match(html, /가장 최근 업데이트된 이야기/);
+  assert.match(html, /프로그램 글 검색/);
   assert.match(html, /인천 부평 무료 어린이 AI 코딩 강좌/);
-  assert.match(html, /청주 무료 그림책 전시/);
-  assert.match(html, /충무스포츠센터 접수 전 확인할 6가지/);
   assert.match(html, /복사하지 않고,[\s\S]*확인하고 씁니다/);
   assert.match(html, /"@type":"Blog"/);
   assert.match(html, /"@type":"BreadcrumbList"/);
+});
+
+test("상단 최신 이야기에는 Supabase 업데이트 순서의 3개만 표시하고 중복 필터 영역은 두지 않는다", {
+  skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
+}, async () => {
+  const response = await render("/blog");
+  const html = await response.text();
+  const plainHtml = html.replace(/<!--[\s\S]*?-->/g, "");
+  const explorer = await readFile(new URL("components/blog-explorer.tsx", projectRoot), "utf8");
+  const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
+
+  assert.equal(response.status, 200);
+  assert.equal((html.match(/class="blog-card blog-accent--/g) ?? []).length, 3);
+  assert.match(plainHtml, /가장 최근 업데이트된 3개의 이야기예요/);
+  assert.doesNotMatch(explorer, /className="blog-tools"|카테고리 필터|블로그 검색/);
+  assert.match(data, /getLatestBlogPrograms/);
+  assert.match(data, /cachedArchiveRows\(0, safeLimit, "전체", ""\)/);
+  assert.match(data, /order: "updated_at\.desc\.nullslast,id\.asc"/);
 });
 
 test("각 글은 고유 메타데이터·출처·구조화 데이터·내부 링크를 갖는다", async () => {

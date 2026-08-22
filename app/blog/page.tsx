@@ -4,7 +4,7 @@ import { BlogExplorer } from "@/components/blog-explorer";
 import { BlogHeader } from "@/components/blog-header";
 import { ProgramStoryExplorer } from "@/components/program-story-explorer";
 import { BLOG_POSTS, blogPostUrl } from "@/lib/blog-posts";
-import { getBlogProgramArchivePage } from "@/lib/blog-program-data";
+import { getBlogProgramArchivePage, getLatestBlogPrograms } from "@/lib/blog-program-data";
 
 type BlogPageProps = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -16,11 +16,14 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   const featured = BLOG_POSTS[0];
   const queryParams = await searchParams;
   const requestedPage = Number.parseInt(first(queryParams.page), 10);
-  const archive = await getBlogProgramArchivePage({
-    page: Number.isFinite(requestedPage) ? requestedPage : 1,
-    category: first(queryParams.category),
-    searchTerm: first(queryParams.q),
-  }).catch(() => ({ programs: [], total: 0, page: 1, pageSize: 48, category: "전체" as const, searchTerm: "" }));
+  const [latestPrograms, archive] = await Promise.all([
+    getLatestBlogPrograms(3).catch(() => []),
+    getBlogProgramArchivePage({
+      page: Number.isFinite(requestedPage) ? requestedPage : 1,
+      category: first(queryParams.category),
+      searchTerm: first(queryParams.q),
+    }).catch(() => ({ programs: [], total: 0, page: 1, pageSize: 48, category: "전체" as const, searchTerm: "" })),
+  ]);
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -32,7 +35,15 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
         description: "가까운 교육·문화·체육 프로그램을 이해하기 쉽게 소개하는 동네고고 공식 블로그",
         inLanguage: "ko-KR",
         publisher: { "@type": "Organization", name: "동네고고", url: "https://www.dongnegogo.com" },
-        blogPost: BLOG_POSTS.map((post) => ({ "@type": "BlogPosting", headline: post.title, url: blogPostUrl(post) })),
+        blogPost: [
+          ...latestPrograms.map((program) => ({
+            "@type": "BlogPosting",
+            headline: program.name,
+            url: `https://www.dongnegogo.com/blog/program/${encodeURIComponent(program.id)}`,
+            dateModified: program.updatedAt || undefined,
+          })),
+          ...BLOG_POSTS.map((post) => ({ "@type": "BlogPosting", headline: post.title, url: blogPostUrl(post) })),
+        ],
       },
       {
         "@type": "BreadcrumbList",
@@ -75,7 +86,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
           </Link>
         </section>
 
-        <BlogExplorer posts={BLOG_POSTS} />
+        <BlogExplorer programs={latestPrograms} />
 
         <ProgramStoryExplorer {...archive} />
 
