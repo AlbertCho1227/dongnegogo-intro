@@ -123,6 +123,14 @@ test("프로그램 대표 사진은 중앙 오버레이 없이 작은 카테고�
   assert.match(styles, /\.blog-program-hero-media > img\.is-media-fallback:not\(\.blog-marker-badge\) \{ opacity: 0; \}/);
 });
 
+test("시설 사진이 한 장이면 제목과 같은 본문 기준선에 맞춘다", async () => {
+  const article = await readFile(new URL("app/blog/program/[id]/page.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
+
+  assert.match(article, /images\.length === 2 \? " blog-media-grid--single"/);
+  assert.match(styles, /\.blog-media-grid--single \{ width: 100%; max-width: 760px; margin-inline: auto; grid-template-columns: minmax\(0, 1fr\); \}/);
+});
+
 test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이지·카테고리 검색으로 탐색한다", async () => {
   const page = await readFile(new URL("app/blog/page.tsx", projectRoot), "utf8");
   const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
