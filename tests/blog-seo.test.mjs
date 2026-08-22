@@ -156,6 +156,7 @@ test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이
   const page = await readFile(new URL("app/blog/page.tsx", projectRoot), "utf8");
   const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
   const explorer = await readFile(new URL("components/program-story-explorer.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
 
   assert.doesNotMatch(page, /slice\(0, 120\)|getBlogProgramCategoryPage\("교육", 44\)/);
   assert.match(page, /getBlogProgramArchivePage/);
@@ -164,6 +165,10 @@ test("전국 프로그램 글은 120개 고정 목록이 아니라 서버 페이
   assert.match(data, /"취미·체험": \{ categories: \["교육", "문화", "문화행사"\]/);
   assert.match(data, /params\.append\("name", "not\.ilike\.\*주차장\*"\)/);
   assert.match(explorer, /className="blog-pagination"/);
+  assert.match(explorer, /blog-pagination__edge-slot blog-pagination__edge-slot--previous/);
+  assert.match(explorer, /blog-pagination__edge-slot blog-pagination__edge-slot--next/);
+  assert.match(styles, /\.blog-pagination__edge-slot--previous \{ justify-self: start; \}/);
+  assert.match(styles, /\.blog-pagination__edge-slot--next \{ justify-self: end; \}/);
   assert.match(explorer, /전체 \{total\.toLocaleString\("ko-KR"\)\}개 중/);
 });
 

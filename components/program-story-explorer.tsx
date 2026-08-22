@@ -60,9 +60,9 @@ export function ProgramStoryExplorer({ programs, total, page, pageSize, category
       })}</div>
       {!programs.length && <div className="blog-empty"><strong>일치하는 프로그램 글이 없어요.</strong><p>검색어를 줄이거나 다른 카테고리를 선택해 보세요.</p></div>}
       {totalPages > 1 && <nav className="blog-pagination" aria-label="프로그램 글 페이지">
-        {page > 1 && <Link className="blog-pagination__edge" href={archiveHref(page - 1, category, searchTerm)}>← 이전</Link>}
+        <span className="blog-pagination__edge-slot blog-pagination__edge-slot--previous">{page > 1 && <Link className="blog-pagination__edge" href={archiveHref(page - 1, category, searchTerm)}>← 이전</Link>}</span>
         <div>{pages.map((item, index) => <span key={item}>{index > 0 && item - pages[index - 1] > 1 && <i aria-hidden="true">…</i>}<Link className={item === page ? "is-active" : undefined} aria-current={item === page ? "page" : undefined} href={archiveHref(item, category, searchTerm)}>{item.toLocaleString("ko-KR")}</Link></span>)}</div>
-        {page < totalPages && <Link className="blog-pagination__edge" href={archiveHref(page + 1, category, searchTerm)}>다음 →</Link>}
+        <span className="blog-pagination__edge-slot blog-pagination__edge-slot--next">{page < totalPages && <Link className="blog-pagination__edge" href={archiveHref(page + 1, category, searchTerm)}>다음 →</Link>}</span>
       </nav>}
     </section>
   );
