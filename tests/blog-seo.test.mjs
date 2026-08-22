@@ -65,7 +65,7 @@ test("상단 최신 이야기에는 Supabase 업데이트 순서의 3개만 표�
   assert.match(plainHtml, /가장 최근 업데이트된 3개의 이야기예요/);
   assert.doesNotMatch(explorer, /className="blog-tools"|카테고리 필터|블로그 검색/);
   assert.match(data, /getLatestBlogPrograms/);
-  assert.match(data, /cachedArchiveRows\(0, safeLimit, "전체", ""\)/);
+  assert.match(data, /cachedArchiveRows\(0, safeLimit, "전체", "", "전체"\)/);
   assert.match(data, /order: "updated_at\.desc\.nullslast,id\.asc"/);
 });
 
@@ -204,6 +204,30 @@ test("페이지 번호와 이전·다음은 인접 결과를 미리 준비하고
   assert.match(pagination, /requestIdleCallback/);
   assert.match(pagination, /aria-busy=\{Boolean\(pendingHref\)\}/);
   assert.match(styles, /\.blog-pagination a\.is-loading/);
+});
+
+test("도시 선택 목록은 공식 17개 광역 시·도를 제공하고 모든 탐색 조건에 적용된다", {
+  skip: !process.env.DONGNEGOGO_SUPABASE_URL || !process.env.DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY,
+}, async () => {
+  const city = encodeURIComponent("서울특별시");
+  const response = await render(`/blog?city=${city}`);
+  const html = await response.text();
+  const regions = await readFile(new URL("lib/blog-archive-regions.ts", projectRoot), "utf8");
+  const data = await readFile(new URL("lib/blog-program-data.ts", projectRoot), "utf8");
+  const filters = await readFile(new URL("components/blog-archive-filters.tsx", projectRoot), "utf8");
+  const pagination = await readFile(new URL("components/blog-pagination.tsx", projectRoot), "utf8");
+
+  assert.equal(response.status, 200);
+  assert.match(html, /도시 선택 :/);
+  assert.match(html, /<option value="서울특별시" selected="">서울특별시<\/option>/);
+  assert.equal((regions.match(/^  "[^\n]+",$/gm) ?? []).length, 18);
+  assert.match(regions, /"강원특별자치도": \["강원특별자치도", "강원도"\]/);
+  assert.match(regions, /"전북특별자치도": \["전북특별자치도", "전라북도"\]/);
+  assert.match(filters, /onChange=\{\(\) => formRef\.current\?\.requestSubmit\(\)\}/);
+  assert.match(data, /params\.set\("region", `eq\.\$\{regions\[0\]\}`\)/);
+  assert.match(data, /indexParams\.set\("area_document", `ilike\.\*\$\{city\}\*`\)/);
+  assert.match(pagination, /params\.set\("city", city\)/);
+  assert.match(html, /href="\/blog\?city=%EC%84%9C%EC%9A%B8%ED%8A%B9%EB%B3%84%EC%8B%9C&amp;page=2#program-archive-title"/);
 });
 
 test("교육·강좌와 취미·체험 보관함은 Supabase 전체 결과를 서버에서 나눠 보여준다", {

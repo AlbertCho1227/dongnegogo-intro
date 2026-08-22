@@ -2,6 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
+import { BLOG_ARCHIVE_CITIES, blogArchiveRegionValues, type BlogArchiveCity } from "@/lib/blog-archive-regions";
 import { BLOG_PROGRAM_CATEGORIES, isParkingProgram } from "@/lib/blog-program";
 
 const REQUEST_TIMEOUT_MS = 6_000;
@@ -111,7 +112,7 @@ function tsQueryTerms(values: readonly string[]): string {
     .join(" | ");
 }
 
-function indexedArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string) {
+function indexedArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string, city: BlogArchiveCity) {
   const indexEndpoint = new URL("/rest/v1/program_search_documents_v3", projectUrl);
   const indexParams = new URLSearchParams({
     select: "program_id,source_updated_at",
@@ -125,11 +126,12 @@ function indexedArchiveEndpoint(projectUrl: URL, offset: number, limit: number, 
   else if (categoryQuery) indexParams.set("subject_fts", `fts(simple).(${categoryQuery})`);
   const searchQuery = tsQueryTerms([searchTerm]);
   if (searchQuery) indexParams.set("general_fts", `fts(simple).(${searchQuery})`);
+  if (city !== "전체") indexParams.set("area_document", `ilike.*${city}*`);
   indexEndpoint.search = indexParams.toString();
   return indexEndpoint;
 }
 
-function standardArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[] }) {
+function standardArchiveEndpoint(projectUrl: URL, offset: number, limit: number, filter: { categories: readonly string[] }, city: BlogArchiveCity) {
   const endpoint = new URL("/rest/v1/programs", projectUrl);
   const params = new URLSearchParams({
     select: ARCHIVE_SELECT,
@@ -142,12 +144,15 @@ function standardArchiveEndpoint(projectUrl: URL, offset: number, limit: number,
   // 시설·분야에만 주차 표기가 남은 드문 행은 응답 정규화 뒤 한 번 더 제외합니다.
   params.append("name", "not.ilike.*주차장*");
   params.append("name", "not.ilike.*parking*");
+  const regions = blogArchiveRegionValues(city);
+  if (regions.length === 1) params.set("region", `eq.${regions[0]}`);
+  else if (regions.length > 1) params.set("region", `in.(${regions.join(",")})`);
   endpoint.search = params.toString();
   return endpoint;
 }
 
-async function fetchIndexedArchiveRows(projectUrl: URL, publishableKey: string, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string) {
-  const indexEndpoint = indexedArchiveEndpoint(projectUrl, offset, limit, filter, searchTerm);
+async function fetchIndexedArchiveRows(projectUrl: URL, publishableKey: string, offset: number, limit: number, filter: { categories: readonly string[]; terms?: readonly string[] }, searchTerm: string, city: BlogArchiveCity) {
+  const indexEndpoint = indexedArchiveEndpoint(projectUrl, offset, limit, filter, searchTerm, city);
   const indexResponse = await fetch(indexEndpoint, {
     headers: { accept: "application/json", apikey: publishableKey },
     cache: "no-store",
@@ -203,12 +208,12 @@ async function fetchPageUncached(offset: number, requestedLimit: number, categor
 
 const cachedPage = unstable_cache(fetchPageUncached, ["dongnegogo", "blog-program-index-v1"], { revalidate: 900 });
 
-async function fetchArchiveRowsUncached(offset: number, requestedLimit: number, category: BlogArchiveCategory, searchTerm: string): Promise<BlogProgramSummary[]> {
+async function fetchArchiveRowsUncached(offset: number, requestedLimit: number, category: BlogArchiveCategory, searchTerm: string, city: BlogArchiveCity): Promise<BlogProgramSummary[]> {
   const { projectUrl, publishableKey } = await bindings();
   const limit = Math.max(1, Math.min(MAX_PAGE_SIZE, requestedLimit));
   const filter = ARCHIVE_FILTERS[category] ?? ARCHIVE_FILTERS["전체"];
-  if (filter.terms?.length || searchTerm) return fetchIndexedArchiveRows(projectUrl, publishableKey, offset, limit, filter, searchTerm);
-  const endpoint = standardArchiveEndpoint(projectUrl, offset, limit, filter);
+  if (filter.terms?.length || searchTerm) return fetchIndexedArchiveRows(projectUrl, publishableKey, offset, limit, filter, searchTerm, city);
+  const endpoint = standardArchiveEndpoint(projectUrl, offset, limit, filter, city);
   const response = await fetch(endpoint, {
     headers: { accept: "application/json", apikey: publishableKey },
     cache: "no-store",
@@ -221,12 +226,12 @@ async function fetchArchiveRowsUncached(offset: number, requestedLimit: number, 
     : [];
 }
 
-async function fetchArchiveTotalUncached(category: BlogArchiveCategory, searchTerm: string): Promise<number> {
+async function fetchArchiveTotalUncached(category: BlogArchiveCategory, searchTerm: string, city: BlogArchiveCity): Promise<number> {
   const { projectUrl, publishableKey } = await bindings();
   const filter = ARCHIVE_FILTERS[category] ?? ARCHIVE_FILTERS["전체"];
   const endpoint = filter.terms?.length || searchTerm
-    ? indexedArchiveEndpoint(projectUrl, 0, 1, filter, searchTerm)
-    : standardArchiveEndpoint(projectUrl, 0, 1, filter);
+    ? indexedArchiveEndpoint(projectUrl, 0, 1, filter, searchTerm, city)
+    : standardArchiveEndpoint(projectUrl, 0, 1, filter, city);
   endpoint.searchParams.set("select", filter.terms?.length || searchTerm ? "program_id" : "id");
   endpoint.searchParams.delete("order");
   const response = await fetch(endpoint, {
@@ -240,8 +245,8 @@ async function fetchArchiveTotalUncached(category: BlogArchiveCategory, searchTe
   return Number.isFinite(total) ? total : 0;
 }
 
-const cachedArchiveRows = unstable_cache(fetchArchiveRowsUncached, ["dongnegogo", "blog-program-archive-rows-v3"], { revalidate: 900 });
-const cachedArchiveTotal = unstable_cache(fetchArchiveTotalUncached, ["dongnegogo", "blog-program-archive-total-v3"], { revalidate: 900 });
+const cachedArchiveRows = unstable_cache(fetchArchiveRowsUncached, ["dongnegogo", "blog-program-archive-rows-v4"], { revalidate: 900 });
+const cachedArchiveTotal = unstable_cache(fetchArchiveTotalUncached, ["dongnegogo", "blog-program-archive-total-v4"], { revalidate: 900 });
 
 export async function getBlogProgramPage(offset = 0, limit = 120) {
   return cachedPage(offset, limit, "", "");
@@ -257,19 +262,20 @@ export async function getBlogProgramSearchPage(searchTerm: string, limit = 16) {
 
 export async function getLatestBlogPrograms(limit = 3) {
   const safeLimit = Math.max(1, Math.min(3, Math.trunc(limit)));
-  return cachedArchiveRows(0, safeLimit, "전체", "");
+  return cachedArchiveRows(0, safeLimit, "전체", "", "전체");
 }
 
-export async function getBlogProgramArchivePage(input: { page?: number; category?: string; searchTerm?: string; pageSize?: number } = {}) {
+export async function getBlogProgramArchivePage(input: { page?: number; category?: string; city?: string; searchTerm?: string; pageSize?: number } = {}) {
   const category = BLOG_ARCHIVE_CATEGORIES.includes(input.category as BlogArchiveCategory) ? input.category as BlogArchiveCategory : "전체";
+  const city = BLOG_ARCHIVE_CITIES.includes(input.city as BlogArchiveCity) ? input.city as BlogArchiveCity : "전체";
   const page = Number.isInteger(input.page) && Number(input.page) > 0 ? Math.min(Number(input.page), 2_000) : 1;
   const pageSize = Math.max(12, Math.min(96, input.pageSize ?? BLOG_ARCHIVE_PAGE_SIZE));
   const searchTerm = safeFilterTerm(input.searchTerm ?? "");
   // 전체 개수는 페이지 번호와 무관하므로 한 번만 캐시하고, 목록과 병렬로 읽습니다.
   // 이전 방식은 페이지를 넘길 때마다 동일한 exact count를 다시 계산했습니다.
   const [programs, total] = await Promise.all([
-    cachedArchiveRows((page - 1) * pageSize, pageSize, category, searchTerm),
-    cachedArchiveTotal(category, searchTerm),
+    cachedArchiveRows((page - 1) * pageSize, pageSize, category, searchTerm, city),
+    cachedArchiveTotal(category, searchTerm, city),
   ]);
-  return { programs, total, page, pageSize, category, searchTerm };
+  return { programs, total, page, pageSize, category, city, searchTerm };
 }

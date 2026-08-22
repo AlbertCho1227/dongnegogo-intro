@@ -21,8 +21,9 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
     getBlogProgramArchivePage({
       page: Number.isFinite(requestedPage) ? requestedPage : 1,
       category: first(queryParams.category),
+      city: first(queryParams.city),
       searchTerm: first(queryParams.q),
-    }).catch(() => ({ programs: [], total: 0, page: 1, pageSize: 48, category: "전체" as const, searchTerm: "" })),
+    }).catch(() => ({ programs: [], total: 0, page: 1, pageSize: 48, category: "전체" as const, city: "전체" as const, searchTerm: "" })),
   ]);
   const jsonLd = {
     "@context": "https://schema.org",

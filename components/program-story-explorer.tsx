@@ -1,26 +1,30 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 
+import { BlogArchiveFilters } from "@/components/blog-archive-filters";
 import { BlogPagination } from "@/components/blog-pagination";
 import { ProgramMediaImage } from "@/components/program-media-image";
 import { blogProgramAccent, blogProgramIcon, blogProgramKind } from "@/lib/blog-program";
 import { BLOG_ARCHIVE_CATEGORIES, type BlogArchiveCategory, type BlogProgramSummary } from "@/lib/blog-program-data";
+import type { BlogArchiveCity } from "@/lib/blog-archive-regions";
 
-function archiveHref(page: number, category: BlogArchiveCategory, query: string): string {
+function archiveHref(page: number, category: BlogArchiveCategory, city: BlogArchiveCity, query: string): string {
   const params = new URLSearchParams();
   if (category !== "전체") params.set("category", category);
+  if (city !== "전체") params.set("city", city);
   if (query) params.set("q", query);
   if (page > 1) params.set("page", String(page));
   const suffix = params.toString();
   return suffix ? `/blog?${suffix}#program-archive-title` : "/blog#program-archive-title";
 }
 
-export function ProgramStoryExplorer({ programs, total, page, pageSize, category, searchTerm }: {
+export function ProgramStoryExplorer({ programs, total, page, pageSize, category, city, searchTerm }: {
   programs: BlogProgramSummary[];
   total: number;
   page: number;
   pageSize: number;
   category: BlogArchiveCategory;
+  city: BlogArchiveCity;
   searchTerm: string;
 }) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -35,8 +39,8 @@ export function ProgramStoryExplorer({ programs, total, page, pageSize, category
       </div>
       <div className="blog-archive-stats"><strong>{total.toLocaleString("ko-KR")}</strong><span>개의 우선 카테고리 후보가 읽기 전용 데이터와 연결되어 있어요. 주차장과 정보가 부족한 항목은 글·검색 사이트맵에서 제외합니다.</span></div>
       <div className="blog-tools">
-        <nav className="blog-chips" aria-label="프로그램 글 카테고리 필터">{BLOG_ARCHIVE_CATEGORIES.map((item) => <Link key={item} className={category === item ? "is-active" : undefined} aria-current={category === item ? "page" : undefined} href={archiveHref(1, item, searchTerm)}>{item}</Link>)}</nav>
-        <form className="blog-search" action="/blog"><span aria-hidden="true">⌕</span><label className="sr-only" htmlFor="blog-program-search">프로그램 글 검색</label><input id="blog-program-search" name="q" type="search" defaultValue={searchTerm} placeholder="지역, 공연, 수영, 강좌 검색" />{category !== "전체" && <input type="hidden" name="category" value={category} />}<button type="submit">검색</button></form>
+        <nav className="blog-chips" aria-label="프로그램 글 카테고리 필터">{BLOG_ARCHIVE_CATEGORIES.map((item) => <Link key={item} className={category === item ? "is-active" : undefined} aria-current={category === item ? "page" : undefined} href={archiveHref(1, item, city, searchTerm)}>{item}</Link>)}</nav>
+        <BlogArchiveFilters category={category} city={city} searchTerm={searchTerm} />
       </div>
       <p className="blog-result-count" aria-live="polite">전체 {total.toLocaleString("ko-KR")}개 중 {start.toLocaleString("ko-KR")}–{end.toLocaleString("ko-KR")}번째 글 · {page.toLocaleString("ko-KR")} / {totalPages.toLocaleString("ko-KR")} 페이지</p>
       <div className="blog-program-grid">{programs.map((program) => {
@@ -55,7 +59,7 @@ export function ProgramStoryExplorer({ programs, total, page, pageSize, category
         </article>;
       })}</div>
       {!programs.length && <div className="blog-empty"><strong>일치하는 프로그램 글이 없어요.</strong><p>검색어를 줄이거나 다른 카테고리를 선택해 보세요.</p></div>}
-      {totalPages > 1 && <BlogPagination page={page} totalPages={totalPages} category={category} searchTerm={searchTerm} />}
+      {totalPages > 1 && <BlogPagination page={page} totalPages={totalPages} category={category} city={city} searchTerm={searchTerm} />}
     </section>
   );
 }
