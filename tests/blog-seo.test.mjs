@@ -74,6 +74,7 @@ test("각 글은 고유 메타데이터·출처·구조화 데이터·내부 링
     "bupyeong-free-kids-ai-coding-class",
     "cheongju-picture-book-garden-exhibition-guide",
     "seoul-junggu-chungmu-swimming-pool-checklist",
+    "seoul-guro-free-parent-growth-class",
   ];
   for (const slug of slugs) {
     const response = await render(`/blog/${slug}`);
@@ -86,7 +87,7 @@ test("각 글은 고유 메타데이터·출처·구조화 데이터·내부 링
     assert.match(html, /정보 출처/);
     assert.match(html, /원문을 복제하지 않았습니다/);
     assert.match(html, /"@type":"BlogPosting"/);
-    assert.match(html, /"datePublished":"2026-08-22T/);
+    assert.match(html, /"datePublished":"2026-08-2[23]T/);
     assert.match(html, new RegExp(`rel="canonical" href="https://www\\.dongnegogo\\.com/blog/${slug}"`));
   }
 });
@@ -96,29 +97,44 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   const rss = await rssResponse.text();
   assert.equal(rssResponse.status, 200);
   assert.match(rssResponse.headers.get("content-type") ?? "", /application\/rss\+xml/);
-  assert.equal((rss.match(/<item>/g) ?? []).length, 3);
+  assert.equal((rss.match(/<item>/g) ?? []).length, 4);
   assert.match(rss, /content:encoded/);
   assert.match(rss, /이 강좌가 첫 코딩에 잘 맞는 이유/);
   assert.match(rss, /그림책 전시는 어떻게 보면 좋을까요/);
   assert.match(rss, /등록 전에 꼭 비교할 여섯 가지/);
+  assert.match(rss, /부모 역할을 ‘리모델링’한다는 뜻/);
 
   const sitemapResponse = await render("/sitemap.xml", "application/xml");
   const sitemap = await sitemapResponse.text();
   assert.equal(sitemapResponse.status, 200);
   assert.match(sitemap, /https:\/\/www\.dongnegogo\.com\/blog<\/loc>/);
-  for (const slug of ["bupyeong-free-kids-ai-coding-class", "cheongju-picture-book-garden-exhibition-guide", "seoul-junggu-chungmu-swimming-pool-checklist"]) {
+  for (const slug of ["bupyeong-free-kids-ai-coding-class", "cheongju-picture-book-garden-exhibition-guide", "seoul-junggu-chungmu-swimming-pool-checklist", "seoul-guro-free-parent-growth-class"]) {
     assert.match(sitemap, new RegExp(`https://www\\.dongnegogo\\.com/blog/${slug}`));
   }
 });
 
-test("검색 공유 이미지는 프로젝트에 포함되고 외부 사진을 쓰지 않는다", async () => {
+test("검색 공유 이미지와 출처가 확인된 공식 프로그램 사진을 구분해 사용한다", async () => {
   const image = await readFile(new URL("public/blog/og.png", projectRoot));
   const data = await readFile(new URL("lib/blog-posts.ts", projectRoot), "utf8");
   assert.ok(image.byteLength > 100_000);
   assert.match(data, /\/markers\/icon_digital\.png/);
   assert.match(data, /\/markers\/icon_exhibition\.png/);
   assert.match(data, /\/markers\/icon_swimming\.png/);
+  assert.match(data, /imageSource: "서울시 문화행사 공공서비스예약 정보"/);
+  assert.match(data, /umppa\.seoul\.go\.kr\/icare\/webcontent\/icare\/upload\/orgideaExprnCtznFile/);
   assert.doesNotMatch(data, /primary_image_url|program-posters|culture\.go\.kr|yeyak\.seoul\.go\.kr\/web\/common\/file/);
+});
+
+test("오늘의 구로 부모교육 편집 글은 실제 이미지 출처와 FAQ·실제 날짜 Event 스키마를 제공한다", async () => {
+  const response = await render("/blog/seoul-guro-free-parent-growth-class");
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /사진 출처:.*서울시 문화행사 공공서비스예약 정보/);
+  assert.match(html, /구로구 무료 부모교육/);
+  assert.match(html, /"@type":"BlogPosting"/);
+  assert.match(html, /"@type":"FAQPage"/);
+  assert.match(html, /"@type":"Event"/);
+  assert.match(html, /"startDate":"2026-09-14T00:00:00\+09:00"/);
 });
 
 test("접근 보호가 있는 서울시·공유누리 링크는 상세 주소를 우회하지 않고 공식 홈 검색으로 안내한다", async () => {

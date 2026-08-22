@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { BlogHeader } from "@/components/blog-header";
+import { ProgramMediaImage } from "@/components/program-media-image";
 import { BLOG_POSTS, blogPostUrl, getBlogPost, koreanDate } from "@/lib/blog-posts";
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -16,6 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const post = getBlogPost(slug);
   if (!post) return { title: "이야기를 찾을 수 없어요 | 동네고고" };
   const url = blogPostUrl(post);
+  const socialImage = post.imageUrl || "https://www.dongnegogo.com/blog/og.png";
   return {
     title: post.seoTitle,
     description: post.description,
@@ -34,9 +36,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       authors: ["동네고고 편집팀"],
       section: post.category,
       tags: post.tags,
-      images: [{ url: "https://www.dongnegogo.com/blog/og.png", width: 1536, height: 1024, alt: post.title }],
+      images: [{ url: socialImage, alt: post.title }],
     },
-    twitter: { card: "summary_large_image", title: post.title, description: post.description, images: ["https://www.dongnegogo.com/blog/og.png"] },
+    twitter: { card: "summary_large_image", title: post.title, description: post.description, images: [socialImage] },
   };
 }
 
@@ -47,6 +49,24 @@ export default async function BlogPostPage({ params }: PageProps) {
   const currentIndex = BLOG_POSTS.findIndex((item) => item.slug === post.slug);
   const nextPost = BLOG_POSTS[(currentIndex + 1) % BLOG_POSTS.length];
   const programPath = `/program/${encodeURIComponent(post.programId)}`;
+  const articleImage = post.imageUrl || "https://www.dongnegogo.com/blog/og.png";
+  const faq = [
+    { q: `${post.programName}은 어디에서 진행되나요?`, a: `${post.eventLocation || post.region}에서 진행됩니다. 정확한 입구와 당일 장소는 공식 안내를 확인하세요.` },
+    { q: "지금 신청할 수 있나요?", a: `동네고고 확인 상태는 ‘${post.programStatus}’입니다. 접수 시작·마감과 잔여석은 공식 안내가 최종 기준입니다.` },
+    { q: "일정이 끝나면 글이 삭제되나요?", a: "아니요. 지난 프로그램도 다음 모집과 지역 활동을 비교할 수 있도록 기록으로 보존합니다." },
+  ];
+  const eventSchema = post.eventStart ? {
+    "@type": "Event",
+    name: post.programName,
+    description: post.description,
+    startDate: post.eventStart,
+    ...(post.eventEnd ? { endDate: post.eventEnd } : {}),
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    location: { "@type": "Place", name: post.eventLocation || post.region, address: post.region },
+    image: [articleImage],
+    organizer: { "@type": "Organization", name: post.sourceName, url: post.officialUrl },
+    offers: { "@type": "Offer", url: post.officialUrl, availability: "https://schema.org/InStock", price: 0, priceCurrency: "KRW" },
+  } : null;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -56,7 +76,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         mainEntityOfPage: blogPostUrl(post),
         headline: post.title,
         description: post.description,
-        image: ["https://www.dongnegogo.com/blog/og.png"],
+        image: [articleImage],
         datePublished: post.publishedAt,
         dateModified: post.modifiedAt,
         inLanguage: "ko-KR",
@@ -72,6 +92,8 @@ export default async function BlogPostPage({ params }: PageProps) {
         isPartOf: { "@id": "https://www.dongnegogo.com/blog#blog" },
         about: { "@type": "Thing", name: post.programName },
       },
+      ...(eventSchema ? [eventSchema] : []),
+      { "@type": "FAQPage", mainEntity: faq.map((item) => ({ "@type": "Question", name: item.q, acceptedAnswer: { "@type": "Answer", text: item.a } })) },
       {
         "@type": "BreadcrumbList",
         itemListElement: [
@@ -102,10 +124,17 @@ export default async function BlogPostPage({ params }: PageProps) {
                 <span>{post.readingMinutes}분 읽기</span>
               </div>
             </div>
-            <div className="blog-article__visual">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.iconPath} alt={post.imageAlt} width="150" height="150" />
-              <span>동네고고 자체 분류 아이콘 · 외부 사진 미사용</span>
+            <div className={`blog-article__visual${post.imageUrl ? " blog-program-hero-media" : ""}`}>
+              {post.imageUrl ? <>
+                <ProgramMediaImage src={post.imageUrl} fallbackSrc={post.iconPath} alt={post.imageAlt} />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="blog-marker-badge" src={post.iconPath} alt="" width="54" height="54" />
+                <span>사진 출처: {post.imageSource || post.sourceName}</span>
+              </> : <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.iconPath} alt={post.imageAlt} width="150" height="150" />
+                <span>동네고고 자체 분류 아이콘 · 외부 사진 미사용</span>
+              </>}
             </div>
           </header>
 
@@ -132,6 +161,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   {section.bullets && <ul>{section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}</ul>}
                 </section>
               ))}
+              <section><h2>자주 묻는 질문</h2><div className="blog-faq">{faq.map((item) => <details key={item.q}><summary>{item.q}</summary><p>{item.a}</p></details>)}</div></section>
             </div>
 
             <aside className="blog-program-cta" aria-labelledby="program-cta-title">
@@ -139,7 +169,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               <h2 id="program-cta-title">{post.programName}</h2>
               <p>동네고고 등록 상태는 <strong>{post.programStatus}</strong>입니다. 잔여석과 당일 운영 정보는 공식 안내에서 최종 확인해 주세요.</p>
               <div className="blog-program-cta__actions">
-                <a href={post.officialUrl} target="_blank" rel="noreferrer">공식 안내 확인 <span aria-hidden="true">↗</span></a>
+                <a href={post.officialUrl} target="_blank" rel="external nofollow noopener noreferrer" referrerPolicy="no-referrer">공식 안내 확인 <span aria-hidden="true">↗</span></a>
                 <Link href={programPath}>동네고고 프로그램 보기</Link>
                 <Link href="/web">지도에서 주변 찾기</Link>
               </div>
@@ -169,4 +199,3 @@ export default async function BlogPostPage({ params }: PageProps) {
     </div>
   );
 }
-

@@ -30,6 +30,13 @@ export type BlogPost = {
   accent: "lime" | "violet" | "blue";
   iconPath: string;
   imageAlt: string;
+  imageUrl?: string;
+  imageSource?: string;
+  imageLicense?: string;
+  imageLicenseUrl?: string;
+  eventStart?: string;
+  eventEnd?: string;
+  eventLocation?: string;
   intro: string[];
   facts: BlogFact[];
   takeaway: string;
@@ -38,6 +45,75 @@ export type BlogPost = {
 };
 
 export const BLOG_POSTS: BlogPost[] = [
+  {
+    slug: "seoul-guro-free-parent-growth-class",
+    title: "서울 구로 무료 부모교육, ‘부모 역할 리모델링’ 신청 전 확인할 것",
+    seoTitle: "서울 구로 무료 부모교육 신청 가이드 | 부모 역할 리모델링 | 동네고고",
+    description: "구로구 우리동네키움센터의 무료 부모교육 ‘부모 역할 리모델링’ 대상, 접수 기간, 일정과 신청 전 확인할 내용을 정리했습니다.",
+    dek: "아이를 바꾸는 기술보다 지금 가족에게 필요한 부모 역할을 다시 살펴보고 싶은 분을 위한 단회 부모교육을 확인해 보세요.",
+    category: "교육",
+    region: "서울 구로구",
+    audience: "성인·보호자",
+    readingMinutes: 4,
+    publishedAt: "2026-08-23T06:58:00+09:00",
+    modifiedAt: "2026-08-23T06:58:00+09:00",
+    sourceCheckedAt: "2026-08-23",
+    programId: "program:reservations:e75e1975f90b4eb9",
+    programName: "함께 성장 클래스: 부모 역할 리모델링",
+    programStatus: "안내중",
+    officialUrl: "https://umppa.seoul.go.kr/icare/user/chilProgrm/orgideaExprnCtzn/BD_selectOrgideaExprnCtzn.do?q_progrmCl=1000&q_placeCode=400&q_progrmSn=3305",
+    sourceName: "서울시 공공서비스예약(종합) 정보",
+    accent: "lime",
+    iconPath: "/markers/icon_digital.png",
+    imageAlt: "함께 성장 클래스 부모 역할 리모델링 공식 프로그램 포스터",
+    imageUrl: "https://umppa.seoul.go.kr/icare/webcontent/icare/upload/orgideaExprnCtznFile/2026/8/21/d15140a0-3094-4326-b63b-0fcd1e279963.jpg",
+    imageSource: "서울시 문화행사 공공서비스예약 정보",
+    eventStart: "2026-09-14T00:00:00+09:00",
+    eventEnd: "2026-09-14T00:00:00+09:00",
+    eventLocation: "거점 4호 우리동네키움센터 4층 미디어실",
+    intro: [
+      "부모교육을 찾을 때는 ‘좋은 부모가 되는 정답’을 알려 주는지보다, 지금 우리 가족의 역할과 관계를 돌아볼 질문을 얻을 수 있는지 살펴보는 편이 좋습니다. 구로구 거점 4호 우리동네키움센터에서 열리는 이번 함께 성장 클래스는 부모 역할을 다시 설계한다는 주제로 진행되는 성인 대상 프로그램입니다.",
+      "동네고고가 2026년 8월 23일 확인한 공개 정보에 따르면 참가비는 무료이며 정원은 15명, 대기자는 5명입니다. 접수는 8월 25일부터 9월 11일까지로 안내되어 있습니다. 단회 교육이므로 신청 전에 정확한 시작 시간과 참여 방식, 보호자만 참석하는 수업인지 여부를 공식 화면에서 다시 확인하세요.",
+    ],
+    facts: [
+      { label: "장소", value: "거점 4호 우리동네키움센터 4층 미디어실" },
+      { label: "프로그램 일정", value: "2026년 9월 14일" },
+      { label: "접수 기간", value: "2026년 8월 25일~9월 11일" },
+      { label: "대상", value: "성인·보호자" },
+      { label: "정원", value: "15명 · 대기 5명" },
+      { label: "비용", value: "무료" },
+    ],
+    takeaway: "무료 단회 부모교육을 찾는 구로구 보호자에게 알맞은 후보입니다. 접수 시작일과 정확한 수업 시간을 공식 안내에서 마지막으로 확인하세요.",
+    sections: [
+      {
+        heading: "부모 역할을 ‘리모델링’한다는 뜻",
+        paragraphs: [
+          "가족의 생활 리듬과 아이의 발달 단계가 달라지면 예전에 잘 맞았던 대화 방식이 더는 통하지 않을 수 있습니다. 이때 필요한 것은 부모 역할을 전부 바꾸는 일이 아니라, 지금 반복되는 갈등에서 어떤 기대와 규칙을 조정할지 구체적으로 살펴보는 과정입니다.",
+          "교육을 들으며 최근 힘들었던 상황 하나를 떠올리고, 그때 부모가 기대한 것과 아이가 이해한 것을 따로 적어 보세요. 막연한 자책보다 실제 장면을 중심으로 질문하면 수업 내용을 집에서도 적용하기 쉬워집니다.",
+        ],
+      },
+      {
+        heading: "신청 전에 확인할 네 가지",
+        paragraphs: [
+          "공개 데이터에는 날짜와 접수 기간이 표시되어 있지만 세부 운영 조건은 바뀔 수 있습니다. 특히 단회 강좌는 시간을 놓치면 대체 회차를 찾기 어려우므로 아래 항목을 먼저 확인하는 것이 안전합니다.",
+        ],
+        bullets: [
+          "정확한 시작·종료 시간과 전체 소요시간",
+          "보호자만 참석하는지, 자녀 동반이 가능한지",
+          "구로구 거주자 또는 센터 이용자 우선 조건이 있는지",
+          "취소 시 대기자에게 자리가 넘어가는 시점과 연락 방식",
+        ],
+      },
+      {
+        heading: "이런 검색 의도라면 잘 맞아요",
+        paragraphs: [
+          "‘구로구 무료 부모교육’, ‘우리동네키움센터 보호자 강좌’, ‘서울 초등 부모 역할 교육’처럼 지역·비용·대상을 함께 찾는 분에게 적합합니다. 자녀 연령별 훈육법이나 장기 상담이 필요한 경우에는 이번 단회 수업만으로 해결하려 하기보다 후속 상담 또는 연속 과정이 있는지도 함께 문의하세요.",
+          "참여 뒤에는 배운 내용을 모두 실천하려고 하기보다 가족이 일주일 동안 시험해 볼 대화 습관 하나만 정해 보세요. 변화의 기준을 작게 잡으면 수업이 좋은 정보로 끝나지 않고 실제 생활의 변화로 이어질 가능성이 높아집니다.",
+        ],
+      },
+    ],
+    tags: ["구로구 무료 부모교육", "우리동네키움센터", "서울 보호자 강좌", "부모 역할 교육"],
+  },
   {
     slug: "bupyeong-free-kids-ai-coding-class",
     title: "인천 부평 무료 어린이 AI 코딩 강좌, 레고로 시작하는 첫 코딩",
