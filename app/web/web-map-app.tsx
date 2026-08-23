@@ -7,6 +7,7 @@ import { ArrowLeftRight, BusFront, CakeSlice, CarFront, ChevronRight, ChevronUp,
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebProgram } from "@/lib/web-program-data";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
+import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
 import { haversineMeters, parseSearchIntent, relaxedSuggestions, searchPrograms, type SearchIntent } from "@/lib/web-search-engine";
 import type { WebRouteMode, WebRouteResult } from "@/lib/web-route-data";
 import {
@@ -231,37 +232,6 @@ function routeLink(program: WebProgram, current: Coordinate, transport: Transpor
   return `https://m.map.kakao.com/scheme/route?${params}`;
 }
 
-function nearbyKakaoLink(place: WebNearbyPlace) {
-  const query = nearbyMapSearchText(place);
-  const params = new URLSearchParams({ q: query, p: `${place.latitude},${place.longitude}` });
-  return `https://m.map.kakao.com/scheme/search?${params}`;
-}
-
-function nearbyNaverLink(place: WebNearbyPlace) {
-  const query = nearbyMapSearchText(place);
-  return `https://map.naver.com/p/search/${encodeURIComponent(query)}?c=${place.longitude},${place.latitude},17,0,0,0,dh`;
-}
-
-function nearbyDisplayName(place: WebNearbyPlace) {
-  const name = cleanMapText(place.name);
-  const branch = cleanMapText(place.branchName);
-  return branch && !name.includes(branch) ? `${name} ${branch}` : name;
-}
-
-function nearbyMapAddress(place: WebNearbyPlace) {
-  return cleanMapText(place.address)
-    .replace(/\s*\([^()]*\)\s*/g, " ")
-    .replace(/\s*\([^()]*\)\s*/g, " ")
-    .replace(/[()]/g, " ")
-    .replace(/,?\s*(?:지하\s*)?\d+층(?:\s+.*)?$/i, "")
-    .replace(/,?\s*\d+(?:,\s*\d+)*호(?:\s+.*)?$/i, "")
-    .trim();
-}
-
-function nearbyMapSearchText(place: WebNearbyPlace) {
-  return cleanMapText([nearbyDisplayName(place), nearbyMapAddress(place)].filter(Boolean).join(" "));
-}
-
 function nearbyCategoryDisplayName(place: WebNearbyPlace) {
   return cleanMapText(place.categorySmallName)
     || cleanMapText(place.categoryMediumName)
@@ -295,6 +265,26 @@ function nearbyMarkerElement(placeType: WebNearbyPlace["placeType"]) {
     svg.appendChild(circle);
   }
   return svg;
+}
+
+function routeEndpointElement(kind: "origin" | "destination") {
+  const root = document.createElement("span");
+  root.className = `dg-route-marker-visual ${kind}`;
+  root.setAttribute("aria-hidden", "true");
+  for (let index = 0; index < 3; index += 1) {
+    const ripple = document.createElement("i");
+    ripple.style.setProperty("--dg-route-ripple-delay", `${index * -0.74}s`);
+    root.appendChild(ripple);
+  }
+  const core = document.createElement("span");
+  core.className = "dg-route-marker-core";
+  if (kind === "origin") {
+    core.append(document.createElement("b"), document.createElement("em"));
+  } else {
+    core.textContent = "🏢";
+  }
+  root.appendChild(core);
+  return root;
 }
 
 function nearbyParkingLabel(place: WebNearbyPlace) {
@@ -981,7 +971,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         position: new maps.LatLng(coordinate.latitude, coordinate.longitude),
         content: button,
         yAnchor: 0.5,
-        zIndex: className.includes("selected") ? 30 : 20,
+        zIndex: className.includes("selected") ? 30 : className.includes("dg-route-endpoint") ? 28 : 20,
       });
       routeOverlaysRef.current.push(overlay);
     };
@@ -1019,7 +1009,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         }));
       });
       const mapPlaces = nearbySummary.mapPlaces.filter((place) => nearbyCategory === "all" || place.placeType === nearbyCategory);
-      marker(nearbyMapProgram, "dg-route-endpoint dg-route-destination", `${nearbyMapProgram.facility} 목적지`, "🏢");
+      marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", routeEndpointElement("origin"));
+      marker(nearbyMapProgram, "dg-route-endpoint dg-route-destination", `${nearbyMapProgram.facility} 목적지`, routeEndpointElement("destination"));
       mapPlaces.slice(0, 400).forEach((place) => {
         const selectedPlace = selectedNearbyPlace?.id === place.id;
         const icon = nearbyMarkerElement(place.placeType);
@@ -1056,8 +1047,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       activeRoute?.segments.forEach((segment) => {
         polyline(segment.points, routeColors[activeRoute.mode], 7, activeRoute.isEstimated ? "dash" : "solid");
       });
-      marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", "●");
-      marker(selected, "dg-route-endpoint dg-route-destination", `${selected.facility} 목적지`, "🏢");
+      marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", routeEndpointElement("origin"));
+      marker(selected, "dg-route-endpoint dg-route-destination", `${selected.facility} 목적지`, routeEndpointElement("destination"));
       const bounds = new maps.LatLngBounds();
       bounds.extend(new maps.LatLng(location.latitude, location.longitude));
       bounds.extend(new maps.LatLng(selected.latitude, selected.longitude));
@@ -2396,8 +2387,7 @@ function KakaoRoutePreview({ origin, destination, route, routeState, transport, 
       const markerElement = document.createElement("div");
       markerElement.className = `dg-route-preview-pin ${kind}${kind === "origin" && usesFallbackLocation ? " fallback" : ""}`;
       markerElement.setAttribute("aria-hidden", "true");
-      const icon = document.createElement("span");
-      icon.textContent = kind === "origin" ? "●" : "▥";
+      const icon = routeEndpointElement(kind);
       const copy = document.createElement("em");
       copy.textContent = label;
       markerElement.append(icon, copy);
@@ -2902,7 +2892,7 @@ function NearbyRadiusSelector({ radius, onRadius }: { radius: number; onRadius: 
   return <section className="dg-nearby-radius-card" aria-label="목적지 주변 검색 반경">
     <header><span><Crosshair aria-hidden="true" />목적지에서 반경</span><strong>{selectedLabel}</strong></header>
     <div className="dg-nearby-radius-control" style={{ "--dg-radius-progress": `${draftIndex / (radii.length - 1) * 100}%` } as CSSProperties}>
-      <div className="dg-nearby-radius-track" aria-hidden="true"><i /><span>{radii.map((value, index) => <b key={value} className={index <= draftIndex ? "active" : ""} />)}</span></div>
+      <div className="dg-nearby-radius-track" aria-hidden="true"><i /><span>{radii.map((value, index) => <b key={value} className={index === draftIndex ? "active" : ""} />)}</span></div>
       <input
         type="range"
         min="0"
@@ -2949,8 +2939,8 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
         {explicitlyOpen ? <span>영업중</span> : <i />}
         <div className="dg-nearby-map-actions">
           <button type="button" aria-label={`동네고고 지도에서 ${displayName} 마커 강조`} onClick={() => (onShowOnMap ?? onSelect)(place)}><span className="dg-nearby-dongne-map-icon" aria-hidden="true">🗺️</span><span>동네고고 지도</span></button>
-          <a href={nearbyNaverLink(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
-          <a href={nearbyKakaoLink(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
+          <a href={nearbyNaverMapURL(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
+          <a href={nearbyKakaoMapURL(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
         </div>
       </div>
       <div className="dg-nearby-card-main"><span className="dg-place-type"><NearbyPlaceIcon placeType={place.placeType} /></span><span><strong>{displayName}</strong><em>{nearbyCategoryDisplayName(place)} · {distanceLabel(place.distanceMeters)} · 도보 약 {walkMinutes}분</em><em className="dg-nearby-address">{place.address ?? "주소 정보 없음"}</em><em className="dg-parking-copy"><CarFront aria-hidden="true" />{nearbyParkingLabel(place)}</em></span></div>

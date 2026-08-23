@@ -165,9 +165,8 @@
 .dg-route-preview-status { position: absolute; z-index: 3; left: 50%; bottom: 10px; max-width: calc(100% - 20px); padding: 7px 11px; border-radius: 999px; color: #465148; background: rgba(255,255,255,.95); box-shadow: 0 3px 12px rgba(20,40,25,.14); font-size: 10.5px; font-weight: 750; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 .dg-route-preview-open { position: absolute; z-index: 4; inset: 0; width: 100%; border: 0; background: transparent; cursor: pointer; }
 .dg-route-preview-pin { min-width: 58px; display: flex; flex-direction: column; align-items: center; color: #fff; filter: drop-shadow(0 4px 7px rgba(20,40,25,.25)); }
-.dg-route-preview-pin > span { width: 43px; height: 43px; border: 4px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #2c71d6; font-size: 17px; font-weight: 900; }
-.dg-route-preview-pin.destination > span { background: var(--dg-green); }
-.dg-route-preview-pin.fallback > span { background: #737d75; }
+.dg-route-preview-pin > .dg-route-marker-visual { transform: scale(.82); }
+.dg-route-preview-pin.fallback .dg-route-marker-core { filter: grayscale(.74); }
 .dg-route-preview-pin > em { max-width: 115px; margin-top: 3px; padding: 3px 6px; overflow: hidden; border-radius: 999px; color: #344039; background: rgba(255,255,255,.95); font-size: 9px; font-style: normal; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
 .dg-transport-tabs { margin-top: 2px; display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
 .dg-transport-tabs button { min-width: 0; min-height: 48px; padding: 10px 3px; border: 1px solid #e6ece4; border-radius: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #606860; background: #f6f8f5; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -430,11 +429,17 @@
 .dg-heat-hero { background: linear-gradient(145deg,#edf8ff,#d9effc); }
 
 /* iOS parity: route, roadview, nearby places, account sync, family and alerts */
-.dg-route-endpoint, .dg-nearby-map-marker { border: 3px solid #fff; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; box-shadow: 0 5px 18px rgba(20,40,25,.3); font-weight: 900; }
-.dg-route-endpoint { width: 46px; min-width: 46px; height: 46px; padding: 0; border: 4px solid #fff; outline: 2px solid var(--dg-green); border-radius: 50%; background: var(--dg-green); font-size: 18px; }
-.dg-route-origin { background: var(--dg-green); }
-.dg-route-origin.fallback { background: #778078; }
-.dg-route-destination { background: var(--dg-green); }
+.dg-route-endpoint, .dg-nearby-map-marker { display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; font-weight: 900; }
+.dg-route-endpoint { width: 58px; min-width: 58px; height: 58px; padding: 0; border: 0; outline: 0; border-radius: 50%; background: transparent; box-shadow: none; }
+.dg-route-marker-visual { width: 58px; height: 58px; position: relative; display: flex; align-items: center; justify-content: center; }
+.dg-route-marker-visual > i { --dg-route-ripple-delay: 0s; position: absolute; inset: 7px; border: 2px solid rgba(19,163,78,.42); border-radius: 50%; animation: dg-route-marker-ripple 2.2s ease-out var(--dg-route-ripple-delay) infinite; }
+.dg-route-marker-core { position: relative; z-index: 2; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.dg-route-marker-visual.origin .dg-route-marker-core { border: 1.8px solid rgba(8,133,64,.95); background: linear-gradient(145deg,#59d157,#0d9b4c); box-shadow: 0 3px 6px rgba(0,0,0,.24), 0 0 0 5px rgba(74,199,110,.16); }
+.dg-route-marker-visual.origin .dg-route-marker-core b { position: absolute; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.dg-route-marker-visual.origin .dg-route-marker-core em { position: absolute; top: 22px; width: 21px; height: 11px; border-radius: 6px; background: #fff; }
+.dg-route-marker-visual.destination .dg-route-marker-core { width: 38px; height: 38px; border: 4px solid #fff; outline: 2.2px solid rgba(47,168,79,.95); background: rgba(47,168,79,.14); box-shadow: 0 2px 4px rgba(0,0,0,.22); font-size: 20px; line-height: 1; }
+.dg-route-origin.fallback .dg-route-marker-core { border-color: #707a72; background: linear-gradient(145deg,#a0a8a1,#707a72); box-shadow: 0 3px 6px rgba(0,0,0,.22), 0 0 0 5px rgba(112,122,114,.14); }
+@keyframes dg-route-marker-ripple { 0% { opacity: .5; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.55); } }
 .dg-nearby-map-marker { width: 30px; height: 30px; padding: 0; border: 2px solid rgba(255,255,255,.94); border-radius: 50%; color: #fff; background: linear-gradient(145deg,#55cf53,#16a744); font-size: 14px; line-height: 1; transition: width .16s ease, height .16s ease, color .16s ease, background .16s ease, border-color .16s ease; }
 .dg-nearby-map-marker.selected { z-index: 2; width: 38px; height: 38px; border: 3px solid var(--dg-green); color: var(--dg-green); background: #fff; animation: dg-nearby-marker-pulse 1s ease-in-out infinite alternate; }
 .dg-nearby-marker-glyph { width: 15px; height: 15px; color: inherit; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
@@ -482,27 +487,27 @@
 .dg-family-editor button.danger { background: #69736b; }
 .dg-family-editor > p { grid-column: 1 / -1; margin: 0; color: #8a928b; font-size: 10.5px; line-height: 1.5; }
 
-.dg-nearby-radius-card { flex: none; margin: 12px 16px 0; padding: 14px 15px 11px; border: 1px solid #e5eae5; border-radius: 18px; background: #fff; box-shadow: 0 4px 14px rgba(30,58,36,.07); }
+.dg-nearby-radius-card { flex: none; margin: 12px 16px 0; padding: 14px; border: 1px solid #eaecea; border-radius: 18px; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,.11); }
 .dg-nearby-radius-card header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.dg-nearby-radius-card header > span { display: flex; align-items: center; gap: 7px; color: #38433a; font-size: 13px; font-weight: 900; }
-.dg-nearby-radius-card header svg { width: 17px; height: 17px; color: var(--dg-green); stroke-width: 3; }
-.dg-nearby-radius-card header strong { padding: 6px 10px; border-radius: 999px; color: #fff; background: var(--dg-green); font-size: 12px; }
+.dg-nearby-radius-card header > span { display: flex; align-items: center; gap: 7px; color: #20241f; font-size: 14px; font-weight: 900; }
+.dg-nearby-radius-card header svg { width: 13px; height: 13px; color: #2fa84f; stroke-width: 3; }
+.dg-nearby-radius-card header strong { height: 30px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center; color: #2fa84f; background: #e9f7e4; font-size: 13px; font-weight: 900; }
 .dg-nearby-radius-control { --dg-radius-progress: 0%; position: relative; margin-top: 13px; }
-.dg-nearby-radius-track { position: absolute; z-index: 0; top: 11px; right: 11px; left: 11px; height: 5px; border-radius: 999px; background: #e2eee0; pointer-events: none; }
-.dg-nearby-radius-track > i { position: absolute; inset: 0 auto 0 0; width: var(--dg-radius-progress); border-radius: inherit; background: var(--dg-green); }
+.dg-nearby-radius-track { position: absolute; z-index: 0; top: 11px; right: 14px; left: 14px; height: 5px; border-radius: 999px; background: #e4e8e2; pointer-events: none; }
+.dg-nearby-radius-track > i { position: absolute; inset: 0 auto 0 0; width: var(--dg-radius-progress); min-width: 3px; border-radius: inherit; background: linear-gradient(135deg,#86ce45,#2fb457); }
 .dg-nearby-radius-track > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; }
-.dg-nearby-radius-track b { width: 10px; height: 10px; border-radius: 50%; background: #dcebd8; box-shadow: 0 0 0 2px #fff; }
-.dg-nearby-radius-track b.active { background: var(--dg-green); }
+.dg-nearby-radius-track b { width: 10px; height: 10px; border: 1.5px solid rgba(47,168,79,.42); border-radius: 50%; background: #e9f7e4; }
+.dg-nearby-radius-track b.active { background: #fff; }
 .dg-nearby-radius-control input { position: relative; z-index: 2; width: 100%; height: 27px; margin: 0; opacity: 1; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
 .dg-nearby-radius-control input::-webkit-slider-runnable-track { height: 5px; background: transparent; }
 .dg-nearby-radius-control input::-webkit-slider-thumb { width: 27px; height: 27px; margin-top: -11px; border: 3px solid var(--dg-green); border-radius: 50%; appearance: none; -webkit-appearance: none; background: #fff; box-shadow: 0 3px 9px rgba(21,102,45,.26); }
 .dg-nearby-radius-control input::-moz-range-track { height: 5px; background: transparent; }
 .dg-nearby-radius-control input::-moz-range-thumb { width: 22px; height: 22px; border: 3px solid var(--dg-green); border-radius: 50%; background: #fff; box-shadow: 0 3px 9px rgba(21,102,45,.26); }
 .dg-nearby-radius-labels { margin-top: 1px; display: flex; justify-content: space-between; }
-.dg-nearby-radius-labels button { min-width: 38px; padding: 3px 0; border: 0; color: #8a938b; background: transparent; font-size: 10px; font-weight: 800; cursor: pointer; }
+.dg-nearby-radius-labels button { min-width: 38px; padding: 3px 0; border: 0; color: #878d87; background: transparent; font-size: 11px; font-weight: 700; cursor: pointer; }
 .dg-nearby-radius-labels button:first-child { text-align: left; }
 .dg-nearby-radius-labels button:last-child { text-align: right; }
-.dg-nearby-radius-labels button.active { color: var(--dg-green-deep); }
+.dg-nearby-radius-labels button.active { color: #2fa84f; font-weight: 900; }
 .dg-nearby-route-summary { margin: 11px 16px 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; border-radius: 14px; color: #155c2c; background: #edf8e8; }
 .dg-nearby-route-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dg-nearby-route-summary span { font-size: 11px; font-weight: 750; }
@@ -523,8 +528,8 @@
 .dg-place-type svg { width: 21px; height: 21px; stroke-width: 2.4; }
 .dg-nearby-map-actions { min-width: 0; display: flex; justify-content: flex-end; gap: 5px; }
 .dg-nearby-map-actions > * { width: auto; min-width: 0; height: 30px; overflow: hidden; padding: 0 7px; border: 1px solid #e2e4e2; border-radius: 999px; display: inline-flex; flex: 0 1 auto; align-items: center; justify-content: center; gap: 4px; color: #42473f; background: #fff; text-decoration: none; text-align: center; white-space: nowrap; font-size: 9.5px; line-height: 1; font-weight: 900; cursor: pointer; }
-.dg-nearby-map-actions > button { font-size: 9.2px; box-shadow: 0 2px 4px rgba(58,178,79,.045); }
-.dg-web-app .dg-nearby-map-actions > a { font-size: 9.5px; line-height: 1; font-weight: 900; }
+.dg-nearby-map-actions > button { font-size: 8.8px; box-shadow: 0 2px 4px rgba(58,178,79,.045); }
+.dg-web-app .dg-nearby-map-actions > a { font-size: 9px; line-height: 1; font-weight: 900; }
 .dg-nearby-map-actions > * > span:last-child { min-width: 0; overflow: hidden; line-height: 1; text-overflow: clip; white-space: nowrap; }
 .dg-nearby-dongne-map-icon { flex: none; font-size: 13px; line-height: 1; }
 .dg-nearby-brand { width: 18px; height: 18px; flex: none; border-radius: 5px; background-position: center; background-repeat: no-repeat; background-size: contain; }

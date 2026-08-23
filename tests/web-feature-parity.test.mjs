@@ -6,6 +6,7 @@ import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
 
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
 const webMapStyle = readFileSync(new URL("../app/web/web-map.css", import.meta.url), "utf8");
+const webMapLinksSource = readFileSync(new URL("../lib/web-map-links.ts", import.meta.url), "utf8");
 const webRouteSource = readFileSync(new URL("../lib/web-route-data.ts", import.meta.url), "utf8");
 const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.meta.url), "utf8");
 
@@ -90,7 +91,7 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /program\.facility\.split\(">"\)\[0\]/);
   assert.match(webMapSource, /map\.naver\.com\/p\/search\/\$\{encodeURIComponent\(query\)\}\?c=\$\{program\.longitude\},\$\{program\.latitude\}/);
   assert.match(webMapSource, /map\.kakao\.com\/link\/map\/\$\{encodeURIComponent\(destination\)\},\$\{program\.latitude\},\$\{program\.longitude\}/);
-  assert.match(webMapSource, /m\.map\.kakao\.com\/scheme\/search/);
+  assert.match(webMapLinksSource, /map\.kakao\.com\/link\/map/);
   assert.match(webMapSource, /nearbyCategoryDisplayName/);
   assert.match(webMapSource, /도보 약 \{walkMinutes\}분/);
   assert.match(webMapSource, /주변 주차 가능/);
@@ -98,12 +99,18 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /네이버 지도에서 \$\{displayName\} 검색/);
   assert.match(webMapSource, /카카오 지도에서 \$\{displayName\} 검색/);
   assert.match(webMapStyle, /\.dg-nearby-map-actions > \* \{[^}]*height:\s*30px;[^}]*padding:\s*0 7px/);
-  assert.match(webMapStyle, /\.dg-web-app \.dg-nearby-map-actions > a \{[^}]*font-size:\s*9\.5px/);
+  assert.match(webMapStyle, /\.dg-web-app \.dg-nearby-map-actions > a \{[^}]*font-size:\s*9px/);
   assert.match(webMapStyle, /\.dg-nearby-brand\.naver \{ background-image: url\('\/brand\/map-icons\/naver-map-ios\.jpg'\); \}/);
   assert.match(webMapStyle, /\.dg-nearby-brand\.kakao \{ background-image: url\('\/brand\/map-icons\/kakao-map-ios\.jpg'\); \}/);
   assert.doesNotMatch(webMapStyle, /\.dg-nearby-map-actions[^}]*transform:\s*scale/);
   assert.match(webMapStyle, /\.dg-calendar-grid/);
   assert.match(webMapStyle, /\.dg-route-endpoint/);
+  assert.match(webMapSource, /routeEndpointElement\("origin"\)/);
+  assert.match(webMapSource, /routeEndpointElement\("destination"\)/);
+  assert.match(webMapSource, /className\.includes\("dg-route-endpoint"\) \? 28 : 20/);
+  assert.match(webMapStyle, /\.dg-route-marker-visual\.origin \.dg-route-marker-core/);
+  assert.match(webMapStyle, /\.dg-route-marker-visual\.destination \.dg-route-marker-core/);
+  assert.match(webMapStyle, /@keyframes dg-route-marker-ripple/);
   assert.match(webMapStyle, /\.dg-nearby-map-marker/);
   assert.match(webMapSource, /function KakaoRoutePreview/);
   assert.match(webMapSource, /function RouteJourneyDetails/);
