@@ -71,6 +71,9 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
     "오늘부터 3일 전까지 열어본 프로그램이에요",
     "시설 거리뷰 보기",
     "도보 경로 계산 중",
+    "아래 지도 영역을 선택하면 메인 지도에서",
+    "현재 위치 사용하기",
+    "대중교통으로 가는 길",
     "가족 정보 저장",
   ]) assert.ok(webMapSource.includes(copy), `${copy} UI가 빠졌습니다.`);
   assert.match(webMapSource, /aria-label="이전 달"/);
@@ -79,6 +82,12 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-calendar-grid/);
   assert.match(webMapStyle, /\.dg-route-endpoint/);
   assert.match(webMapStyle, /\.dg-nearby-map-marker/);
+  assert.match(webMapSource, /function KakaoRoutePreview/);
+  assert.match(webMapSource, /function RouteJourneyDetails/);
+  assert.match(webMapSource, /activeRoute\s*\|\|\s*routeSheetCollapsed/);
+  assert.match(webMapStyle, /\.dg-route-preview/);
+  assert.match(webMapStyle, /\.dg-journey-card/);
+  assert.match(webMapStyle, /\.dg-map-link-card/);
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });
 

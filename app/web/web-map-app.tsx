@@ -34,6 +34,7 @@ type KakaoMap = {
   getBounds: () => KakaoBounds; getCenter: () => KakaoLatLng; getLevel: () => number;
   setBounds: (bounds: KakaoBounds, ...padding: number[]) => void; setCenter: (position: KakaoLatLng) => void;
   setLevel: (level: number) => void; panTo: (position: KakaoLatLng) => void;
+  setDraggable?: (enabled: boolean) => void; setZoomable?: (enabled: boolean) => void; relayout?: () => void;
 };
 type KakaoMapItem = { setMap: (map: KakaoMap | null) => void };
 type KakaoOverlay = KakaoMapItem;
@@ -172,6 +173,16 @@ function fieldMatches(program: WebProgram, filter: string) {
 
 function mapLink(program: WebProgram) {
   return `https://map.kakao.com/link/map/${encodeURIComponent(program.facility)},${program.latitude},${program.longitude}`;
+}
+
+function naverMapLink(program: WebProgram) {
+  const query = [program.facility, program.address].filter(Boolean).join(" ");
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
+
+function googleMapLink(program: WebProgram) {
+  const query = `${program.latitude},${program.longitude} (${program.facility})`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function routeLink(program: WebProgram, current: Coordinate, transport: Transport) {
@@ -900,23 +911,25 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         { latitude: nearbyDestination.latitude, longitude: nearbyDestination.longitude - longitudeDelta },
       ].forEach((point) => bounds.extend(new maps.LatLng(point.latitude, point.longitude)));
       if (selectedNearbyPlace) bounds.extend(new maps.LatLng(selectedNearbyPlace.latitude, selectedNearbyPlace.longitude));
-      map.setBounds(bounds, 70, 80, 70, 500);
-    } else if (selected && activeRoute) {
-      const routeColors: Record<string, string> = {
-        WALKING: "#22b14c",
-        BUS: "#3f79d8",
-        SUBWAY: "#8b5bd6",
-        DRIVING: "#ef7b2d",
-        OTHER: "#67716a",
+      const compactMap = window.innerWidth < 900;
+      map.setBounds(bounds, 70, compactMap ? 40 : 80, compactMap ? 110 : 70, compactMap ? 40 : 500);
+    } else if (selected && (activeRoute || routeSheetCollapsed)) {
+      const routeColors: Record<WebRouteMode, string> = {
+        WALKING: "#ef7b2d",
+        TRANSIT: "#2daa50",
+        DRIVING: "#296edc",
       };
-      activeRoute.segments.forEach((segment) => {
-        polyline(segment.points, routeColors[segment.type] ?? routeColors[activeRoute.mode] ?? "#22b14c", 7);
+      activeRoute?.segments.forEach((segment) => {
+        polyline(segment.points, routeColors[activeRoute.mode], 7, activeRoute.isEstimated ? "dash" : "solid");
       });
       marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", usesFallbackLocation ? "기본" : "현재");
       marker(selected, "dg-route-endpoint dg-route-destination", `${selected.facility} 목적지`, "도착");
       const bounds = new maps.LatLngBounds();
-      activeRoute.segments.flatMap((segment) => segment.points).forEach((point) => bounds.extend(new maps.LatLng(point.latitude, point.longitude)));
-      map.setBounds(bounds, 70, 80, 70, 500);
+      bounds.extend(new maps.LatLng(location.latitude, location.longitude));
+      bounds.extend(new maps.LatLng(selected.latitude, selected.longitude));
+      activeRoute?.segments.flatMap((segment) => segment.points).forEach((point) => bounds.extend(new maps.LatLng(point.latitude, point.longitude)));
+      const compactMap = window.innerWidth < 900;
+      map.setBounds(bounds, 70, compactMap ? 40 : 80, compactMap ? 110 : 70, compactMap ? 40 : 500);
     }
 
     return () => {
@@ -925,7 +938,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       mapItemsRef.current.forEach((item) => item.setMap(null));
       mapItemsRef.current = [];
     };
-  }, [activeRoute, auxiliaryPanel, location, nearbyCategory, nearbyDestination, nearbyRadius, nearbySummary, nearbyWalkingRoute, selected, selectedNearbyPlace, selectNearbyPlace, usesFallbackLocation]);
+  }, [activeRoute, auxiliaryPanel, location, nearbyCategory, nearbyDestination, nearbyRadius, nearbySummary, nearbyWalkingRoute, routeSheetCollapsed, selected, selectedNearbyPlace, selectNearbyPlace, usesFallbackLocation]);
 
   const runSearch = async (rawTerm: string) => {
     const term = rawTerm.trim();
@@ -1466,6 +1479,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             onFavoriteTarget={(target) => toggleFavoriteTarget(selected.id, target)}
             onReminder={() => toggleReminder(selected.id)} onTransport={(value) => { setTransport(value); setActiveRoute(null); }}
             onRouteChange={setActiveRoute}
+            onRequestLocation={moveToCurrentLocation}
+            onShowRouteOnMap={() => {
+              setRouteSheetCollapsed(true);
+              setRouteSheetDragOffset(null);
+            }}
             onShare={() => share(selected)}
             onNearby={() => { setNearbyCategory("all"); void loadNearbyPlaces(selected, 100); }}
           />
@@ -1705,13 +1723,12 @@ function WebAuthDialog({ consentAccepted, loading, onAccept, onBrowse, onProvide
   </div>;
 }
 
-function ProgramDetail({ program, current, usesFallbackLocation, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onShare, onNearby }: {
+function ProgramDetail({ program, current, usesFallbackLocation, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
   program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
-  onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onShare: () => void; onNearby: () => void;
+  onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void;
 }) {
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
-  const transportLabel = transport === "walk" ? "도보" : transport === "car" ? "자동차" : "대중교통";
   const officialAccess = officialProgramAccess(program.applyUrl);
   const [route, setRoute] = useState<WebRouteResult | null>(null);
   const [routeState, setRouteState] = useState<"waiting" | "loading" | "loaded" | "unavailable">(usesFallbackLocation ? "waiting" : "loading");
@@ -1780,19 +1797,41 @@ function ProgramDetail({ program, current, usesFallbackLocation, favorite, favor
         <section>
           <h2>거리정보</h2>
           <div className="dg-distance-card">
+            <div className="dg-route-summary-title"><span aria-hidden="true">{transport === "walk" ? "🚶" : transport === "car" ? "🚗" : "🚇"}</span><strong>추천 경로</strong></div>
             <div className="dg-route-metrics">
-              <div><span>예상 시간</span><strong>{timeMetric}</strong></div>
-              <div><span>{distanceMetricLabel}</span><strong>{distanceMetric}</strong></div>
+              <div><strong>{timeMetric}</strong><span>예상 시간</span></div>
+              <div><strong>{distanceMetric}</strong><span>{distanceMetricLabel}</span></div>
             </div>
-            {route ? <p>{transportLabel} 실제 경로를 지도에 표시했어요. 직선 거리는 {distanceLabel(distance)}이며, 경로 공급자의 최신 도로·환승 응답을 사용합니다.</p>
-              : routeState === "loading" ? <p>{transportLabel} 실제 경로를 계산하고 있어요.</p>
-                : routeState === "waiting" ? <p>현재 위치를 확인하면 {transportLabel} 실제 시간·거리·경로선을 안내해요.</p>
-                  : <p>{routeError || `${transportLabel} 경로를 불러오지 못해 직선 거리 ${distanceLabel(distance)}를 기준으로 안내해요.`}</p>}
-            {usesFallbackLocation && <p className="dg-location-warning">현재 위치를 아직 확인하지 못했어요. 지도 오른쪽의 ‘내 위치’를 눌러 위치 사용을 허용하면 실제 시간·거리·경로선이 표시됩니다.</p>}
+            <div className="dg-route-card-divider" />
+            <p className="dg-route-map-guide"><span aria-hidden="true">☝</span> 아래 지도 영역을 선택하면 메인 지도에서 <strong>경로</strong>+<strong>장소 사진</strong>을 볼 수 있어요</p>
+            <KakaoRoutePreview
+              origin={current}
+              destination={program}
+              route={route}
+              routeState={routeState}
+              transport={transport}
+              usesFallbackLocation={usesFallbackLocation}
+              onOpen={onShowRouteOnMap}
+            />
             <div className="dg-transport-tabs"><button type="button" className={transport === "walk" ? "active" : ""} onClick={() => onTransport("walk")}>🚶 도보</button><button type="button" className={transport === "transit" ? "active" : ""} onClick={() => onTransport("transit")}>🚇 대중교통</button><button type="button" className={transport === "car" ? "active" : ""} onClick={() => onTransport("car")}>🚗 자동차</button></div>
-            <button className="dg-roadview-button" type="button" onClick={() => setShowRoadview((value) => !value)}>◉ {showRoadview ? "시설 거리뷰 닫기" : "시설 거리뷰 보기"}</button>
+            <RouteJourneyDetails
+              program={program}
+              transport={transport}
+              route={route}
+              routeState={routeState}
+              routeError={routeError}
+              estimate={routeEstimate}
+              usesFallbackLocation={usesFallbackLocation}
+            />
+            {usesFallbackLocation && <div className="dg-location-guide"><strong>현재 위치를 확인하면 실제 경로를 보여드려요</strong><p>위치 권한을 허용하면 현재 위치 마커와 도보·대중교통·자동차 경로가 자동으로 표시됩니다.</p><button type="button" onClick={onRequestLocation}>현재 위치 사용하기</button></div>}
+            <div className="dg-route-card-divider" />
+            <div className="dg-map-link-group"><strong>지도에서 더 자세히 보기</strong>
+              <button className="dg-map-link-card" type="button" onClick={() => setShowRoadview((value) => !value)}><span className="dg-map-link-icon dg-roadview-icon" aria-hidden="true">◉</span><span><b>{showRoadview ? "시설 거리뷰 닫기" : "시설 거리뷰 보기"}</b><small>카카오 거리뷰에서 시설 주변을 직접 확인해요</small></span><em aria-hidden="true">↗</em></button>
+              <a className="dg-map-link-card" href={route?.landingURL || routeLink(program, current, transport)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon kakao" aria-hidden="true" /><span><b>카카오 지도</b><small>선택한 이동수단의 최신 경로를 확인해요</small></span><em aria-hidden="true">↗</em></a>
+              <a className="dg-map-link-card" href={naverMapLink(program)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon naver" aria-hidden="true" /><span><b>네이버 지도</b><small>시설명과 실제 좌표가 일치하는 위치를 열어요</small></span><em aria-hidden="true">↗</em></a>
+              <a className="dg-map-link-card" href={googleMapLink(program)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon google" aria-hidden="true" /><span><b>Google 지도</b><small>Google 지도에서 시설 위치를 확인해요</small></span><em aria-hidden="true">↗</em></a>
+            </div>
             {showRoadview && <KakaoRoadviewPreview coordinate={program} facilityName={program.facility} />}
-            <a className="dg-route-button" href={route?.landingURL || routeLink(program, current, transport)} target="_blank" rel="noreferrer">Kakao 지도에서 이어서 보기</a>
             <button className="dg-nearby-button" type="button" onClick={onNearby}>☕ 목적지 주변 가게 보기</button>
           </div>
         </section>
@@ -1804,6 +1843,140 @@ function ProgramDetail({ program, current, usesFallbackLocation, favorite, favor
       </footer>
     </article>
   );
+}
+
+function KakaoRoutePreview({ origin, destination, route, routeState, transport, usesFallbackLocation, onOpen }: {
+  origin: Coordinate;
+  destination: WebProgram;
+  route: WebRouteResult | null;
+  routeState: "waiting" | "loading" | "loaded" | "unavailable";
+  transport: Transport;
+  usesFallbackLocation: boolean;
+  onOpen: () => void;
+}) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+
+  useEffect(() => {
+    const maps = window.kakao?.maps;
+    const element = elementRef.current;
+    const frames: number[] = [];
+    frames.push(window.requestAnimationFrame(() => setMapStatus("loading")));
+    if (!maps || !element) {
+      frames.push(window.requestAnimationFrame(() => setMapStatus("unavailable")));
+      return () => frames.forEach((frame) => window.cancelAnimationFrame(frame));
+    }
+
+    const map = new maps.Map(element, {
+      center: new maps.LatLng((origin.latitude + destination.latitude) / 2, (origin.longitude + destination.longitude) / 2),
+      level: 5,
+    });
+    map.setDraggable?.(false);
+    map.setZoomable?.(false);
+    const overlays: KakaoOverlay[] = [];
+    const lines: KakaoMapItem[] = [];
+
+    const marker = (coordinate: Coordinate, kind: "origin" | "destination", label: string) => {
+      const markerElement = document.createElement("div");
+      markerElement.className = `dg-route-preview-pin ${kind}${kind === "origin" && usesFallbackLocation ? " fallback" : ""}`;
+      markerElement.setAttribute("aria-hidden", "true");
+      const icon = document.createElement("span");
+      icon.textContent = kind === "origin" ? "●" : "▥";
+      const copy = document.createElement("em");
+      copy.textContent = label;
+      markerElement.append(icon, copy);
+      overlays.push(new maps.CustomOverlay({
+        map,
+        position: new maps.LatLng(coordinate.latitude, coordinate.longitude),
+        content: markerElement,
+        yAnchor: 0.78,
+        zIndex: 20,
+      }));
+    };
+
+    const modeColor = transport === "walk" ? "#ef7b2d" : transport === "car" ? "#296edc" : "#2daa50";
+    const segments = route?.segments.length
+      ? route.segments
+      : !usesFallbackLocation && transport !== "transit" && routeState !== "waiting"
+        ? [{ type: "ESTIMATED", lineName: "예상 경로", points: [origin, destination] }]
+        : [];
+    segments.forEach((segment) => {
+      if (segment.points.length < 2) return;
+      lines.push(new maps.Polyline({
+        map,
+        path: segment.points.map((point) => new maps.LatLng(point.latitude, point.longitude)),
+        strokeWeight: route ? 7 : 5,
+        strokeColor: route ? modeColor : "#7f8981",
+        strokeOpacity: route ? 0.94 : 0.72,
+        strokeStyle: route ? "solid" : "dash",
+      }));
+    });
+    marker(origin, "origin", usesFallbackLocation ? "기본 위치" : "현재 위치");
+    marker(destination, "destination", destination.facility);
+
+    const fitMap = () => {
+      map.relayout?.();
+      const bounds = new maps.LatLngBounds();
+      bounds.extend(new maps.LatLng(origin.latitude, origin.longitude));
+      bounds.extend(new maps.LatLng(destination.latitude, destination.longitude));
+      segments.flatMap((segment) => segment.points).forEach((point) => bounds.extend(new maps.LatLng(point.latitude, point.longitude)));
+      map.setBounds(bounds, 54, 42, 54, 42);
+      setMapStatus("ready");
+    };
+    frames.push(window.requestAnimationFrame(fitMap));
+    const resizeTimer = window.setTimeout(fitMap, 120);
+
+    return () => {
+      frames.forEach((frame) => window.cancelAnimationFrame(frame));
+      window.clearTimeout(resizeTimer);
+      overlays.forEach((overlay) => overlay.setMap(null));
+      lines.forEach((line) => line.setMap(null));
+    };
+  }, [destination, origin, route, routeState, transport, usesFallbackLocation]);
+
+  const statusText = usesFallbackLocation
+    ? "현재 위치를 확인하면 실제 경로선으로 바뀝니다"
+    : routeState === "loading" ? "선택한 이동수단의 실제 경로를 계산하고 있어요"
+      : routeState === "unavailable" ? "두 위치를 기준으로 예상 경로를 표시해요" : null;
+
+  return <div className="dg-route-preview">
+    <div ref={elementRef} className="dg-route-preview-canvas" />
+    {mapStatus !== "ready" && <div className="dg-route-preview-loading">{mapStatus === "loading" ? "지도를 준비하고 있어요" : "지도 배경을 불러오지 못했어요"}</div>}
+    {statusText && <span className="dg-route-preview-status">{statusText}</span>}
+    <button type="button" className="dg-route-preview-open" onClick={onOpen} aria-label="메인 지도에서 시설까지 경로와 장소 사진 보기" />
+  </div>;
+}
+
+function RouteJourneyDetails({ program, transport, route, routeState, routeError, estimate, usesFallbackLocation }: {
+  program: WebProgram;
+  transport: Transport;
+  route: WebRouteResult | null;
+  routeState: "waiting" | "loading" | "loaded" | "unavailable";
+  routeError: string;
+  estimate: { distance: number; minutes: number };
+  usesFallbackLocation: boolean;
+}) {
+  if (usesFallbackLocation || routeState === "waiting") {
+    return <div className="dg-route-state-card"><span aria-hidden="true">⌖</span><div><strong>현재 위치를 확인하면 {transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 보여드려요</strong><p>위치 권한을 허용하면 출발·이동·도착 구간이 자동으로 표시됩니다.</p></div></div>;
+  }
+  if (routeState === "loading") {
+    return <div className="dg-route-state-card loading"><i aria-hidden="true" /><div><strong>{transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 확인하고 있어요</strong><p>최신 도로와 환승 정보를 기준으로 계산합니다.</p></div></div>;
+  }
+
+  const modeTitle = transport === "walk" ? "도보로 가는 길" : transport === "car" ? "자동차로 가는 길" : "대중교통으로 가는 길";
+  const modeIcon = transport === "walk" ? "🚶" : transport === "car" ? "🚗" : "🚇";
+  if (!route) {
+    if (transport === "walk") {
+      return <div className="dg-journey-card"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {estimate.minutes}분</span></header><div className="dg-direct-journey"><b>● 현재 위치</b><i /><b>▥ {program.facility}</b></div><p>직선거리와 평균 보행 속도를 이용한 예상 정보입니다.</p></div>;
+    }
+    return <div className="dg-route-state-card unavailable"><span aria-hidden="true">!</span><div><strong>{modeTitle}을 찾지 못했어요</strong><p>{routeError || "지도 앱에서 최신 경로를 확인해 주세요."}</p></div></div>;
+  }
+
+  if (transport !== "transit") {
+    return <div className="dg-journey-card"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {route.totalMinutes}분</span></header><div className="dg-direct-journey"><b>● 현재 위치</b><i /><b>▥ {program.facility}</b></div><div className="dg-journey-metrics"><span>{distanceLabel(route.totalDistanceMeters)}</span><span>{transport === "walk" ? "실제 도보 경로" : "추천 자동차 경로"}</span></div><p>최신 경로 응답 기준이며 현장 상황에 따라 달라질 수 있습니다.</p></div>;
+  }
+
+  return <div className="dg-journey-card transit"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {route.totalMinutes}분</span></header><div className="dg-transit-journey"><div className="endpoint"><b>● 현재 위치</b><small>출발</small></div>{route.segments.slice(0, 8).map((segment, index) => <div className="segment" key={`${segment.type}-${segment.lineName}-${index}`}><i /><span aria-hidden="true">{segment.type.includes("SUBWAY") ? "🚇" : segment.type.includes("BUS") ? "🚌" : segment.type.includes("WALK") ? "🚶" : "↳"}</span><div><b>{segment.lineName || "추천 이동 구간"}</b><small>{segment.type.includes("WALK") ? "도보 이동" : "탑승 후 안내 경로를 따라 이동"}</small></div></div>)}<div className="endpoint destination"><b>▥ {program.facility}</b><small>도착</small></div></div><div className="dg-journey-metrics"><span>{distanceLabel(route.totalDistanceMeters)}</span><span>실제 대중교통 경로</span></div><p>승차 지점과 시설까지의 도보 구간을 함께 안내합니다.</p></div>;
 }
 
 function KakaoRoadviewPreview({ coordinate, facilityName }: { coordinate: Coordinate; facilityName: string }) {

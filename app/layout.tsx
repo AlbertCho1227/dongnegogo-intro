@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   description: "교육, 문화, 체육, 전시와 공공 혜택을 가까운 곳부터 쉽고 빠르게 찾는 동네 생활 정보 서비스입니다.",
   applicationName: "동네고고",
   keywords: ["동네고고", "공공프로그램", "문화센터", "평생교육", "생활체육", "문화행사"],
+  verification: {
+    other: {
+      "naver-site-verification": "645fbd3189250f6faed6a20e675b4a23b113c02b",
+    },
+  },
   alternates: {
     canonical: "/",
     types: { "application/rss+xml": "https://www.dongnegogo.com/blog/rss.xml" },
