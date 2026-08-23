@@ -601,6 +601,7 @@
   .dg-nav-rail { height: 74px; }
   .dg-side-panel { inset: 0 0 74px; }
   .dg-side-panel-overlay { bottom: 0; }
+  .dg-route-detail-sheet { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: 0; }
   .dg-search-button { padding: 0 10px; }
   .dg-filter-row button { padding: 7px 10px; }
   .dg-place-sheet { left: 8px; right: 8px; bottom: 74px; }

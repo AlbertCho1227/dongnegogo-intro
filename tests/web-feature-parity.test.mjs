@@ -137,6 +137,7 @@ test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다
 });
 
 test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고 PC 분할 구조는 유지한다", () => {
+  const compactMobileStyle = webMapStyle.slice(webMapStyle.indexOf("@media (max-width: 520px)"));
   assert.match(webMapSource, /dg-mobile-map-chrome/);
   assert.match(webMapSource, /dg-tab-\$\{tab\}/);
   assert.match(webMapSource, /dg-side-panel-overlay/);
@@ -165,4 +166,6 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapStyle, /--dg-mobile-sheet-height:\s*0px/);
   assert.match(webMapStyle, /\.dg-route-restore-bar/);
   assert.match(webMapStyle, /\.dg-route-detail-sheet-collapsed/);
+  assert.match(compactMobileStyle, /\.dg-route-detail-sheet\s*\{[^}]*top:\s*max\(8px,[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*0/);
+  assert.ok(compactMobileStyle.indexOf(".dg-route-detail-sheet") > compactMobileStyle.indexOf(".dg-side-panel { inset: 0 0 74px;"), "520px 상세 패널 여백 규칙은 공통 inset 뒤에 있어야 합니다.");
 });
