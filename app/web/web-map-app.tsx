@@ -2945,7 +2945,14 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
     const explicitlyOpen = /^(?:영업|영업중|정상)$/.test(cleanMapText(place.businessStatusName));
     const walkMinutes = Math.max(1, Math.ceil(place.distanceMeters / 75));
     return <article id={`nearby-place-${place.id}`} className={`dg-nearby-card${selected?.id === place.id ? " selected" : ""}`} key={place.id}>
-      <div className="dg-nearby-card-top">{explicitlyOpen ? <span>영업중</span> : <i />}<div className="dg-nearby-map-actions"><button type="button" onClick={() => (onShowOnMap ?? onSelect)(place)}><span aria-hidden="true">🗺️</span><span>동네고고 지도</span></button><a href={nearbyNaverLink(place)} target="_blank" rel="noreferrer"><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a><a href={nearbyKakaoLink(place)} target="_blank" rel="noreferrer"><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a></div></div>
+      <div className="dg-nearby-card-top">
+        {explicitlyOpen ? <span>영업중</span> : <i />}
+        <div className="dg-nearby-map-actions">
+          <button type="button" aria-label={`동네고고 지도에서 ${displayName} 마커 강조`} onClick={() => (onShowOnMap ?? onSelect)(place)}><span className="dg-nearby-dongne-map-icon" aria-hidden="true">🗺️</span><span>동네고고 지도</span></button>
+          <a href={nearbyNaverLink(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
+          <a href={nearbyKakaoLink(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
+        </div>
+      </div>
       <div className="dg-nearby-card-main"><span className="dg-place-type"><NearbyPlaceIcon placeType={place.placeType} /></span><span><strong>{displayName}</strong><em>{nearbyCategoryDisplayName(place)} · {distanceLabel(place.distanceMeters)} · 도보 약 {walkMinutes}분</em><em className="dg-nearby-address">{place.address ?? "주소 정보 없음"}</em><em className="dg-parking-copy"><CarFront aria-hidden="true" />{nearbyParkingLabel(place)}</em></span></div>
     </article>;
   })}{summary && !summary.isComplete && <p className="dg-nearby-limit">반경 안 {summary.totalCount.toLocaleString("ko-KR")}곳 중 가까운 순으로 {places.length.toLocaleString("ko-KR")}곳을 보여드려요.</p>}</> : <div className="dg-empty"><strong>이 반경에는 표시할 가게가 없어요.</strong><p>반경을 넓혀 다시 찾아보세요.</p></div>}</div></section>;

@@ -94,6 +94,14 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /nearbyCategoryDisplayName/);
   assert.match(webMapSource, /도보 약 \{walkMinutes\}분/);
   assert.match(webMapSource, /주변 주차 가능/);
+  assert.match(webMapSource, /동네고고 지도에서 \$\{displayName\} 마커 강조/);
+  assert.match(webMapSource, /네이버 지도에서 \$\{displayName\} 검색/);
+  assert.match(webMapSource, /카카오 지도에서 \$\{displayName\} 검색/);
+  assert.match(webMapStyle, /\.dg-nearby-map-actions > \* \{[^}]*height:\s*30px;[^}]*padding:\s*0 7px/);
+  assert.match(webMapStyle, /\.dg-web-app \.dg-nearby-map-actions > a \{[^}]*font-size:\s*9\.5px/);
+  assert.match(webMapStyle, /\.dg-nearby-brand\.naver \{ background-image: url\('\/brand\/map-icons\/naver-map-ios\.jpg'\); \}/);
+  assert.match(webMapStyle, /\.dg-nearby-brand\.kakao \{ background-image: url\('\/brand\/map-icons\/kakao-map-ios\.jpg'\); \}/);
+  assert.doesNotMatch(webMapStyle, /\.dg-nearby-map-actions[^}]*transform:\s*scale/);
   assert.match(webMapStyle, /\.dg-calendar-grid/);
   assert.match(webMapStyle, /\.dg-route-endpoint/);
   assert.match(webMapStyle, /\.dg-nearby-map-marker/);
