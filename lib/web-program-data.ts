@@ -497,6 +497,56 @@ export async function fetchWebMapViewport(input: {
   };
 }
 
+export async function fetchWebMapClusters(input: {
+  south: number; west: number; north: number; east: number;
+  scope: WebMapCluster["scope"];
+}): Promise<WebMapViewportResult> {
+  const scope = clusterScope(input.scope);
+  const rawSouth = Math.min(input.south, input.north);
+  const rawNorth = Math.max(input.south, input.north);
+  const rawWest = Math.min(input.west, input.east);
+  const rawEast = Math.max(input.west, input.east);
+  const latitudePadding = Math.max(0.0015, (rawNorth - rawSouth) * 0.35);
+  const longitudePadding = Math.max(0.0015, (rawEast - rawWest) * 0.35);
+  const south = rawSouth - latitudePadding;
+  const north = rawNorth + latitudePadding;
+  const west = rawWest - longitudePadding;
+  const east = rawEast + longitudePadding;
+
+  let functionName: string;
+  let body: Record<string, unknown>;
+  if (scope === "localArea") {
+    functionName = "get_program_map_local_cluster_insights_v2";
+    body = { p_south: south, p_west: west, p_north: north, p_east: east, p_limit: 500 };
+  } else {
+    const remoteScope = scope === "neighborhood" ? "district" : scope;
+    const compactDistrictBounds = remoteScope === "district"
+      && Math.abs(north - south) <= 0.1
+      && Math.abs(east - west) <= 0.1;
+    functionName = compactDistrictBounds
+      ? "get_program_map_district_cluster_insights_with_members"
+      : "get_program_map_cluster_insights";
+    body = compactDistrictBounds
+      ? { p_south: south, p_west: west, p_north: north, p_east: east, p_limit: 500 }
+      : { p_south: south, p_west: west, p_north: north, p_east: east, p_scope: remoteScope, p_limit: 500 };
+  }
+
+  const rows = await rpc(functionName, body);
+  const clusters = Array.isArray(rows)
+    ? rows.map((item) => normalizeCluster(item, scope)).filter((item): item is WebMapCluster => Boolean(item))
+    : [];
+  return {
+    mode: "cluster",
+    scope,
+    programs: [],
+    clusters,
+    programCounts: {},
+    uniqueLocationCount: clusters.reduce((total, cluster) => total + cluster.programCount, 0),
+    isComplete: clusters.length < 500,
+    revision: `scale-cluster-v1:${scope}`,
+  };
+}
+
 export async function fetchWebSearchCandidates(input: Pick<ProgramQuery, "subjectTerms" | "areaTerms" | "generalTerms">): Promise<WebProgram[]> {
   const subjectTerms = (input.subjectTerms ?? []).map(safeSearchTerm).filter(Boolean);
   const areaTerms = (input.areaTerms ?? []).map(safeSearchTerm).filter(Boolean);

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, BusFront, CakeSlice, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, MapPin, Navigation, PersonStanding, Route, Search, Store, TrainFront, TramFront, Undo2, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
+import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
@@ -71,7 +72,7 @@ type KakaoMaps = {
   event: { addListener: (map: KakaoMap, event: string, callback: () => void) => void };
   services?: {
     Status: { OK: string };
-    Geocoder: new () => { coord2RegionCode: (longitude: number, latitude: number, callback: (result: Array<{ region_type: string; address_name: string; region_2depth_name: string; region_3depth_name: string }>, status: string) => void) => void };
+    Geocoder: new () => { coord2RegionCode: (longitude: number, latitude: number, callback: (result: Array<{ region_type: string; address_name: string; region_1depth_name: string; region_2depth_name: string; region_3depth_name: string }>, status: string) => void) => void };
   };
 };
 
@@ -176,14 +177,6 @@ function statusRank(program: WebProgram) {
   return 3;
 }
 
-function aggregationScope(radiusKm: number): WebMapCluster["scope"] {
-  if (radiusKm < 5.5) return "localArea";
-  if (radiusKm < 14) return "neighborhood";
-  if (radiusKm < 50) return "district";
-  if (radiusKm < 180) return "city";
-  return "province";
-}
-
 function mobileSheetHeights(viewportHeight: number) {
   const available = Math.max(320, viewportHeight - 74);
   return {
@@ -205,6 +198,52 @@ function routePanelHeights(viewportHeight: number, mode: RoutePanelMode = "route
 
 function markerPlaceKey(program: WebProgram) {
   return `${program.latitude.toFixed(5)}:${program.longitude.toFixed(5)}`;
+}
+
+async function resolveMapClusterAreas(clusters: WebMapCluster[]): Promise<WebMapCluster[]> {
+  const services = window.kakao?.maps.services;
+  if (!services || clusters.length === 0) return clusters;
+  const geocoder = new services.Geocoder();
+  const resolved = await Promise.all(clusters.map((cluster) => new Promise<WebMapCluster>((resolve) => {
+    let complete = false;
+    const finish = (areaName: string) => {
+      if (complete) return;
+      complete = true;
+      window.clearTimeout(timeout);
+      resolve({ ...cluster, areaName });
+    };
+    const timeout = window.setTimeout(() => finish(clusterDisplayAreaName(cluster.areaName)), 900);
+    geocoder.coord2RegionCode(cluster.longitude, cluster.latitude, (result, status) => {
+      if (status !== services.Status.OK || !result.length) return finish(clusterDisplayAreaName(cluster.areaName));
+      const region = result.find((item) => item.region_type === "H") ?? result[0];
+      finish(resolvedClusterAreaName(
+        cluster.scope,
+        cluster.areaName,
+        region.region_1depth_name,
+        region.region_2depth_name,
+        region.region_3depth_name,
+      ));
+    });
+  })));
+
+  const merged = new Map<string, WebMapCluster>();
+  resolved.forEach((cluster) => {
+    const key = `${cluster.scope}:${cluster.areaName}`;
+    const previous = merged.get(key);
+    if (!previous) {
+      merged.set(key, { ...cluster, id: `resolved:${key}` });
+      return;
+    }
+    const total = previous.programCount + cluster.programCount;
+    merged.set(key, {
+      ...previous,
+      latitude: (previous.latitude * previous.programCount + cluster.latitude * cluster.programCount) / total,
+      longitude: (previous.longitude * previous.programCount + cluster.longitude * cluster.programCount) / total,
+      programCount: total,
+      programIds: [...new Set([...previous.programIds, ...cluster.programIds])],
+    });
+  });
+  return [...merged.values()];
 }
 
 function estimatedRoute(distance: number, transport: Transport) {
@@ -388,12 +427,14 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const mainRoutePanelRef = useRef<HTMLElement>(null);
   const mainRoutePanelDragRef = useRef({ pointerID: -1, startY: 0, startHeight: 230, moved: false });
   const mapModeRef = useRef<"individual" | "cluster">("individual");
+  const mapScopeRef = useRef<WebMapAggregationScope>("individual");
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
   const [programCounts, setProgramCounts] = useState<Record<string, number>>({});
   const [mapMode, setMapMode] = useState<"individual" | "cluster">("individual");
+  const [mapScope, setMapScope] = useState<WebMapAggregationScope>("individual");
   const [tab, setTab] = useState<Tab>("map");
   const [selected, setSelected] = useState<WebProgram | null>(null);
   const [placeSheet, setPlaceSheet] = useState<PlaceSheetState | null>(null);
@@ -732,11 +773,14 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setCenter(nextCenter);
       setMapLevel(map.getLevel());
       resolveCenteredArea(nextCenter);
+    const radiusKm = distanceMeters(nextCenter, { latitude: ne.getLat(), longitude: ne.getLng() }) / 1_000;
+    const requestedScope = webMapScopeForRadius(radiusKm, mapScopeRef.current);
     const params = new URLSearchParams({
       south: String(sw.getLat()), west: String(sw.getLng()),
       north: String(ne.getLat()), east: String(ne.getLng()),
       previousMode: mapModeRef.current,
-      scope: aggregationScope(distanceMeters(nextCenter, { latitude: ne.getLat(), longitude: ne.getLng() }) / 1_000),
+      scope: requestedScope === "individual" ? "localArea" : requestedScope,
+      forceCluster: String(requestedScope !== "individual"),
     });
     const requestID = ++mapRequestIDRef.current;
     setLoading(true);
@@ -754,6 +798,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         setPrograms([]);
         setMapClusters([]);
         setMapMode("individual");
+        setMapScope("individual");
+        mapScopeRef.current = "individual";
         setError("");
         return;
       }
@@ -761,8 +807,16 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       const payload = await response.json() as WebMapViewportResult & { message?: string };
       if (!response.ok) throw new Error(payload.message ?? "지도 프로그램을 불러오지 못했습니다.");
       if (mapRequestIDRef.current !== requestID) return;
+      if (payload.mode === "cluster") payload.clusters = await resolveMapClusterAreas(payload.clusters);
+      if (mapRequestIDRef.current !== requestID) return;
       let nextPrograms = payload.programs;
       if (payload.mode === "cluster") {
+        setMapClusters(payload.clusters);
+        setProgramCounts(payload.programCounts ?? {});
+        setMapMode("cluster");
+        mapModeRef.current = "cluster";
+        setMapScope(payload.scope);
+        mapScopeRef.current = payload.scope;
         const listParams = new URLSearchParams({
           south: String(sw.getLat()), west: String(sw.getLng()), north: String(ne.getLat()), east: String(ne.getLng()), limit: "4000",
         });
@@ -787,6 +841,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setProgramCounts(payload.programCounts ?? {});
       setMapMode(payload.mode);
       mapModeRef.current = payload.mode;
+      setMapScope(payload.scope);
+      mapScopeRef.current = payload.scope;
       setError("");
     } catch (fetchError) {
       if (mapRequestIDRef.current === requestID) setError((fetchError as Error).message);
@@ -889,8 +945,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
   const visibleClusters = useMemo(() => {
-    const limitByScope: Record<WebMapCluster["scope"], number> = { localArea: 12, neighborhood: 22, district: 18, city: 16, province: 18 };
-    const limit = limitByScope[mapClusters[0]?.scope ?? "localArea"];
+    const limit = WEB_MAP_CLUSTER_DISPLAY_LIMIT[mapClusters[0]?.scope ?? "localArea"];
     if (mapClusters.length <= limit) return mapClusters;
     const nearCount = Math.ceil(limit / 2);
     const nearest = [...mapClusters].sort((a, b) => distanceMeters(center, a) - distanceMeters(center, b)).slice(0, nearCount);
@@ -986,7 +1041,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         button.className = `dg-cluster-marker dg-cluster-${cluster.scope}`;
         button.setAttribute("aria-label", `${cluster.areaName} ${cluster.programCount}개 프로그램`);
         const area = document.createElement("strong");
-        area.textContent = cluster.areaName.replace(/특별시|광역시|특별자치도/g, "");
+        area.textContent = clusterDisplayAreaName(cluster.areaName);
         const count = document.createElement("span");
         count.textContent = cluster.scope === "localArea" ? String(cluster.programCount) : `강좌 ${cluster.programCount}`;
         const insight = document.createElement("small");
@@ -2319,7 +2374,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         )}
       </section>
 
-      <section className="dg-map-area" aria-label="Kakao 지도">
+      <section className="dg-map-area" aria-label="Kakao 지도" data-map-level={mapLevel} data-map-mode={mapMode} data-map-scope={mapScope}>
         <div ref={mapElementRef} className="dg-map-canvas" />
         {!mapReady && <div className="dg-map-skeleton"><img src="/brand/app-icon.png" alt="" /><strong>지도를 준비하고 있어요</strong></div>}
         <div className="dg-mobile-map-chrome">
@@ -2338,11 +2393,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           </div>
         </div>
         <div className="dg-map-tools" aria-label="지도 도구">
-          <button type="button" onClick={moveToCurrentLocation}><span>●</span>내 위치</button>
-          <button type="button" onClick={() => window.matchMedia("(max-width: 820px)").matches ? openMapTool("programs") : changeTab("map")}><span>▣</span>주변</button>
-          <button type="button" onClick={() => openMapTool("calendar")}><span>▦</span>일정</button>
-          <button type="button" onClick={() => openMapTool("family")}><span>♧</span>가족</button>
-          <button type="button" onClick={() => openMapTool("history")}><span>▰</span>보관함</button>
+          <button type="button" onClick={moveToCurrentLocation}><span className="dg-map-tool-current"><UserRound aria-hidden="true" /></span>내 위치</button>
+          <button type="button" onClick={() => window.matchMedia("(max-width: 820px)").matches ? openMapTool("programs") : changeTab("map")}><span><MapIcon aria-hidden="true" /></span>주변</button>
+          <button type="button" onClick={() => openMapTool("calendar")}><span><CalendarDays aria-hidden="true" /></span>일정</button>
+          <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>
+          <button type="button" onClick={() => openMapTool("history")}><span><Archive aria-hidden="true" /></span>보관함</button>
         </div>
         <div className="dg-zoom-tools"><button type="button" aria-label="지도 확대" onClick={() => mapRef.current?.setLevel(Math.max(1, mapRef.current.getLevel() - 1))}>＋</button><button type="button" aria-label="지도 축소" onClick={() => mapRef.current?.setLevel(Math.min(14, mapRef.current.getLevel() + 1))}>−</button></div>
         <div className="dg-map-caption"><strong>{centeredArea} 주변</strong><span>지도를 움직이면 자동으로 다시 찾아요</span></div>

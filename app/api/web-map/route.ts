@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchWebMapViewport, type WebMapCluster } from "@/lib/web-program-data";
+import { fetchWebMapClusters, fetchWebMapViewport, type WebMapCluster } from "@/lib/web-program-data";
 
 function numeric(value: string | null): number | null {
   if (!value) return null;
@@ -22,11 +22,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "지도 경계를 확인해 주세요." }, { status: 400 });
   }
   try {
-    const result = await fetchWebMapViewport({
-      south, west, north, east,
-      previousMode: url.searchParams.get("previousMode") === "cluster" ? "cluster" : "individual",
-      scope: scope(url.searchParams.get("scope")),
-    });
+    const clusterScope = scope(url.searchParams.get("scope"));
+    const result = url.searchParams.get("forceCluster") === "true"
+      ? await fetchWebMapClusters({ south, west, north, east, scope: clusterScope })
+      : await fetchWebMapViewport({
+        south, west, north, east,
+        previousMode: url.searchParams.get("previousMode") === "cluster" ? "cluster" : "individual",
+        scope: clusterScope,
+      });
     return NextResponse.json(result, {
       headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
     });
