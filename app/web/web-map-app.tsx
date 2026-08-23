@@ -68,7 +68,7 @@ type AuxiliaryPanel = "calendar" | "family" | "history" | "nearby" | "programs" 
 type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: number; loading: boolean };
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
 type AlertDialogState = { program: WebProgram; scheduledAt: string };
-type MobileSheetSnap = "collapsed" | "medium" | "expanded";
+type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
   walk: "WALKING",
@@ -132,6 +132,7 @@ function aggregationScope(radiusKm: number): WebMapCluster["scope"] {
 function mobileSheetHeights(viewportHeight: number) {
   const available = Math.max(320, viewportHeight - 74);
   return {
+    hidden: 0,
     collapsed: 116,
     medium: Math.min(520, Math.max(330, Math.round(available * 0.56))),
     expanded: Math.max(320, available - 8),
@@ -210,6 +211,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const idleTimerRef = useRef<number | null>(null);
   const sheetDragRef = useRef({ pointerID: -1, startY: 0, startHeight: 0, moved: false });
   const sheetGrabberRef = useRef<HTMLButtonElement>(null);
+  const routeSheetDragRef = useRef({ pointerID: -1, startY: 0, moved: false });
+  const routeSheetGrabberRef = useRef<HTMLButtonElement>(null);
   const mapModeRef = useRef<"individual" | "cluster">("individual");
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
@@ -222,6 +225,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [placeSheet, setPlaceSheet] = useState<PlaceSheetState | null>(null);
   const [mobileSheetSnap, setMobileSheetSnap] = useState<MobileSheetSnap>("medium");
   const [mobileSheetDragHeight, setMobileSheetDragHeight] = useState<number | null>(null);
+  const [routeSheetCollapsed, setRouteSheetCollapsed] = useState(false);
+  const [routeSheetDragOffset, setRouteSheetDragOffset] = useState<number | null>(null);
   const [auxiliaryPanel, setAuxiliaryPanel] = useState<AuxiliaryPanel>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [query, setQuery] = useState("");
@@ -665,6 +670,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
 
   const selectProgram = useCallback(async (program: WebProgram) => {
     setSelected(program);
+    setRouteSheetCollapsed(false);
+    setRouteSheetDragOffset(null);
     setActiveRoute(null);
     setSelectedNearbyPlace(null);
     setNearbyWalkingRoute(null);
@@ -1190,6 +1197,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       return;
     }
     searchActiveRef.current = nextTab === "search";
+    if (nextTab === "map") setMobileSheetSnap("medium");
     if (nextTab !== "search") setSearchIntent(null);
     setTab(nextTab);
     setSelected(null);
@@ -1223,9 +1231,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
 
   const sidePanelOverlay = Boolean(selectedHeatShelter || selected || auxiliaryPanel);
   const mobileMapPanel = tab === "map" && !sidePanelOverlay;
-  const mobileSheetStyle = (mobileSheetDragHeight === null ? undefined : {
-    "--dg-mobile-sheet-height": `${mobileSheetDragHeight}px`,
-  }) as CSSProperties | undefined;
+  const sidePanelStyle = ({
+    ...(mobileSheetDragHeight === null ? {} : { "--dg-mobile-sheet-height": `${mobileSheetDragHeight}px` }),
+    ...(routeSheetDragOffset === null ? {} : { "--dg-route-sheet-offset": `${routeSheetDragOffset}px` }),
+  }) as CSSProperties;
 
   useEffect(() => {
     if (!mobileMapPanel || placeSheet) return;
@@ -1245,13 +1254,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       const heights = mobileSheetHeights(window.innerHeight);
       const delta = drag.startY - clientY;
       if (Math.abs(delta) > 6) drag.moved = true;
-      setMobileSheetDragHeight(Math.max(heights.collapsed, Math.min(heights.expanded, drag.startHeight + delta)));
+      setMobileSheetDragHeight(Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight + delta)));
     };
     const finish = (pointerID: number, clientY: number) => {
       const drag = sheetDragRef.current;
       if (drag.pointerID !== pointerID) return;
       const heights = mobileSheetHeights(window.innerHeight);
-      const finalHeight = Math.max(heights.collapsed, Math.min(heights.expanded, drag.startHeight + drag.startY - clientY));
+      const finalHeight = Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight + drag.startY - clientY));
       const next = (Object.entries(heights) as Array<[MobileSheetSnap, number]>).reduce((best, candidate) =>
         Math.abs(candidate[1] - finalHeight) < Math.abs(best[1] - finalHeight) ? candidate : best,
       )[0];
@@ -1314,12 +1323,99 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     };
   }, [mobileMapPanel, placeSheet]);
 
+  useEffect(() => {
+    if (!selected || routeSheetCollapsed) return;
+    const grabber = routeSheetGrabberRef.current;
+    if (!grabber) return;
+
+    const begin = (pointerID: number, clientY: number) => {
+      routeSheetDragRef.current = { pointerID, startY: clientY, moved: false };
+      setRouteSheetDragOffset(0);
+    };
+    const move = (pointerID: number, clientY: number) => {
+      const drag = routeSheetDragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const offset = Math.max(0, clientY - drag.startY);
+      if (offset > 6) drag.moved = true;
+      setRouteSheetDragOffset(offset);
+    };
+    const finish = (pointerID: number, clientY: number) => {
+      const drag = routeSheetDragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const offset = Math.max(0, clientY - drag.startY);
+      routeSheetDragRef.current.pointerID = -1;
+      setRouteSheetDragOffset(null);
+      if (offset >= Math.max(96, window.innerHeight * 0.12)) setRouteSheetCollapsed(true);
+    };
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      begin(event.pointerId, event.clientY);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (routeSheetDragRef.current.pointerID !== event.pointerId) return;
+      event.preventDefault();
+      move(event.pointerId, event.clientY);
+    };
+    const onPointerEnd = (event: PointerEvent) => finish(event.pointerId, event.clientY);
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      event.preventDefault();
+      begin(touch.identifier, touch.clientY);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === routeSheetDragRef.current.pointerID);
+      if (!touch) return;
+      event.preventDefault();
+      move(touch.identifier, touch.clientY);
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === routeSheetDragRef.current.pointerID);
+      if (touch) finish(touch.identifier, touch.clientY);
+    };
+
+    if ("PointerEvent" in window) {
+      grabber.addEventListener("pointerdown", onPointerDown, { passive: false });
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerEnd);
+      window.addEventListener("pointercancel", onPointerEnd);
+      return () => {
+        grabber.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerEnd);
+        window.removeEventListener("pointercancel", onPointerEnd);
+      };
+    }
+
+    grabber.addEventListener("touchstart", onTouchStart, { passive: false });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      grabber.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [routeSheetCollapsed, selected]);
+
   const cycleMobileSheet = () => {
     if (sheetDragRef.current.moved) {
       sheetDragRef.current.moved = false;
       return;
     }
-    setMobileSheetSnap((current) => current === "collapsed" ? "medium" : current === "medium" ? "expanded" : "collapsed");
+    setMobileSheetSnap((current) => current === "hidden" || current === "collapsed" ? "medium" : current === "medium" ? "expanded" : "hidden");
+  };
+
+  const collapseRouteSheet = () => {
+    if (routeSheetDragRef.current.moved) {
+      routeSheetDragRef.current.moved = false;
+      return;
+    }
+    setRouteSheetCollapsed(true);
+    setRouteSheetDragOffset(null);
   };
 
   return (
@@ -1339,17 +1435,24 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       </aside>
 
       <section
-        className={`dg-side-panel dg-side-panel-${tab}${sidePanelOverlay ? " dg-side-panel-overlay" : ""}${tab === "search" && searchIntent ? " dg-search-active" : ""}${mobileMapPanel ? ` dg-mobile-map-sheet dg-mobile-sheet-${mobileSheetSnap}${mobileSheetDragHeight !== null ? " dg-mobile-sheet-dragging" : ""}${placeSheet ? " dg-mobile-sheet-suppressed" : ""}` : ""}`}
-        style={mobileSheetStyle}
+        className={`dg-side-panel dg-side-panel-${tab}${sidePanelOverlay ? " dg-side-panel-overlay" : ""}${selected ? ` dg-route-detail-sheet${routeSheetCollapsed ? " dg-route-detail-sheet-collapsed" : ""}${routeSheetDragOffset !== null ? " dg-route-detail-sheet-dragging" : ""}` : ""}${tab === "search" && searchIntent ? " dg-search-active" : ""}${mobileMapPanel ? ` dg-mobile-map-sheet dg-mobile-sheet-${mobileSheetSnap}${mobileSheetDragHeight !== null ? " dg-mobile-sheet-dragging" : ""}${placeSheet ? " dg-mobile-sheet-suppressed" : ""}` : ""}`}
+        style={sidePanelStyle}
         aria-label="프로그램 탐색 패널"
       >
         {mobileMapPanel && !placeSheet && <button
           type="button"
           ref={sheetGrabberRef}
           className="dg-mobile-sheet-grabber"
-          aria-label={`지도 프로그램 패널 ${mobileSheetSnap === "collapsed" ? "중간으로 열기" : mobileSheetSnap === "medium" ? "전체로 펼치기" : "접기"}`}
+          aria-label={`지도 프로그램 패널 ${mobileSheetSnap === "hidden" || mobileSheetSnap === "collapsed" ? "중간으로 열기" : mobileSheetSnap === "medium" ? "전체로 펼치기" : "숨기기"}`}
           onClick={cycleMobileSheet}
-        ><span aria-hidden="true" /><em>{mobileSheetSnap === "collapsed" ? "올려서 프로그램 보기" : mobileSheetSnap === "expanded" ? "내려서 지도 보기" : "위아래로 움직여 조절"}</em></button>}
+        ><span aria-hidden="true" /><em>{mobileSheetSnap === "hidden" || mobileSheetSnap === "collapsed" ? "올려서 프로그램 보기" : mobileSheetSnap === "expanded" ? "내리면 패널 숨기기" : "위아래로 움직여 조절"}</em></button>}
+        {selected && <button
+          type="button"
+          ref={routeSheetGrabberRef}
+          className="dg-route-sheet-grabber"
+          aria-label="목적지 길찾기 패널 접기"
+          onClick={collapseRouteSheet}
+        ><span aria-hidden="true" /><em>아래로 내려 길찾기만 보기</em></button>}
         {selectedHeatShelter ? (
           <HeatShelterDetail shelter={selectedHeatShelter} current={location} onBack={() => setSelectedHeatShelter(null)} />
         ) : selected ? (
@@ -1370,7 +1473,15 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <NearbyPlacesPanel
             program={nearbyDestination} summary={nearbySummary} loading={nearbyLoading} radius={nearbyRadius} category={nearbyCategory}
             selected={selectedNearbyPlace} walkingRoute={nearbyWalkingRoute}
-            onBack={() => { setAuxiliaryPanel(null); setSelected(nearbyDestination); setSelectedNearbyPlace(null); setNearbyWalkingRoute(null); }}
+            onBack={() => {
+              setAuxiliaryPanel(null);
+              setSelected(nearbyDestination);
+              setRouteSheetCollapsed(false);
+              setRouteSheetDragOffset(null);
+              routeSheetDragRef.current = { pointerID: -1, startY: 0, moved: false };
+              setSelectedNearbyPlace(null);
+              setNearbyWalkingRoute(null);
+            }}
             onRadius={(value) => { void loadNearbyPlaces(nearbyDestination, value); }}
             onCategory={(value) => { setNearbyCategory(value); setSelectedNearbyPlace(null); setNearbyWalkingRoute(null); }}
             onSelect={(place) => { void selectNearbyPlace(place); }}
@@ -1527,6 +1638,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           reminderIDs={reminders}
         />}
       </section>
+      {selected && routeSheetCollapsed && <button
+        type="button"
+        className="dg-route-restore-bar"
+        onClick={() => setRouteSheetCollapsed(false)}
+        aria-label={`${selected.facility} 목적지까지 가는 길 다시 열기`}
+      ><span aria-hidden="true" /><strong>목적지까지 가는 길</strong><em aria-hidden="true">⌃</em></button>}
       {showFilter && <FullFilterDialog
         field={fieldFilter} audience={audienceFilter} subjects={subjectFilters} status={statusFilter}
         freeOnly={freeOnly} paidOnly={paidOnly} radiusKm={radiusKm} count={visiblePrograms.length}

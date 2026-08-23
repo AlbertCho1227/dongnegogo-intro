@@ -127,7 +127,7 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapStyle, /\.dg-mobile-map-header/);
   assert.match(webMapStyle, /\.dg-place-sheet::before/);
   assert.match(webMapStyle, /\.dg-side-panel-overlay\s*\{\s*z-index:\s*80;\s*bottom:\s*0/);
-  assert.match(webMapSource, /type MobileSheetSnap = "collapsed" \| "medium" \| "expanded"/);
+  assert.match(webMapSource, /type MobileSheetSnap = "hidden" \| "collapsed" \| "medium" \| "expanded"/);
   assert.match(webMapSource, /window\.addEventListener\("pointermove", onPointerMove/);
   assert.match(webMapSource, /window\.addEventListener\("pointerup", onPointerEnd\)/);
   assert.match(webMapSource, /window\.addEventListener\("touchend", onTouchEnd\)/);
@@ -136,4 +136,11 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.doesNotMatch(webMapSource, /requestRef\.current\?\.abort\(\)/);
   assert.match(webMapStyle, /\.dg-mobile-sheet-grabber/);
   assert.match(webMapStyle, /touch-action:\s*none/);
+  assert.match(webMapSource, /목적지까지 가는 길/);
+  assert.match(webMapSource, /routeSheetCollapsed/);
+  assert.match(webMapSource, /routeSheetGrabberRef/);
+  assert.match(webMapStyle, /\.dg-mobile-sheet-hidden/);
+  assert.match(webMapStyle, /--dg-mobile-sheet-height:\s*0px/);
+  assert.match(webMapStyle, /\.dg-route-restore-bar/);
+  assert.match(webMapStyle, /\.dg-route-detail-sheet-collapsed/);
 });
