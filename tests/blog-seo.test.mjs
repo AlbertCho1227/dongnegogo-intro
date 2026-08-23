@@ -97,18 +97,30 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   const rss = await rssResponse.text();
   assert.equal(rssResponse.status, 200);
   assert.match(rssResponse.headers.get("content-type") ?? "", /application\/rss\+xml/);
-  assert.equal((rss.match(/<item>/g) ?? []).length, 4);
+  assert.equal((rss.match(/<item>/g) ?? []).length, 9);
   assert.match(rss, /content:encoded/);
   assert.match(rss, /이 강좌가 첫 코딩에 잘 맞는 이유/);
   assert.match(rss, /그림책 전시는 어떻게 보면 좋을까요/);
   assert.match(rss, /등록 전에 꼭 비교할 여섯 가지/);
   assert.match(rss, /부모 역할을 ‘리모델링’한다는 뜻/);
+  assert.match(rss, /첫 가족 뮤지컬은 이야기보다 회차가 중요해요/);
+  assert.match(rss, /현대무용을 처음 볼 때 좋은 관람 기준/);
 
   const sitemapResponse = await render("/sitemap.xml", "application/xml");
   const sitemap = await sitemapResponse.text();
   assert.equal(sitemapResponse.status, 200);
   assert.match(sitemap, /https:\/\/www\.dongnegogo\.com\/blog<\/loc>/);
-  for (const slug of ["bupyeong-free-kids-ai-coding-class", "cheongju-picture-book-garden-exhibition-guide", "seoul-junggu-chungmu-swimming-pool-checklist", "seoul-guro-free-parent-growth-class"]) {
+  for (const slug of [
+    "bupyeong-free-kids-ai-coding-class",
+    "cheongju-picture-book-garden-exhibition-guide",
+    "seoul-junggu-chungmu-swimming-pool-checklist",
+    "seoul-guro-free-parent-growth-class",
+    "gwangmyeong-peter-pan-musical-guide",
+    "daegu-helium-dance-performance-guide",
+    "gimje-cosette-musical-guide",
+    "gumi-ice-symphony-concert-guide",
+    "seoul-musia-musical-guide",
+  ]) {
     assert.match(sitemap, new RegExp(`https://www\\.dongnegogo\\.com/blog/${slug}`));
   }
 });
@@ -122,7 +134,9 @@ test("검색 공유 이미지와 출처가 확인된 공식 프로그램 사진�
   assert.match(data, /\/markers\/icon_swimming\.png/);
   assert.match(data, /imageSource: "서울시 문화행사 공공서비스예약 정보"/);
   assert.match(data, /umppa\.seoul\.go\.kr\/icare\/webcontent\/icare\/upload\/orgideaExprnCtznFile/);
-  assert.doesNotMatch(data, /primary_image_url|program-posters|culture\.go\.kr|yeyak\.seoul\.go\.kr\/web\/common\/file/);
+  assert.match(data, /culture\.go\.kr\/upload\/rdf/);
+  assert.match(data, /imageSource: "한국문화정보원 한눈에 보는 문화정보"/);
+  assert.doesNotMatch(data, /primary_image_url|program-posters|yeyak\.seoul\.go\.kr\/web\/common\/file/);
 });
 
 test("오늘의 구로 부모교육 편집 글은 실제 이미지 출처와 FAQ·실제 날짜 Event 스키마를 제공한다", async () => {
@@ -135,6 +149,25 @@ test("오늘의 구로 부모교육 편집 글은 실제 이미지 출처와 FAQ
   assert.match(html, /"@type":"FAQPage"/);
   assert.match(html, /"@type":"Event"/);
   assert.match(html, /"startDate":"2026-09-14T00:00:00\+09:00"/);
+});
+
+test("오늘의 지역 공연 5편은 실제 이미지 출처·FAQ·유료 Event 스키마를 정확히 제공한다", async () => {
+  for (const slug of [
+    "gwangmyeong-peter-pan-musical-guide",
+    "daegu-helium-dance-performance-guide",
+    "gimje-cosette-musical-guide",
+    "gumi-ice-symphony-concert-guide",
+    "seoul-musia-musical-guide",
+  ]) {
+    const response = await render(`/blog/${slug}`);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /사진 출처:.*한국문화정보원 한눈에 보는 문화정보/);
+    assert.match(html, /"@type":"BlogPosting"/);
+    assert.match(html, /"@type":"FAQPage"/);
+    assert.match(html, /"@type":"Event"/);
+    assert.doesNotMatch(html, /"price":0/);
+  }
 });
 
 test("접근 보호가 있는 서울시·공유누리 링크는 상세 주소를 우회하지 않고 공식 홈 검색으로 안내한다", async () => {

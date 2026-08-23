@@ -50,6 +50,7 @@ export default async function BlogPostPage({ params }: PageProps) {
   const nextPost = BLOG_POSTS[(currentIndex + 1) % BLOG_POSTS.length];
   const programPath = `/program/${encodeURIComponent(post.programId)}`;
   const articleImage = post.imageUrl || "https://www.dongnegogo.com/blog/og.png";
+  const isFreeEvent = post.facts.some((fact) => fact.label === "비용" && /무료/.test(fact.value));
   const faq = [
     { q: `${post.programName}은 어디에서 진행되나요?`, a: `${post.eventLocation || post.region}에서 진행됩니다. 정확한 입구와 당일 장소는 공식 안내를 확인하세요.` },
     { q: "지금 신청할 수 있나요?", a: `동네고고 확인 상태는 ‘${post.programStatus}’입니다. 접수 시작·마감과 잔여석은 공식 안내가 최종 기준입니다.` },
@@ -65,7 +66,12 @@ export default async function BlogPostPage({ params }: PageProps) {
     location: { "@type": "Place", name: post.eventLocation || post.region, address: post.region },
     image: [articleImage],
     organizer: { "@type": "Organization", name: post.sourceName, url: post.officialUrl },
-    offers: { "@type": "Offer", url: post.officialUrl, availability: "https://schema.org/InStock", price: 0, priceCurrency: "KRW" },
+    offers: {
+      "@type": "Offer",
+      url: post.officialUrl,
+      availability: "https://schema.org/InStock",
+      ...(isFreeEvent ? { price: 0, priceCurrency: "KRW" } : {}),
+    },
   } : null;
   const jsonLd = {
     "@context": "https://schema.org",
