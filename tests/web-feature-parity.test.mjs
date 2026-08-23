@@ -89,6 +89,9 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-journey-card/);
   assert.match(webMapStyle, /\.dg-map-link-card/);
   assert.match(webMapStyle, /\.dg-route-detail-sheet\s*\{[^}]*border-radius:\s*30px 30px 0 0/);
+  assert.match(webMapStyle, /\.dg-route-detail-sheet\s*\{[^}]*left:\s*8px;[^}]*right:\s*8px/);
+  assert.match(webMapStyle, /\.dg-route-detail-sheet \.dg-detail-footer\s*\{[^}]*left:\s*8px;[^}]*width:\s*calc\(100% - 16px\)/);
+  assert.match(webMapStyle, /\.dg-place-sheet\s*\{[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*74px/);
   assert.match(webMapSource, /dg-ios-heart-icon/);
   assert.match(webMapSource, /dg-ios-share-icon/);
   assert.match(webMapSource, /dg-ios-map-icon/);
