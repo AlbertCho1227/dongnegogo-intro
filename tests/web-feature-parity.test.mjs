@@ -84,6 +84,12 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-nearby-map-marker/);
   assert.match(webMapSource, /function KakaoRoutePreview/);
   assert.match(webMapSource, /function RouteJourneyDetails/);
+  assert.match(webMapSource, /PersonStanding/);
+  assert.match(webMapSource, /TramFront/);
+  assert.match(webMapSource, /CarFront/);
+  assert.match(webMapSource, /role="승차"/);
+  assert.match(webMapSource, /role="하차"/);
+  assert.match(webMapSource, /교통정보 · 카카오맵 제공/);
   assert.match(webMapSource, /activeRoute\s*\|\|\s*routeSheetCollapsed/);
   assert.match(webMapStyle, /\.dg-route-preview/);
   assert.match(webMapStyle, /\.dg-journey-card/);
@@ -109,6 +115,12 @@ test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에
   assert.match(webRouteSource, /facility-transit-info/);
   assert.match(webRouteSource, /fastRoute:\s*true/);
   assert.match(webRouteSource, /isEstimated:\s*false/);
+  assert.match(webRouteSource, /boardingStation/);
+  assert.match(webRouteSource, /alightingStation/);
+  assert.match(webRouteSource, /accessWalk/);
+  assert.match(webRouteSource, /egressWalk/);
+  assert.match(webRouteSource, /transitDistanceMeters/);
+  assert.match(webRouteSource, /busRoutes/);
   assert.match(webRouteSource, /import "server-only"/);
   assert.doesNotMatch(webRouteSource, /service_role|sb_secret_/i);
 });
@@ -166,6 +178,9 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapStyle, /--dg-mobile-sheet-height:\s*0px/);
   assert.match(webMapStyle, /\.dg-route-restore-bar/);
   assert.match(webMapStyle, /\.dg-route-detail-sheet-collapsed/);
+  assert.match(webMapStyle, /\.dg-route-sheet-grabber\s*\{[\s\S]*?min-height:\s*28px/);
+  assert.match(webMapStyle, /\.dg-detail-hero\s*\{\s*padding:\s*8px 14px 12px/);
+  assert.match(webMapStyle, /\.dg-detail-hero h1\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
   assert.match(compactMobileStyle, /\.dg-route-detail-sheet\s*\{[^}]*top:\s*max\(8px,[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*0/);
   assert.ok(compactMobileStyle.indexOf(".dg-route-detail-sheet") > compactMobileStyle.indexOf(".dg-side-panel { inset: 0 0 74px;"), "520px 상세 패널 여백 규칙은 공통 inset 뒤에 있어야 합니다.");
 });

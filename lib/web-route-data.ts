@@ -13,11 +13,38 @@ export type WebRouteSegment = {
   points: WebRoutePoint[];
 };
 
+export type WebTransitWalkLeg = {
+  distanceMeters: number;
+  minutes: number;
+};
+
+export type WebTransitStep = {
+  type: string;
+  lineName: string;
+  minutes: number;
+  boardingStation: string | null;
+  alightingStation: string | null;
+  stopCount: number | null;
+  intermediateStations: string[];
+  exitGuidance: string | null;
+};
+
+export type WebTransitBusRoute = {
+  name: string;
+  type: string | null;
+};
+
 export type WebRouteResult = {
   mode: WebRouteMode;
   totalDistanceMeters: number;
   totalMinutes: number;
   segments: WebRouteSegment[];
+  transitDistanceMeters: number | null;
+  transfers: number;
+  steps: WebTransitStep[];
+  accessWalk: WebTransitWalkLeg | null;
+  egressWalk: WebTransitWalkLeg | null;
+  busRoutes: WebTransitBusRoute[];
   landingURL: string | null;
   isEstimated: boolean;
 };
@@ -70,6 +97,47 @@ function normalizeSegments(value: unknown): WebRouteSegment[] {
       points,
     }];
   });
+}
+
+function normalizeWalkLeg(value: unknown): WebTransitWalkLeg | null {
+  const row = record(value);
+  const distanceMeters = Math.max(0, Math.round(number(row.distanceMeters) ?? 0));
+  const minutes = Math.max(0, Math.round(number(row.minutes) ?? 0));
+  return distanceMeters > 0 || minutes > 0 ? { distanceMeters, minutes: Math.max(1, minutes) } : null;
+}
+
+function normalizeTransitSteps(value: unknown): WebTransitStep[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((rawStep) => {
+    const step = record(rawStep);
+    const lineName = text(step.lineName);
+    if (!lineName) return [];
+    const stopCount = number(step.stopCount);
+    return [{
+      type: text(step.type)?.toUpperCase() ?? "OTHER",
+      lineName,
+      minutes: Math.max(1, Math.round(number(step.minutes) ?? 1)),
+      boardingStation: text(step.boardingStation),
+      alightingStation: text(step.alightingStation),
+      stopCount: stopCount === null ? null : Math.max(0, Math.round(stopCount)),
+      intermediateStations: Array.isArray(step.intermediateStations)
+        ? step.intermediateStations.flatMap((station) => text(station) ?? [])
+        : [],
+      exitGuidance: text(step.exitGuidance),
+    }];
+  });
+}
+
+function normalizeBusRoutes(value: unknown): WebTransitBusRoute[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.flatMap((rawRoute) => {
+    const route = record(rawRoute);
+    const name = text(route.name);
+    if (!name || seen.has(name)) return [];
+    seen.add(name);
+    return [{ name, type: text(route.type) }];
+  }).slice(0, 10);
 }
 
 function completeEndpoints(
@@ -173,6 +241,16 @@ export async function fetchWebRoute(input: {
     totalDistanceMeters,
     totalMinutes,
     segments,
+    transitDistanceMeters: input.mode === "TRANSIT"
+      ? Math.max(0, Math.round(number(payload.transitDistanceMeters) ?? 0)) || null
+      : null,
+    transfers: input.mode === "TRANSIT"
+      ? Math.max(0, Math.round(number(payload.transfers) ?? 0))
+      : 0,
+    steps: input.mode === "TRANSIT" ? normalizeTransitSteps(payload.steps) : [],
+    accessWalk: input.mode === "TRANSIT" ? normalizeWalkLeg(payload.accessWalk) : null,
+    egressWalk: input.mode === "TRANSIT" ? normalizeWalkLeg(payload.egressWalk) : null,
+    busRoutes: input.mode === "TRANSIT" ? normalizeBusRoutes(payload.busRoutes) : [],
     landingURL: text(payload.landingURL),
     isEstimated: false,
   };

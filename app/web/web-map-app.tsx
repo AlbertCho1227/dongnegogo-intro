@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent } from "react";
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import Link from "next/link";
+import { ArrowLeftRight, BusFront, CarFront, ChevronRight, CircleAlert, Info, MapPin, Navigation, PersonStanding, Route, Search, TramFront } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebProgram } from "@/lib/web-program-data";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
@@ -106,6 +107,20 @@ function distanceMeters(a: Coordinate, b: Coordinate) {
 function distanceLabel(meters: number) {
   if (!Number.isFinite(meters)) return "거리 확인 중";
   return meters < 1_000 ? `${Math.max(10, Math.round(meters / 10) * 10)}m` : `${(meters / 1_000).toFixed(1)}km`;
+}
+
+function travelDuration(minutes: number, approximate = false) {
+  const value = Math.max(0, Math.round(minutes));
+  const duration = value < 60
+    ? `${value}분`
+    : value % 60 === 0 ? `${Math.floor(value / 60)}시간` : `${Math.floor(value / 60)}시간 ${value % 60}분`;
+  return approximate ? `약 ${duration}` : duration;
+}
+
+function TravelModeIcon({ transport, size = 18 }: { transport: Transport; size?: number }) {
+  if (transport === "walk") return <PersonStanding aria-hidden="true" size={size} strokeWidth={2.5} />;
+  if (transport === "car") return <CarFront aria-hidden="true" size={size} strokeWidth={2.5} />;
+  return <TramFront aria-hidden="true" size={size} strokeWidth={2.5} />;
 }
 
 function isAvailable(program: WebProgram) {
@@ -1819,7 +1834,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
     return () => controller.abort();
   }, [current, onRouteChange, program.facility, program.id, program.latitude, program.longitude, transport, usesFallbackLocation]);
 
-  const timeMetric = usesFallbackLocation ? "—" : route ? `약 ${route.totalMinutes}분` : routeState === "loading" ? "계산 중" : `약 ${routeEstimate.minutes}분`;
+  const timeMetric = usesFallbackLocation ? "—" : route ? travelDuration(route.totalMinutes) : routeState === "loading" ? "계산 중" : travelDuration(routeEstimate.minutes);
   const distanceMetric = usesFallbackLocation ? "—" : route ? distanceLabel(route.totalDistanceMeters) : distanceLabel(routeEstimate.distance);
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
@@ -1844,7 +1859,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
         <section>
           <h2>거리정보</h2>
           <div className="dg-distance-card">
-            <div className="dg-route-summary-title"><span aria-hidden="true">{transport === "walk" ? "🚶" : transport === "car" ? "🚗" : "🚇"}</span><strong>추천 경로</strong></div>
+            <div className="dg-route-summary-title"><TravelModeIcon transport={transport} size={16} /><strong>추천 경로</strong></div>
             <div className="dg-route-metrics">
               <div><strong>{timeMetric}</strong><span>예상 시간</span></div>
               <div><strong>{distanceMetric}</strong><span>{distanceMetricLabel}</span></div>
@@ -1861,7 +1876,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
               usesFallbackLocation={usesFallbackLocation}
               onOpen={onShowRouteOnMap}
             />
-            <div className="dg-transport-tabs"><button type="button" className={transport === "walk" ? "active" : ""} onClick={() => onTransport("walk")}>🚶 도보</button><button type="button" className={transport === "transit" ? "active" : ""} onClick={() => onTransport("transit")}>🚇 대중교통</button><button type="button" className={transport === "car" ? "active" : ""} onClick={() => onTransport("car")}>🚗 자동차</button></div>
+            <div className="dg-transport-tabs" aria-label="이동 수단 선택"><button type="button" className={transport === "walk" ? "active" : ""} onClick={() => onTransport("walk")} aria-pressed={transport === "walk"}><PersonStanding aria-hidden="true" />도보</button><button type="button" className={transport === "transit" ? "active" : ""} onClick={() => onTransport("transit")} aria-pressed={transport === "transit"}><TramFront aria-hidden="true" />대중교통</button><button type="button" className={transport === "car" ? "active" : ""} onClick={() => onTransport("car")} aria-pressed={transport === "car"}><CarFront aria-hidden="true" />자동차</button></div>
             <RouteJourneyDetails
               program={program}
               transport={transport}
@@ -1994,6 +2009,62 @@ function KakaoRoutePreview({ origin, destination, route, routeState, transport, 
   </div>;
 }
 
+function transitLineColor(type: string, lineName: string) {
+  const normalized = lineName.replace(/\s+/g, "").toLowerCase();
+  if (type.includes("BUS")) return "#2f6fd4";
+  if (/1호선/.test(normalized)) return "#263c96";
+  if (/2호선/.test(normalized)) return "#2f9b47";
+  if (/3호선/.test(normalized)) return "#f07a2d";
+  if (/4호선/.test(normalized)) return "#21a9d6";
+  if (/5호선/.test(normalized)) return "#8958b5";
+  if (/6호선/.test(normalized)) return "#9b6f45";
+  if (/7호선/.test(normalized)) return "#69773c";
+  if (/8호선/.test(normalized)) return "#dc486b";
+  if (/9호선/.test(normalized)) return "#b59a4b";
+  return "#2f6fd4";
+}
+
+function TransitModeGlyph({ type, size = 16 }: { type: string; size?: number }) {
+  return type.includes("BUS")
+    ? <BusFront aria-hidden="true" size={size} strokeWidth={2.5} />
+    : <TramFront aria-hidden="true" size={size} strokeWidth={2.5} />;
+}
+
+function JourneyEndpoint({ icon, tint, role, title, subtitle, badge }: {
+  icon: ReactNode;
+  tint: string;
+  role: string;
+  title: string;
+  subtitle?: string;
+  badge?: ReactNode;
+}) {
+  return <div className="dg-journey-endpoint">
+    <span className="dg-journey-endpoint-icon" style={{ "--dg-journey-tint": tint } as CSSProperties}>{icon}</span>
+    <div><p><em style={{ color: tint }}>{role}</em><strong>{title}</strong></p>{badge ?? (subtitle ? <small>{subtitle}</small> : null)}</div>
+  </div>;
+}
+
+function JourneyConnector({ icon, title, detail, tint = "#cfd5cf" }: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  tint?: string;
+}) {
+  return <div className="dg-journey-connector" style={{ "--dg-journey-line": tint } as CSSProperties}>
+    <i aria-hidden="true" />
+    <span>{icon}<b>{title}</b><em>{detail}</em></span>
+  </div>;
+}
+
+function TransitLineBadge({ type, name }: { type: string; name: string }) {
+  const color = transitLineColor(type, name);
+  return <span className="dg-transit-line-badge" style={{ "--dg-transit-line": color } as CSSProperties}>{name}{type.includes("BUS") && !/버스$/.test(name) ? " 버스" : type.includes("SUBWAY") && !/지하철$/.test(name) ? " 지하철" : ""}</span>;
+}
+
+function walkLegDescription(leg: WebRouteResult["accessWalk"]) {
+  return leg ? `${travelDuration(leg.minutes, true)} · ${distanceLabel(leg.distanceMeters)}` : "거리·시간 확인 중";
+}
+
 function RouteJourneyDetails({ program, transport, route, routeState, routeError, estimate, usesFallbackLocation }: {
   program: WebProgram;
   transport: Transport;
@@ -2003,27 +2074,102 @@ function RouteJourneyDetails({ program, transport, route, routeState, routeError
   estimate: { distance: number; minutes: number };
   usesFallbackLocation: boolean;
 }) {
+  const [expandedSubwayStep, setExpandedSubwayStep] = useState<number | null>(null);
+  const modeTitle = transport === "walk" ? "도보로 가는 길" : transport === "car" ? "자동차로 가는 길" : "대중교통으로 가는 길";
+
   if (usesFallbackLocation || routeState === "waiting") {
-    return <div className="dg-route-state-card"><span aria-hidden="true">⌖</span><div><strong>현재 위치를 확인하면 {transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 보여드려요</strong><p>위치 권한을 허용하면 출발·이동·도착 구간이 자동으로 표시됩니다.</p></div></div>;
+    return <div className="dg-route-state-card"><span aria-hidden="true"><Navigation size={16} /></span><div><strong>현재 위치를 확인하면 {transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 보여드려요</strong><p>위치 권한을 허용하면 출발·이동·도착 구간이 자동으로 표시됩니다.</p></div></div>;
   }
   if (routeState === "loading") {
-    return <div className="dg-route-state-card loading"><i aria-hidden="true" /><div><strong>{transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 확인하고 있어요</strong><p>최신 도로와 환승 정보를 기준으로 계산합니다.</p></div></div>;
+    return <div className="dg-route-state-card loading"><i aria-hidden="true" /><div><strong>{transport === "transit" ? "대중교통" : transport === "car" ? "자동차" : "도보"} 경로를 확인하고 있어요</strong><p>{transport === "transit" ? "승차 지점과 시설까지의 도보 시간을 함께 계산합니다." : "도로를 따라 예상 거리와 시간을 계산합니다."}</p></div></div>;
   }
 
-  const modeTitle = transport === "walk" ? "도보로 가는 길" : transport === "car" ? "자동차로 가는 길" : "대중교통으로 가는 길";
-  const modeIcon = transport === "walk" ? "🚶" : transport === "car" ? "🚗" : "🚇";
   if (!route) {
     if (transport === "walk") {
-      return <div className="dg-journey-card"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {estimate.minutes}분</span></header><div className="dg-direct-journey"><b>● 현재 위치</b><i /><b>▥ {program.facility}</b></div><p>직선거리와 평균 보행 속도를 이용한 예상 정보입니다.</p></div>;
+      return <div className="dg-journey-card walk">
+        <header><strong><PersonStanding aria-hidden="true" />{modeTitle}</strong><span>{travelDuration(estimate.minutes, true)}</span></header>
+        <div className="dg-journey-divider" />
+        <JourneyEndpoint icon={<Navigation size={17} />} tint="#2c71d6" role="출발" title="현재 위치" subtitle="시설까지 걸어서 이동해요" />
+        <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={`${travelDuration(estimate.minutes, true)} · ${distanceLabel(estimate.distance)}`} />
+        <JourneyEndpoint icon={<MapPin size={17} />} tint="#22b14c" role="도착" title={program.facility} subtitle="프로그램이 진행되는 시설" />
+        <div className="dg-journey-divider" />
+        <p className="dg-journey-source"><Info aria-hidden="true" />직선거리와 평균 보행 속도를 이용한 예상 정보입니다.</p>
+      </div>;
     }
-    return <div className="dg-route-state-card unavailable"><span aria-hidden="true">!</span><div><strong>{modeTitle}을 찾지 못했어요</strong><p>{routeError || "지도 앱에서 최신 경로를 확인해 주세요."}</p></div></div>;
+    return <div className="dg-route-state-card unavailable"><span aria-hidden="true"><CircleAlert size={16} /></span><div><strong>{modeTitle}을 찾지 못했어요</strong><p>{routeError || "지도 앱에서 최신 경로를 확인해 주세요."}</p></div></div>;
   }
 
   if (transport !== "transit") {
-    return <div className="dg-journey-card"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {route.totalMinutes}분</span></header><div className="dg-direct-journey"><b>● 현재 위치</b><i /><b>▥ {program.facility}</b></div><div className="dg-journey-metrics"><span>{distanceLabel(route.totalDistanceMeters)}</span><span>{transport === "walk" ? "실제 도보 경로" : "추천 자동차 경로"}</span></div><p>최신 경로 응답 기준이며 현장 상황에 따라 달라질 수 있습니다.</p></div>;
+    const isWalk = transport === "walk";
+    return <div className={`dg-journey-card ${isWalk ? "walk" : "car"}`}>
+      <header><strong><TravelModeIcon transport={transport} />{modeTitle}</strong><span>{travelDuration(route.totalMinutes, true)}</span></header>
+      <div className="dg-journey-divider" />
+      <JourneyEndpoint icon={<Navigation size={17} />} tint="#2c71d6" role="출발" title="현재 위치" subtitle={isWalk ? "시설까지 걸어서 이동해요" : "추천 자동차 경로로 이동해요"} />
+      <JourneyConnector icon={isWalk ? <PersonStanding size={15} /> : <CarFront size={15} />} title={isWalk ? "도보" : "자동차"} detail={`${travelDuration(route.totalMinutes, true)} · ${distanceLabel(route.totalDistanceMeters)}`} />
+      <JourneyEndpoint icon={<MapPin size={17} />} tint="#22b14c" role="도착" title={program.facility} subtitle="프로그램이 진행되는 시설" />
+      <div className="dg-journey-divider" />
+      <p className="dg-journey-source"><Info aria-hidden="true" />{isWalk ? "카카오맵 도보 경로를 기준으로 계산했습니다." : "카카오맵 자동차 경로 기준이며 교통 상황에 따라 달라질 수 있습니다."}</p>
+    </div>;
   }
 
-  return <div className="dg-journey-card transit"><header><strong>{modeIcon} {modeTitle}</strong><span>약 {route.totalMinutes}분</span></header><div className="dg-transit-journey"><div className="endpoint"><b>● 현재 위치</b><small>출발</small></div>{route.segments.slice(0, 8).map((segment, index) => <div className="segment" key={`${segment.type}-${segment.lineName}-${index}`}><i /><span aria-hidden="true">{segment.type.includes("SUBWAY") ? "🚇" : segment.type.includes("BUS") ? "🚌" : segment.type.includes("WALK") ? "🚶" : "↳"}</span><div><b>{segment.lineName || "추천 이동 구간"}</b><small>{segment.type.includes("WALK") ? "도보 이동" : "탑승 후 안내 경로를 따라 이동"}</small></div></div>)}<div className="endpoint destination"><b>▥ {program.facility}</b><small>도착</small></div></div><div className="dg-journey-metrics"><span>{distanceLabel(route.totalDistanceMeters)}</span><span>실제 대중교통 경로</span></div><p>승차 지점과 시설까지의 도보 구간을 함께 안내합니다.</p></div>;
+  const fallbackSteps = route.segments.filter((segment) => !segment.type.includes("WALK")).map((segment) => ({
+    type: segment.type,
+    lineName: segment.lineName,
+    minutes: Math.max(1, Math.round(route.totalMinutes / Math.max(1, route.segments.length))),
+    boardingStation: null,
+    alightingStation: null,
+    stopCount: null,
+    intermediateStations: [] as string[],
+    exitGuidance: null,
+  }));
+  const steps = route.steps.length ? route.steps : fallbackSteps;
+  if (!steps.length) {
+    return <div className="dg-route-state-card unavailable"><span aria-hidden="true"><CircleAlert size={16} /></span><div><strong>대중교통으로 가는 길을 찾지 못했어요</strong><p>{routeError || "카카오맵에서 최신 대중교통 경로를 확인해 주세요."}</p></div></div>;
+  }
+  const firstStep = steps[0];
+  const lastStep = steps[steps.length - 1];
+  const remainingWalkDistance = Math.max(0, route.totalDistanceMeters - (route.transitDistanceMeters ?? route.totalDistanceMeters));
+  const defaultWalkLeg = remainingWalkDistance > 0 ? {
+    distanceMeters: Math.max(10, Math.round(remainingWalkDistance / 2)),
+    minutes: Math.max(1, Math.ceil(remainingWalkDistance / 2 / 75)),
+  } : null;
+  const accessWalk = route.accessWalk ?? defaultWalkLeg;
+  const egressWalk = route.egressWalk ?? defaultWalkLeg;
+  const rideMinutes = Math.max(1, Math.min(route.totalMinutes, steps.reduce((sum, step) => sum + step.minutes, 0)));
+  const currentLines = new Set(steps.filter((step) => step.type.includes("BUS")).map((step) => step.lineName.replace(/(?:번|버스|\s)/g, "")));
+  const otherBuses = route.busRoutes.filter((bus) => !currentLines.has(bus.name.replace(/(?:번|버스|\s)/g, "")));
+
+  return <div className="dg-journey-card transit">
+    <header><strong><Route aria-hidden="true" />대중교통으로 가는 길</strong><span>{travelDuration(route.totalMinutes, true)}</span></header>
+    <div className="dg-journey-divider" />
+    <JourneyEndpoint icon={<Navigation size={17} />} tint="#2c71d6" role="출발" title="현재 위치" subtitle="가까운 승차 지점까지 걸어가요" />
+    <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={walkLegDescription(accessWalk)} />
+    <JourneyEndpoint icon={<TransitModeGlyph type={firstStep.type} size={17} />} tint={transitLineColor(firstStep.type, firstStep.lineName)} role="승차" title={firstStep.boardingStation || (firstStep.type.includes("BUS") ? "버스 승차 정류장" : "대중교통 승차 지점")} badge={<TransitLineBadge type={firstStep.type} name={firstStep.lineName} />} />
+    <div className="dg-transit-ride" style={{ "--dg-journey-line": transitLineColor(firstStep.type, firstStep.lineName) } as CSSProperties}>
+      <i aria-hidden="true" />
+      <div>
+        <p><ArrowLeftRight aria-hidden="true" size={15} /><strong>대중교통 {travelDuration(rideMinutes, true)}</strong>{route.transitDistanceMeters ? <span>· {distanceLabel(route.transitDistanceMeters)}</span> : null}</p>
+        <div className="dg-transit-lines">{steps.map((step, index) => <span className="dg-transit-line" key={`${step.type}-${step.lineName}-${index}`}>
+          {index > 0 && <ChevronRight aria-hidden="true" size={12} />}
+          <TransitLineBadge type={step.type} name={step.lineName} />
+          {step.type.includes("SUBWAY") && <button type="button" onClick={() => setExpandedSubwayStep((value) => value === index ? null : index)} aria-label={`${step.lineName} 지하철 상세 경로 ${expandedSubwayStep === index ? "닫기" : "보기"}`}><Search aria-hidden="true" size={13} /></button>}
+        </span>)}</div>
+        {expandedSubwayStep !== null && steps[expandedSubwayStep]?.type.includes("SUBWAY") && <div className="dg-subway-detail">
+          <header><TramFront aria-hidden="true" size={17} /><strong>{steps[expandedSubwayStep].lineName} 상세 경로</strong>{steps[expandedSubwayStep].stopCount !== null && <span>{steps[expandedSubwayStep].stopCount}개 정거장</span>}<em>{travelDuration(steps[expandedSubwayStep].minutes, true)}</em></header>
+          <div className="dg-subway-endpoints"><p><b>출발</b><strong>{steps[expandedSubwayStep].boardingStation || "승차역 확인"}</strong></p><i /><p><b>도착</b><strong>{steps[expandedSubwayStep].alightingStation || "하차역 확인"}</strong></p></div>
+          {steps[expandedSubwayStep].intermediateStations.length > 0 ? <p><b>경유역</b>{steps[expandedSubwayStep].intermediateStations.join("  ·  ")}</p> : steps[expandedSubwayStep].stopCount && steps[expandedSubwayStep].stopCount > 1 ? <p>중간 {steps[expandedSubwayStep].stopCount - 1}개 역을 지나갑니다.</p> : null}
+          <small><Info aria-hidden="true" size={13} />{steps[expandedSubwayStep].exitGuidance || "출구 번호는 실시간 경로에서 제공될 때만 표시하며, 출발 전 카카오맵에서 확인해 주세요."}</small>
+        </div>}
+        <small>{route.transfers === 0 ? "환승 없음" : `환승 ${route.transfers}회`}</small>
+      </div>
+    </div>
+    <JourneyEndpoint icon={<TransitModeGlyph type={lastStep.type} size={17} />} tint={transitLineColor(lastStep.type, lastStep.lineName)} role="하차" title={lastStep.alightingStation || (lastStep.type.includes("BUS") ? "버스 하차 정류장" : "대중교통 하차 지점")} badge={<TransitLineBadge type={lastStep.type} name={lastStep.lineName} />} />
+    <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={walkLegDescription(egressWalk)} />
+    <JourneyEndpoint icon={<MapPin size={17} />} tint="#22b14c" role="도착" title={program.facility} subtitle="프로그램이 진행되는 시설" />
+    {otherBuses.length > 0 && <><div className="dg-journey-divider" /><div className="dg-other-buses"><strong><BusFront aria-hidden="true" size={17} />그 밖에 이용 가능한 버스 정보</strong><div>{otherBuses.map((bus) => <TransitLineBadge key={`${bus.name}-${bus.type ?? ""}`} type="BUS" name={bus.name} />)}</div></div></>}
+    <div className="dg-journey-divider" />
+    <p className="dg-journey-source"><Info aria-hidden="true" />교통정보 · 카카오맵 제공<br />교통 상황과 운행 시간은 출발 전에 다시 확인해 주세요.</p>
+  </div>;
 }
 
 function KakaoRoadviewPreview({ coordinate, facilityName }: { coordinate: Coordinate; facilityName: string }) {
