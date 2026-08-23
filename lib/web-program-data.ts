@@ -97,6 +97,11 @@ export type WebNearbyPlace = {
   latitude: number;
   distanceMeters: number;
   businessStatusName: string | null;
+  parkingLotID: string | null;
+  parkingLotName: string | null;
+  parkingDistanceMeters: number | null;
+  parkingAvailabilityStatus: string | null;
+  parkingAvailableSpaces: number | null;
 };
 
 export type WebNearbyPlacesSummary = {
@@ -332,6 +337,11 @@ function normalizeNearbyPlace(value: unknown): WebNearbyPlace | null {
     latitude,
     distanceMeters: Math.max(0, Math.round(numberValue(row.distance_m) ?? 0)),
     businessStatusName: textValue(row.business_status_name),
+    parkingLotID: textValue(row.parking_lot_id),
+    parkingLotName: textValue(row.parking_lot_name),
+    parkingDistanceMeters: numberValue(row.parking_distance_m),
+    parkingAvailabilityStatus: textValue(row.parking_availability_status),
+    parkingAvailableSpaces: numberValue(row.parking_available_spaces),
   };
 }
 

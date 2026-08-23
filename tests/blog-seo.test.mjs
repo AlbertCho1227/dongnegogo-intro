@@ -213,7 +213,8 @@ test("페이지 번호와 이전·다음은 인접 결과를 미리 준비하고
 
   assert.match(data, /cachedArchiveRows/);
   assert.match(data, /cachedArchiveTotal/);
-  assert.match(data, /Promise\.all\(\[/);
+  assert.match(data, /Promise\.allSettled\(\[/);
+  assert.match(data, /slow exact count must never discard rows/);
   assert.match(data, /method: "HEAD"/);
   assert.match(pagination, /router\.prefetch\(previousHref\)/);
   assert.match(pagination, /router\.prefetch\(nextHref\)/);

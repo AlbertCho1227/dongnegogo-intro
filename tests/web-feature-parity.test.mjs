@@ -6,6 +6,8 @@ import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
 
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
 const webMapStyle = readFileSync(new URL("../app/web/web-map.css", import.meta.url), "utf8");
+const webRouteSource = readFileSync(new URL("../lib/web-route-data.ts", import.meta.url), "utf8");
+const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.meta.url), "utf8");
 
 function program(overrides = {}) {
   return {
@@ -66,11 +68,72 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
     "무더위쉼터",
     "목적지 주변 가게 보기",
     "오픈런 알림",
-    "최근 7일 동안 열어본 프로그램이에요",
+    "오늘부터 3일 전까지 열어본 프로그램이에요",
+    "시설 거리뷰 보기",
+    "도보 경로 계산 중",
+    "가족 정보 저장",
   ]) assert.ok(webMapSource.includes(copy), `${copy} UI가 빠졌습니다.`);
   assert.match(webMapSource, /aria-label="이전 달"/);
   assert.match(webMapSource, /aria-label="다음 달"/);
   assert.match(webMapSource, /\[100, 300, 500, 1000\]/);
   assert.match(webMapStyle, /\.dg-calendar-grid/);
+  assert.match(webMapStyle, /\.dg-route-endpoint/);
+  assert.match(webMapStyle, /\.dg-nearby-map-marker/);
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
+});
+
+test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에서 사용한다", () => {
+  assert.match(webRouteSource, /android-route-directions/);
+  assert.match(webRouteSource, /facility-transit-info/);
+  assert.match(webRouteSource, /fastRoute:\s*true/);
+  assert.match(webRouteSource, /isEstimated:\s*false/);
+  assert.match(webRouteSource, /import "server-only"/);
+  assert.doesNotMatch(webRouteSource, /service_role|sb_secret_/i);
+});
+
+test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만 사용한다", () => {
+  assert.match(webUserSource, /sb_publishable_/);
+  assert.match(webUserSource, /user_favorites/);
+  assert.match(webUserSource, /open_run_alerts/);
+  assert.match(webUserSource, /family_members/);
+  assert.match(webUserSource, /user_legal_consents/);
+  assert.match(webUserSource, /app_platform:\s*"web"/);
+  assert.match(webUserSource, /WEB_AUTH_CONSENT_VERSION\s*=\s*"2026-08-11"/);
+  assert.match(webUserSource, /flowType:\s*"pkce"/);
+  assert.doesNotMatch(webUserSource, /service_role|sb_secret_/i);
+});
+
+test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다", () => {
+  assert.match(webMapSource, /로그인하고 안전하게 저장/);
+  assert.match(webMapSource, /로그인 이용 확인/);
+  assert.match(webMapSource, /만 14세 이상이며/);
+  assert.match(webMapSource, /동의하고 계속/);
+  assert.match(webMapSource, /Kakao로 계속/);
+  assert.match(webMapSource, /Apple로 계속/);
+  assert.match(webMapSource, /Google로 계속/);
+  assert.match(webMapStyle, /\.dg-auth-dialog/);
+});
+
+test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고 PC 분할 구조는 유지한다", () => {
+  assert.match(webMapSource, /dg-mobile-map-chrome/);
+  assert.match(webMapSource, /dg-tab-\$\{tab\}/);
+  assert.match(webMapSource, /dg-side-panel-overlay/);
+  assert.match(webMapSource, /openMapTool\("programs"\)/);
+  assert.match(webMapSource, /이렇게 검색해보세요/);
+  assert.match(webMapSource, /나의 프로그램/);
+  assert.match(webMapSource, /가족을 위한 프로그램/);
+  assert.match(webMapStyle, /grid-template-columns:\s*88px 430px minmax\(0,\s*1fr\)/);
+  assert.match(webMapStyle, /\.dg-side-panel-map:not\(\.dg-side-panel-overlay\)\s*\{\s*display:\s*none/);
+  assert.match(webMapStyle, /\.dg-mobile-map-header/);
+  assert.match(webMapStyle, /\.dg-place-sheet::before/);
+  assert.match(webMapStyle, /\.dg-side-panel-overlay\s*\{\s*z-index:\s*80;\s*bottom:\s*0/);
+  assert.match(webMapSource, /type MobileSheetSnap = "collapsed" \| "medium" \| "expanded"/);
+  assert.match(webMapSource, /window\.addEventListener\("pointermove", onPointerMove/);
+  assert.match(webMapSource, /window\.addEventListener\("pointerup", onPointerEnd\)/);
+  assert.match(webMapSource, /window\.addEventListener\("touchend", onTouchEnd\)/);
+  assert.match(webMapSource, /ref=\{sheetGrabberRef\}/);
+  assert.match(webMapSource, /mapRequestIDRef/);
+  assert.doesNotMatch(webMapSource, /requestRef\.current\?\.abort\(\)/);
+  assert.match(webMapStyle, /\.dg-mobile-sheet-grabber/);
+  assert.match(webMapStyle, /touch-action:\s*none/);
 });

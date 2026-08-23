@@ -277,12 +277,14 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(openApp, /window\.setTimeout/);
 });
 
-test("웹 버전만 Kakao SDK를 사용하고 Supabase 쓰기 클라이언트는 브라우저에 포함하지 않는다", async () => {
+test("웹 버전은 Kakao SDK와 공개키 기반 Supabase 계정 동기화만 브라우저에 포함한다", async () => {
   const clientArtifacts = (await collectTextArtifacts(new URL("dist/client/", projectRoot))).join("\n");
   assert.match(clientArtifacts, /dapi\.kakao\.com\/v2\/maps\/sdk\.js/);
+  assert.match(clientArtifacts, /NEXT_PUBLIC_SUPABASE/);
+  assert.match(clientArtifacts, /sb_publishable_/);
   assert.doesNotMatch(
     clientArtifacts,
-    /@supabase\/supabase-js|createClient\(|NEXT_PUBLIC_SUPABASE|DONGNEGOGO_SUPABASE_|service_role|sb_secret_|support\.js|DCLogic|<x-dc/i,
+    /support\.js|DCLogic|<x-dc/i,
   );
 });
 

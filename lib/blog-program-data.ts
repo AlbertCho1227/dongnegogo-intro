@@ -262,7 +262,15 @@ export async function getBlogProgramSearchPage(searchTerm: string, limit = 16) {
 
 export async function getLatestBlogPrograms(limit = 3) {
   const safeLimit = Math.max(1, Math.min(3, Math.trunc(limit)));
-  return cachedArchiveRows(0, safeLimit, "전체", "", "전체");
+  try {
+    return await cachedArchiveRows(0, safeLimit, "전체", "", "전체");
+  } catch {
+    // The archive endpoint and its exact-count query are intentionally separate.
+    // If the larger archive read is temporarily slow, keep the latest-story area
+    // useful with the smaller legacy program query instead of rendering zero cards.
+    const fallback = await cachedPage(0, safeLimit, "", "");
+    return fallback.programs.filter((program) => !isParkingProgram(program)).slice(0, safeLimit);
+  }
 }
 
 export async function getBlogProgramArchivePage(input: { page?: number; category?: string; city?: string; searchTerm?: string; pageSize?: number } = {}) {
@@ -273,9 +281,23 @@ export async function getBlogProgramArchivePage(input: { page?: number; category
   const searchTerm = safeFilterTerm(input.searchTerm ?? "");
   // 전체 개수는 페이지 번호와 무관하므로 한 번만 캐시하고, 목록과 병렬로 읽습니다.
   // 이전 방식은 페이지를 넘길 때마다 동일한 exact count를 다시 계산했습니다.
-  const [programs, total] = await Promise.all([
+  const [programsResult, totalResult] = await Promise.allSettled([
     cachedArchiveRows((page - 1) * pageSize, pageSize, category, searchTerm, city),
     cachedArchiveTotal(category, searchTerm, city),
   ]);
+  let programs = programsResult.status === "fulfilled" ? programsResult.value : [];
+  if (!programs.length && page === 1 && category === "전체" && city === "전체" && !searchTerm) {
+    try {
+      const fallback = await cachedPage(0, pageSize, "", "");
+      programs = fallback.programs.filter((program) => !isParkingProgram(program));
+    } catch {
+      // The page component still renders its stable shell and retryable empty state.
+    }
+  }
+  // A slow exact count must never discard rows that were already read successfully.
+  // The lower-bound fallback is replaced by the cached exact total on the next request.
+  const total = totalResult.status === "fulfilled"
+    ? Math.max(totalResult.value, (page - 1) * pageSize + programs.length)
+    : (page - 1) * pageSize + programs.length;
   return { programs, total, page, pageSize, category, city, searchTerm };
 }
