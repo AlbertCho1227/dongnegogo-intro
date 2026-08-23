@@ -200,7 +200,8 @@
 .dg-main-route-content > .dg-transport-tabs { margin-bottom: 14px; }
 .dg-main-route-content > .dg-location-guide { margin-bottom: 12px; }
 .dg-route-nearby-panel { height: auto; min-height: 100%; }
-.dg-route-nearby-panel .dg-radius-row, .dg-route-nearby-panel .dg-nearby-categories { padding-inline: 0; }
+.dg-route-nearby-panel .dg-nearby-radius-card { margin-inline: 0; }
+.dg-route-nearby-panel .dg-nearby-categories { padding-inline: 0; }
 .dg-route-nearby-panel .dg-nearby-route-summary { margin-inline: 0; }
 .dg-route-nearby-panel .dg-aux-list { overflow: visible; padding: 14px 0 120px; }
 .dg-journey-card { margin-top: 12px; padding: 14px; border: 1px solid #edf2eb; border-radius: 16px; background: #fff; box-shadow: 0 3px 12px rgba(36,68,45,.055); }
@@ -396,9 +397,9 @@
 .dg-aux-list strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .dg-aux-list em { overflow: hidden; color: #7c847d; font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .dg-date-badge, .dg-place-type { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 14px; color: var(--dg-green-deep); background: #eaf7e5; font-size: 16px; font-weight: 900; }
-.dg-family-tabs, .dg-radius-row, .dg-nearby-categories { flex: none; padding: 12px 16px 0; display: flex; gap: 7px; overflow-x: auto; }
-.dg-family-tabs button, .dg-radius-row button, .dg-nearby-categories button { flex: none; padding: 8px 11px; border: 1px solid #dfe4df; border-radius: 999px; color: #5d655e; background: #fff; font-size: 11px; font-weight: 800; cursor: pointer; }
-.dg-family-tabs button.active, .dg-radius-row button.active, .dg-nearby-categories button.active { border-color: transparent; color: #fff; background: var(--dg-green); }
+.dg-family-tabs, .dg-nearby-categories { flex: none; padding: 12px 16px 0; display: flex; gap: 7px; overflow-x: auto; }
+.dg-family-tabs button, .dg-nearby-categories button { flex: none; padding: 8px 11px; border: 1px solid #dfe4df; border-radius: 999px; color: #5d655e; background: #fff; font-size: 11px; font-weight: 800; cursor: pointer; }
+.dg-family-tabs button.active, .dg-nearby-categories button.active { border-color: transparent; color: #fff; background: var(--dg-green); }
 .dg-family-profile { margin: 13px 16px 0; padding: 15px; display: flex; flex-direction: column; gap: 3px; border-radius: 16px; background: #edf8e8; }
 .dg-family-profile span { color: #6d786f; font-size: 11px; }
 .dg-history-summary { margin: 14px 16px 0; padding: 17px; border-radius: 17px; background: linear-gradient(135deg,#edf8e8,#f6f9f4); }
@@ -434,12 +435,11 @@
 .dg-route-origin { background: var(--dg-green); }
 .dg-route-origin.fallback { background: #778078; }
 .dg-route-destination { background: var(--dg-green); }
-.dg-nearby-map-marker { width: 40px; height: 40px; padding: 0; border-radius: 50%; background: #fff; color: #344238; font-size: 19px; transition: transform .16s ease, border-color .16s ease; }
-.dg-nearby-map-marker.selected { z-index: 2; border-color: #f4b61a; transform: scale(1.25); }
-.dg-nearby-cafe { background: #fff7e6; }
-.dg-nearby-restaurant, .dg-nearby-other_food { background: #fff0ec; }
-.dg-nearby-convenience_store { background: #edf5ff; }
-.dg-nearby-fast_food { background: #f8f1ff; }
+.dg-nearby-map-marker { width: 30px; height: 30px; padding: 0; border: 2px solid rgba(255,255,255,.94); border-radius: 50%; color: #fff; background: linear-gradient(145deg,#55cf53,#16a744); font-size: 14px; line-height: 1; transition: width .16s ease, height .16s ease, color .16s ease, background .16s ease, border-color .16s ease; }
+.dg-nearby-map-marker.selected { z-index: 2; width: 38px; height: 38px; border: 3px solid var(--dg-green); color: var(--dg-green); background: #fff; animation: dg-nearby-marker-pulse 1s ease-in-out infinite alternate; }
+.dg-nearby-marker-glyph { width: 15px; height: 15px; color: inherit; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
+.dg-nearby-map-marker.selected .dg-nearby-marker-glyph { width: 18px; height: 18px; }
+@keyframes dg-nearby-marker-pulse { from { box-shadow: 0 0 0 3px rgba(34,177,76,.18), 0 5px 18px rgba(20,40,25,.24); } to { box-shadow: 0 0 0 7px rgba(34,177,76,.34), 0 6px 20px rgba(20,40,25,.30); } }
 
 .dg-roadview-button { width: 100%; margin-top: 9px; padding: 11px; border: 1px solid #dfe5df; border-radius: 11px; color: #4d574f; background: #fff; font-size: 12px; font-weight: 850; cursor: pointer; }
 .dg-roadview-wrap { height: 220px; margin-top: 9px; position: relative; overflow: hidden; border: 1px solid var(--dg-line); border-radius: 15px; background: #edf1ed; }
@@ -482,19 +482,51 @@
 .dg-family-editor button.danger { background: #69736b; }
 .dg-family-editor > p { grid-column: 1 / -1; margin: 0; color: #8a928b; font-size: 10.5px; line-height: 1.5; }
 
-.dg-nearby-route-summary { margin: 11px 16px 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; border-radius: 14px; color: #5b4923; background: #fff5d9; }
+.dg-nearby-radius-card { flex: none; margin: 12px 16px 0; padding: 14px 15px 11px; border: 1px solid #e5eae5; border-radius: 18px; background: #fff; box-shadow: 0 4px 14px rgba(30,58,36,.07); }
+.dg-nearby-radius-card header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dg-nearby-radius-card header > span { display: flex; align-items: center; gap: 7px; color: #38433a; font-size: 13px; font-weight: 900; }
+.dg-nearby-radius-card header svg { width: 17px; height: 17px; color: var(--dg-green); stroke-width: 3; }
+.dg-nearby-radius-card header strong { padding: 6px 10px; border-radius: 999px; color: #fff; background: var(--dg-green); font-size: 12px; }
+.dg-nearby-radius-control { --dg-radius-progress: 0%; position: relative; margin-top: 13px; }
+.dg-nearby-radius-track { position: absolute; z-index: 0; top: 11px; right: 11px; left: 11px; height: 5px; border-radius: 999px; background: #e2eee0; pointer-events: none; }
+.dg-nearby-radius-track > i { position: absolute; inset: 0 auto 0 0; width: var(--dg-radius-progress); border-radius: inherit; background: var(--dg-green); }
+.dg-nearby-radius-track > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; }
+.dg-nearby-radius-track b { width: 10px; height: 10px; border-radius: 50%; background: #dcebd8; box-shadow: 0 0 0 2px #fff; }
+.dg-nearby-radius-track b.active { background: var(--dg-green); }
+.dg-nearby-radius-control input { position: relative; z-index: 2; width: 100%; height: 27px; margin: 0; opacity: 1; appearance: none; -webkit-appearance: none; background: transparent; cursor: pointer; }
+.dg-nearby-radius-control input::-webkit-slider-runnable-track { height: 5px; background: transparent; }
+.dg-nearby-radius-control input::-webkit-slider-thumb { width: 27px; height: 27px; margin-top: -11px; border: 3px solid var(--dg-green); border-radius: 50%; appearance: none; -webkit-appearance: none; background: #fff; box-shadow: 0 3px 9px rgba(21,102,45,.26); }
+.dg-nearby-radius-control input::-moz-range-track { height: 5px; background: transparent; }
+.dg-nearby-radius-control input::-moz-range-thumb { width: 22px; height: 22px; border: 3px solid var(--dg-green); border-radius: 50%; background: #fff; box-shadow: 0 3px 9px rgba(21,102,45,.26); }
+.dg-nearby-radius-labels { margin-top: 1px; display: flex; justify-content: space-between; }
+.dg-nearby-radius-labels button { min-width: 38px; padding: 3px 0; border: 0; color: #8a938b; background: transparent; font-size: 10px; font-weight: 800; cursor: pointer; }
+.dg-nearby-radius-labels button:first-child { text-align: left; }
+.dg-nearby-radius-labels button:last-child { text-align: right; }
+.dg-nearby-radius-labels button.active { color: var(--dg-green-deep); }
+.dg-nearby-route-summary { margin: 11px 16px 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 3px; border-radius: 14px; color: #155c2c; background: #edf8e8; }
 .dg-nearby-route-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dg-nearby-route-summary span { font-size: 11px; font-weight: 750; }
-.dg-nearby-card { margin-bottom: 10px; overflow: hidden; border: 1px solid #e4e9e4; border-radius: 18px; background: #fff; transition: border-color .16s ease, box-shadow .16s ease; }
-.dg-nearby-card.selected { border-color: #f4b61a; box-shadow: 0 5px 16px rgba(244,182,26,.18); }
-.dg-nearby-card-main { width: 100%; padding: 13px; border: 0; display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 10px; align-items: center; color: var(--dg-ink); background: #fff; text-align: left; cursor: pointer; }
+.dg-nearby-card { min-height: 184px; margin-bottom: 10px; overflow: hidden; border: 1px solid #e4e9e4; border-radius: 16px; background: #fff; box-shadow: 0 4px 14px rgba(32,55,37,.06); transition: border-color .16s ease, box-shadow .16s ease; }
+.dg-nearby-card.selected { border: 2px solid var(--dg-green); box-shadow: 0 6px 18px rgba(34,177,76,.20); }
+.dg-nearby-card-top { min-height: 48px; padding: 10px 11px 0 13px; display: flex; align-items: flex-start; justify-content: space-between; gap: 7px; }
+.dg-nearby-card-top > span { flex: none; padding: 6px 9px; border-radius: 999px; color: #168339; background: #e9f8e5; font-size: 10px; font-weight: 900; }
+.dg-nearby-card-main { width: 100%; padding: 9px 13px 15px; border: 0; display: grid; grid-template-columns: 42px minmax(0,1fr); gap: 11px; align-items: start; color: var(--dg-ink); background: #fff; text-align: left; }
 .dg-nearby-card-main > span:last-child { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.dg-nearby-card-main small { color: var(--dg-green-deep); font-size: 10px; font-weight: 850; }
 .dg-nearby-card-main strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.dg-nearby-card-main em { overflow: hidden; color: #7b847d; font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
-.dg-nearby-card-main .dg-parking-copy { color: #95680d; }
-.dg-nearby-map-actions { padding: 0 10px 10px; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
-.dg-nearby-map-actions > * { min-height: 36px; padding: 4px; border: 1px solid #e0e5e0; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #4e574f; background: #fff; text-decoration: none; text-align: center; font-size: 10px; font-weight: 800; cursor: pointer; }
+.dg-nearby-card-main em { overflow: hidden; color: #7b847d; font-size: 11px; font-style: normal; line-height: 1.45; text-overflow: ellipsis; white-space: nowrap; }
+.dg-nearby-card-main .dg-nearby-address { display: -webkit-box; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.dg-nearby-card-main .dg-parking-copy { margin-top: 2px; display: flex; align-items: center; gap: 4px; color: #5e6d61; }
+.dg-nearby-card-main .dg-parking-copy svg { width: 13px; height: 13px; flex: none; color: var(--dg-green); }
+.dg-place-type { width: 42px; height: 42px; border-radius: 50%; color: #fff; background: linear-gradient(145deg,#5bd157,#15a745); box-shadow: 0 4px 10px rgba(34,177,76,.20); }
+.dg-place-type svg { width: 21px; height: 21px; stroke-width: 2.4; }
+.dg-nearby-map-actions { display: flex; justify-content: flex-end; gap: 5px; }
+.dg-nearby-map-actions > * { width: 78px; height: 30px; overflow: hidden; padding: 0 5px; border: 1px solid #e0e5e0; border-radius: 999px; display: flex; flex: none; align-items: center; justify-content: center; gap: 2px; color: #4e574f; background: #fff; text-decoration: none; text-align: center; white-space: nowrap; font-size: 9.2px; font-weight: 850; cursor: pointer; }
+.dg-nearby-map-actions > button { width: 92px; }
+.dg-nearby-map-actions > * > span:last-child { flex: none; transform: scale(.58); }
+.dg-nearby-map-actions svg { width: 16px; height: 16px; color: var(--dg-green); }
+.dg-nearby-brand { width: 18px; height: 18px; border-radius: 5px; background-position: center; background-repeat: no-repeat; background-size: cover; }
+.dg-nearby-brand.naver { background-image: url('/brand/map-icons/naver-map.png'); }
+.dg-nearby-brand.kakao { background-image: url('/brand/map-icons/kakao-map.png'); }
 .dg-nearby-limit { padding: 11px 13px; border-radius: 12px; color: #6f786f; background: #f2f5f2; font-size: 10.5px; line-height: 1.5; }
 
 .dg-alert-dialog { width: min(520px, 100%); padding: 22px; border-radius: 25px; background: #fff; box-shadow: 0 25px 80px rgba(0,0,0,.25); }
