@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, BusFront, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Info, MapPin, Navigation, PersonStanding, Route, Search, TramFront, Undo2, X } from "lucide-react";
+import { ArrowLeftRight, BusFront, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Info, MapPin, Navigation, PersonStanding, Route, Search, TrainFront, TramFront, Undo2, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebProgram } from "@/lib/web-program-data";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
@@ -2359,6 +2359,7 @@ function KakaoRoutePreview({ origin, destination, route, routeState, transport, 
 
 function transitLineColor(type: string, lineName: string) {
   const normalized = lineName.replace(/\s+/g, "").toLowerCase();
+  if (type.includes("TRAIN") || type.includes("RAIL")) return "#2c71d6";
   if (type.includes("BUS")) return "#2f6fd4";
   if (/1호선/.test(normalized)) return "#263c96";
   if (/2호선/.test(normalized)) return "#2f9b47";
@@ -2373,9 +2374,9 @@ function transitLineColor(type: string, lineName: string) {
 }
 
 function TransitModeGlyph({ type, size = 16 }: { type: string; size?: number }) {
-  return type.includes("BUS")
-    ? <BusFront aria-hidden="true" size={size} strokeWidth={2.5} />
-    : <TramFront aria-hidden="true" size={size} strokeWidth={2.5} />;
+  if (type.includes("BUS")) return <BusFront aria-hidden="true" size={size} strokeWidth={2.5} />;
+  if (type.includes("TRAIN") || type.includes("RAIL")) return <TrainFront aria-hidden="true" size={size} strokeWidth={2.5} />;
+  return <TramFront aria-hidden="true" size={size} strokeWidth={2.5} />;
 }
 
 function JourneyEndpoint({ icon, tint, role, title, subtitle, badge }: {
@@ -2411,6 +2412,81 @@ function TransitLineBadge({ type, name }: { type: string; name: string }) {
 
 function walkLegDescription(leg: WebRouteResult["accessWalk"]) {
   return leg ? `${travelDuration(leg.minutes, true)} · ${distanceLabel(leg.distanceMeters)}` : "거리·시간 확인 중";
+}
+
+const trainTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+const trainDateFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  month: "long",
+  day: "numeric",
+  weekday: "short",
+});
+
+function trainTimeLabel(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "시간 확인" : trainTimeFormatter.format(date);
+}
+
+function trainDateLabel(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "운행일 확인" : trainDateFormatter.format(date);
+}
+
+function IntercityConnectorJourney({ leg, fallbackDestination }: {
+  leg: NonNullable<WebRouteResult["intercityTrain"]>["access"];
+  fallbackDestination: string;
+}) {
+  const firstStep = leg.steps[0];
+  const lastStep = leg.steps[leg.steps.length - 1];
+  if (!firstStep || !lastStep) {
+    return <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={`${fallbackDestination}까지 ${travelDuration(leg.totalMinutes, true)} · ${distanceLabel(leg.totalDistanceMeters)}`} />;
+  }
+  const rideMinutes = Math.max(1, Math.min(leg.totalMinutes, leg.steps.reduce((sum, step) => sum + step.minutes, 0)));
+  return <>
+    <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={walkLegDescription(leg.accessWalk)} />
+    <JourneyEndpoint icon={<TransitModeGlyph type={firstStep.type} size={17} />} tint={transitLineColor(firstStep.type, firstStep.lineName)} role="승차" title={firstStep.boardingStation || "대중교통 승차 지점"} badge={<TransitLineBadge type={firstStep.type} name={firstStep.lineName} />} />
+    <div className="dg-transit-ride dg-intercity-local-ride" style={{ "--dg-journey-line": transitLineColor(firstStep.type, firstStep.lineName) } as CSSProperties}>
+      <i aria-hidden="true" />
+      <div><p><ArrowLeftRight aria-hidden="true" size={15} /><strong>지역 대중교통 {travelDuration(rideMinutes, true)}</strong>{leg.transitDistanceMeters ? <span>· {distanceLabel(leg.transitDistanceMeters)}</span> : null}</p><div className="dg-transit-lines">{leg.steps.map((step, index) => <span className="dg-transit-line" key={`${step.type}-${step.lineName}-${index}`}>{index > 0 && <ChevronRight aria-hidden="true" size={12} />}<TransitLineBadge type={step.type} name={step.lineName} /></span>)}</div><small>{leg.transfers === 0 ? "환승 없음" : `환승 ${leg.transfers}회`}</small></div>
+    </div>
+    <JourneyEndpoint icon={<TransitModeGlyph type={lastStep.type} size={17} />} tint={transitLineColor(lastStep.type, lastStep.lineName)} role="하차" title={lastStep.alightingStation || "대중교통 하차 지점"} badge={<TransitLineBadge type={lastStep.type} name={lastStep.lineName} />} />
+    <JourneyConnector icon={<PersonStanding size={15} />} title="도보" detail={walkLegDescription(leg.egressWalk)} />
+  </>;
+}
+
+function IntercityTrainJourneyDetails({ program, route }: { program: WebProgram; route: WebRouteResult }) {
+  const plan = route.intercityTrain;
+  if (!plan) return null;
+  const firstTrip = plan.trips[0];
+  const middleWaypoints = plan.railWaypoints.slice(1, -1).map((waypoint) => waypoint.name);
+  return <div className="dg-journey-card transit dg-intercity-journey">
+    <header><strong><TrainFront aria-hidden="true" />고속열차로 가는 길</strong><span>{travelDuration(route.totalMinutes, true)}</span></header>
+    <div className="dg-journey-divider" />
+    <JourneyEndpoint icon={<Navigation size={17} />} tint="#2c71d6" role="출발" title="현재 위치" subtitle={`${plan.originStation.name}역까지 실제 연결 경로를 안내해요`} />
+    <IntercityConnectorJourney leg={plan.access} fallbackDestination={`${plan.originStation.name}역`} />
+    <JourneyEndpoint icon={<TrainFront size={17} />} tint="#2c71d6" role="고속열차 승차" title={`${plan.originStation.name}역`} subtitle="열차 출발역" />
+    <div className="dg-intercity-rail">
+      <i aria-hidden="true" />
+      <div>
+        <p><TrainFront aria-hidden="true" size={16} /><strong>{plan.originStation.name}역 → {plan.destinationStation.name}역</strong><em>{travelDuration(plan.railMinutes, true)}</em></p>
+        {firstTrip ? <span><TransitLineBadge type="TRAIN" name={firstTrip.trainType} />{firstTrip.trainNumber && <small>제 {firstTrip.trainNumber}열차</small>}</span> : <small>카카오맵으로 확인한 주요 철도역 경유 경로</small>}
+        {middleWaypoints.length > 0 && <section><b>주요 경유 철도역</b><span>{middleWaypoints.join("  →  ")}</span></section>}
+      </div>
+    </div>
+    <JourneyEndpoint icon={<TrainFront size={17} />} tint="#22b14c" role="고속열차 하차" title={`${plan.destinationStation.name}역`} subtitle="열차 도착역" />
+    <IntercityConnectorJourney leg={plan.egress} fallbackDestination={program.facility} />
+    <JourneyEndpoint icon={<MapPin size={17} />} tint="#22b14c" role="도착" title={program.facility} subtitle="프로그램이 진행되는 시설" />
+    <div className="dg-journey-divider" />
+    {plan.trips.length > 0 ? <section className="dg-train-schedule"><header><strong>가까운 출발 시간</strong><span>{trainDateLabel(plan.trips[0].departureAt)}</span></header>{plan.trips.map((trip) => <article key={`${trip.trainType}-${trip.trainNumber}-${trip.departureAt}`}><div><TransitLineBadge type="TRAIN" name={trip.trainType} />{trip.trainNumber && <small>제 {trip.trainNumber}열차</small>}</div><p><strong>{trainTimeLabel(trip.departureAt)}</strong><ChevronRight aria-hidden="true" size={14} /><strong>{trainTimeLabel(trip.arrivalAt)}</strong><span>{travelDuration(trip.durationMinutes, true)}</span></p><small>{trip.departureStation} 출발 · {trip.arrivalStation} 도착</small></article>)}</section> : <div className="dg-train-unavailable"><CircleAlert aria-hidden="true" size={18} /><span><strong>철도 경로는 확인했어요</strong><small>현재 확인 가능한 직통 시간표가 없어 출발 전 운영사 시간표를 확인해 주세요.</small></span></div>}
+    <div className="dg-journey-divider" />
+    <p className="dg-journey-source"><Info aria-hidden="true" />{plan.trips.length ? "열차 운행 시간 · 국토교통부 TAGO 제공" : "철도 경유 경로 · 카카오맵 역 좌표 기준"}<br />운행 시간은 변경될 수 있으니 출발 전에 운영사에서 다시 확인해 주세요.</p>
+  </div>;
 }
 
 function RouteJourneyDetails({ program, transport, route, routeState, routeError, estimate, usesFallbackLocation }: {
@@ -2459,6 +2535,8 @@ function RouteJourneyDetails({ program, transport, route, routeState, routeError
       <p className="dg-journey-source"><Info aria-hidden="true" />{isWalk ? "카카오맵 도보 경로를 기준으로 계산했습니다." : "카카오맵 자동차 경로 기준이며 교통 상황에 따라 달라질 수 있습니다."}</p>
     </div>;
   }
+
+  if (route.intercityTrain) return <IntercityTrainJourneyDetails program={program} route={route} />;
 
   const fallbackSteps = route.segments.filter((segment) => !segment.type.includes("WALK")).map((segment) => ({
     type: segment.type,

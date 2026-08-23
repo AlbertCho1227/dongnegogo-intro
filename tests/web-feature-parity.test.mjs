@@ -121,7 +121,8 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
 test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에서 사용한다", () => {
   assert.match(webRouteSource, /android-route-directions/);
   assert.match(webRouteSource, /facility-transit-info/);
-  assert.match(webRouteSource, /fastRoute:\s*true/);
+  assert.match(webRouteSource, /for \(const fastRoute of \[true, false\]\)/);
+  assert.match(webRouteSource, /fastRoute,/);
   assert.match(webRouteSource, /isEstimated:\s*false/);
   assert.match(webRouteSource, /boardingStation/);
   assert.match(webRouteSource, /alightingStation/);
@@ -131,6 +132,23 @@ test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에
   assert.match(webRouteSource, /busRoutes/);
   assert.match(webRouteSource, /import "server-only"/);
   assert.doesNotMatch(webRouteSource, /service_role|sb_secret_/i);
+});
+
+test("서울 밖 장거리 대중교통은 iOS와 같은 고속열차 여정을 제공한다", () => {
+  assert.match(webRouteSource, /intercity-train-info/);
+  assert.match(webRouteSource, /LONG_DISTANCE_METERS\s*=\s*70_000/);
+  assert.match(webRouteSource, /buildIntercityConnector/);
+  assert.match(webRouteSource, /railWaypoints/);
+  assert.match(webRouteSource, /trainType/);
+  assert.match(webRouteSource, /departureAt/);
+  assert.match(webRouteSource, /travelDate:\s*kstTravelDate\(referenceTime\)/);
+  assert.match(webRouteSource, /referenceTime:\s*referenceTime\.toISOString\(\)/);
+  assert.match(webMapSource, /고속열차로 가는 길/);
+  assert.match(webMapSource, /고속열차 승차/);
+  assert.match(webMapSource, /가까운 출발 시간/);
+  assert.match(webMapSource, /국토교통부 TAGO 제공/);
+  assert.match(webMapStyle, /\.dg-intercity-rail/);
+  assert.match(webMapStyle, /\.dg-train-schedule/);
 });
 
 test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만 사용한다", () => {

@@ -236,6 +236,35 @@
 .dg-transit-line { display: inline-flex; align-items: center; gap: 3px; }
 .dg-transit-line > svg { color: #9aa19b; }
 .dg-transit-line > button { width: 28px; height: 28px; padding: 0; border: 1px solid color-mix(in srgb,var(--dg-transit-line) 32%,white); border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; color: var(--dg-transit-line); background: #fff; cursor: pointer; }
+.dg-intercity-journey > header > strong { gap: 8px; }
+.dg-intercity-local-ride { min-height: 64px; }
+.dg-intercity-rail { min-height: 78px; display: grid; grid-template-columns: 32px minmax(0,1fr); gap: 11px; align-items: stretch; }
+.dg-intercity-rail > i { width: 3px; min-height: 62px; margin-inline: auto; background: rgba(44,113,214,.72); }
+.dg-intercity-rail > div { min-width: 0; padding: 9px 10px; border-radius: 12px; background: #f5f8fc; }
+.dg-intercity-rail > div > p { margin: 0; display: flex; align-items: center; gap: 7px; color: #2c71d6; }
+.dg-intercity-rail > div > p strong { min-width: 0; overflow: hidden; flex: 1; color: var(--dg-ink); font-size: 11.5px; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.dg-intercity-rail > div > p em { flex: none; color: var(--dg-green-deep); font-size: 10px; font-style: normal; font-weight: 850; }
+.dg-intercity-rail > div > span { margin-top: 7px; display: flex; align-items: center; gap: 7px; }
+.dg-intercity-rail > div > span small, .dg-intercity-rail > div > small { color: #768078; font-size: 10px; font-weight: 700; }
+.dg-intercity-rail section { margin-top: 9px; display: flex; flex-direction: column; gap: 3px; }
+.dg-intercity-rail section b { color: #6d766e; font-size: 9.5px; font-weight: 900; }
+.dg-intercity-rail section span { color: #4d574f; font-size: 10.5px; font-weight: 700; line-height: 1.55; }
+.dg-train-schedule { display: flex; flex-direction: column; gap: 8px; }
+.dg-train-schedule > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.dg-train-schedule > header strong { color: var(--dg-ink); font-size: 12.5px; font-weight: 900; }
+.dg-train-schedule > header span { color: #778078; font-size: 10.5px; font-weight: 750; }
+.dg-train-schedule > article { padding: 9px 10px; border: 1px solid #e7ece6; border-radius: 12px; display: grid; grid-template-columns: minmax(70px,auto) minmax(0,1fr); column-gap: 10px; row-gap: 3px; background: #fff; }
+.dg-train-schedule > article > div { grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.dg-train-schedule > article > div small { color: #8a928b; font-size: 9px; font-weight: 700; }
+.dg-train-schedule > article > p { min-width: 0; margin: 0; display: flex; align-items: center; gap: 6px; color: var(--dg-ink); }
+.dg-train-schedule > article > p strong { font-size: 13.5px; font-weight: 900; white-space: nowrap; }
+.dg-train-schedule > article > p svg { flex: none; color: #8c948d; }
+.dg-train-schedule > article > p span { margin-left: auto; color: var(--dg-green-deep); font-size: 9.5px; font-weight: 800; white-space: nowrap; }
+.dg-train-schedule > article > small { min-width: 0; overflow: hidden; color: #707a72; font-size: 9.5px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.dg-train-unavailable { display: flex; align-items: flex-start; gap: 9px; color: var(--dg-orange); }
+.dg-train-unavailable > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dg-train-unavailable strong { color: var(--dg-ink); font-size: 12px; }
+.dg-train-unavailable small { color: #778078; font-size: 10px; line-height: 1.45; }
 .dg-subway-detail { margin-top: 8px; padding: 11px; border: 1px solid rgba(34,177,76,.15); border-radius: 13px; color: #4d574f; background: #f5faf2; }
 .dg-subway-detail > header { display: flex; align-items: center; gap: 6px; color: var(--dg-green-deep); }
 .dg-subway-detail > header strong { color: var(--dg-ink); font-size: 11.5px; }
