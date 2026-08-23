@@ -88,6 +88,16 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-route-preview/);
   assert.match(webMapStyle, /\.dg-journey-card/);
   assert.match(webMapStyle, /\.dg-map-link-card/);
+  assert.match(webMapStyle, /\.dg-route-detail-sheet\s*\{[^}]*border-radius:\s*30px 30px 0 0/);
+  assert.match(webMapSource, /dg-ios-heart-icon/);
+  assert.match(webMapSource, /dg-ios-share-icon/);
+  assert.match(webMapSource, /dg-ios-map-icon/);
+  assert.match(webMapSource, /mobileMapPanel && !placeSheet && !sidePanelOverlay/);
+  assert.match(webMapSource, /<em>내리면 패널 숨기기<\/em>/);
+  assert.match(webMapSource, /locationRequestState === "checking"/);
+  assert.match(webMapSource, /locationError\.code === 1/);
+  assert.match(webMapSource, /timeout:\s*20_000/);
+  assert.ok(webMapSource.indexOf('className="dg-location-guide"') < webMapSource.indexOf('className="dg-route-map-guide"'), "현재 위치 안내가 지도 선택 안내보다 먼저 표시되어야 합니다.");
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });
 

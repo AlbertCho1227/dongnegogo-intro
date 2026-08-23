@@ -70,6 +70,7 @@ type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: n
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
 type AlertDialogState = { program: WebProgram; scheduledAt: string };
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
+type LocationRequestState = "idle" | "checking" | "granted" | "denied" | "unavailable" | "timeout";
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
   walk: "WALKING",
@@ -257,6 +258,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [location, setLocation] = useState<Coordinate>(FALLBACK);
   const [usesFallbackLocation, setUsesFallbackLocation] = useState(true);
+  const [locationRequestState, setLocationRequestState] = useState<LocationRequestState>("idle");
+  const [locationRequestMessage, setLocationRequestMessage] = useState("");
   const [center, setCenter] = useState<Coordinate>(FALLBACK);
   const [centeredArea, setCenteredArea] = useState("서울특별시 종로구 세종로");
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -1024,17 +1027,52 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   };
 
   const moveToCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    setLocationRequestState("checking");
+    setLocationRequestMessage("휴대폰의 현재 위치를 확인하고 있어요.");
+    if (!window.isSecureContext) {
+      const message = "현재 위치는 안전한 HTTPS 연결에서만 사용할 수 있어요.";
+      setLocationRequestState("unavailable");
+      setLocationRequestMessage(message);
+      if (!selected) setError(message);
+      return;
+    }
+    if (!navigator.geolocation) {
+      const message = "이 브라우저에서는 현재 위치 기능을 지원하지 않아요.";
+      setLocationRequestState("unavailable");
+      setLocationRequestMessage(message);
+      if (!selected) setError(message);
+      return;
+    }
     navigator.geolocation.getCurrentPosition((position) => {
       const next = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) {
+        const message = "현재 위치 좌표를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.";
+        setLocationRequestState("unavailable");
+        setLocationRequestMessage(message);
+        if (!selected) setError(message);
+        return;
+      }
       setLocation(next);
       setUsesFallbackLocation(false);
+      setLocationRequestState("granted");
+      setLocationRequestMessage("현재 위치를 확인했어요. 실제 경로를 불러옵니다.");
+      setError("");
       resolveCenteredArea(next);
       if (mapRef.current && window.kakao?.maps) {
         mapRef.current.setCenter(new window.kakao.maps.LatLng(next.latitude, next.longitude));
         mapRef.current.setLevel(4);
       }
-    }, () => setError("위치 권한이 없어 기본 지역을 기준으로 보여드려요."), { enableHighAccuracy: false, timeout: 8_000 });
+    }, (locationError) => {
+      const state: LocationRequestState = locationError.code === 1 ? "denied" : locationError.code === 3 ? "timeout" : "unavailable";
+      const message = locationError.code === 1
+        ? "위치 권한이 차단되어 있어요. 브라우저의 사이트 설정에서 위치를 허용한 뒤 다시 눌러주세요."
+        : locationError.code === 3
+          ? "현재 위치 확인 시간이 초과됐어요. GPS·Wi-Fi를 켜고 다시 시도해 주세요."
+          : "휴대폰에서 현재 위치를 확인하지 못했어요. 위치 서비스를 켠 뒤 다시 시도해 주세요.";
+      setLocationRequestState(state);
+      setLocationRequestMessage(message);
+      if (!selected) setError(message);
+    }, { enableHighAccuracy: true, timeout: 20_000, maximumAge: 60_000 });
   };
 
   const share = async (program: WebProgram) => {
@@ -1452,7 +1490,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         style={sidePanelStyle}
         aria-label="프로그램 탐색 패널"
       >
-        {mobileMapPanel && !placeSheet && <button
+        {mobileMapPanel && !placeSheet && !sidePanelOverlay && <button
           type="button"
           ref={sheetGrabberRef}
           className="dg-mobile-sheet-grabber"
@@ -1465,7 +1503,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           className="dg-route-sheet-grabber"
           aria-label="목적지 길찾기 패널 접기"
           onClick={collapseRouteSheet}
-        ><span aria-hidden="true" /><em>아래로 내려 길찾기만 보기</em></button>}
+        ><span aria-hidden="true" /><em>내리면 패널 숨기기</em></button>}
         {selectedHeatShelter ? (
           <HeatShelterDetail shelter={selectedHeatShelter} current={location} onBack={() => setSelectedHeatShelter(null)} />
         ) : selected ? (
@@ -1480,6 +1518,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             onReminder={() => toggleReminder(selected.id)} onTransport={(value) => { setTransport(value); setActiveRoute(null); }}
             onRouteChange={setActiveRoute}
             onRequestLocation={moveToCurrentLocation}
+            locationRequestState={locationRequestState}
+            locationRequestMessage={locationRequestMessage}
             onShowRouteOnMap={() => {
               setRouteSheetCollapsed(true);
               setRouteSheetDragOffset(null);
@@ -1723,8 +1763,9 @@ function WebAuthDialog({ consentAccepted, loading, onAccept, onBrowse, onProvide
   </div>;
 }
 
-function ProgramDetail({ program, current, usesFallbackLocation, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
+function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
   program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
+  locationRequestState: LocationRequestState; locationRequestMessage: string;
   onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void;
 }) {
   const distance = distanceMeters(current, program);
@@ -1784,7 +1825,13 @@ function ProgramDetail({ program, current, usesFallbackLocation, favorite, favor
   return (
     <article className="dg-detail">
       <header className="dg-detail-hero">
-        <div className="dg-detail-actions"><button type="button" onClick={onBack} aria-label="목록으로 돌아가기">‹</button><span /><button type="button" onClick={onFavorite} aria-label="찜하기">{favorite ? "♥" : "♡"}</button><button type="button" onClick={onShare} aria-label="공유하기">↗</button><a href={mapLink(program)} target="_blank" rel="noreferrer" aria-label="Kakao 지도에서 보기">⌖</a></div>
+        <div className="dg-detail-actions">
+          <button type="button" onClick={onBack} aria-label="목록으로 돌아가기"><span className="dg-ios-back-icon" aria-hidden="true">‹</span></button>
+          <span />
+          <button type="button" className={`dg-ios-action-button favorite${favorite ? " active" : ""}`} onClick={onFavorite} aria-label={favorite ? "찜 해제" : "찜하기"}><span className="dg-ios-heart-icon" aria-hidden="true">{favorite ? "♥" : "♡"}</span></button>
+          <button type="button" className="dg-ios-action-button share" onClick={onShare} aria-label="공유하기"><span className="dg-ios-share-icon" aria-hidden="true" /></button>
+          <a className="dg-ios-action-button map" href={mapLink(program)} target="_blank" rel="noreferrer" aria-label="Kakao 지도에서 보기"><span className="dg-ios-map-icon" aria-hidden="true"><i /><i /><i /></span></a>
+        </div>
         <div className="dg-detail-badges"><span>{program.status}</span>{program.applyUrl && <span>✓ 신청 링크 확인됨</span>}</div>
         <h1>{program.name}</h1><p>▥ {program.facility}</p>
       </header>
@@ -1803,6 +1850,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, favorite, favor
               <div><strong>{distanceMetric}</strong><span>{distanceMetricLabel}</span></div>
             </div>
             <div className="dg-route-card-divider" />
+            {usesFallbackLocation && <div className="dg-location-guide" data-state={locationRequestState} role="status" aria-live="polite"><strong>현재 위치를 확인하면 실제 경로를 보여드려요</strong><p>{locationRequestMessage || "위치 권한을 허용하면 현재 위치 마커와 도보·대중교통·자동차 경로가 자동으로 표시됩니다."}</p><button type="button" onClick={onRequestLocation} disabled={locationRequestState === "checking"}>{locationRequestState === "checking" ? "현재 위치 확인 중…" : locationRequestState === "denied" || locationRequestState === "timeout" || locationRequestState === "unavailable" ? "현재 위치 다시 시도" : "현재 위치 사용하기"}</button></div>}
             <p className="dg-route-map-guide"><span aria-hidden="true">☝</span> 아래 지도 영역을 선택하면 메인 지도에서 <strong>경로</strong>+<strong>장소 사진</strong>을 볼 수 있어요</p>
             <KakaoRoutePreview
               origin={current}
@@ -1823,7 +1871,6 @@ function ProgramDetail({ program, current, usesFallbackLocation, favorite, favor
               estimate={routeEstimate}
               usesFallbackLocation={usesFallbackLocation}
             />
-            {usesFallbackLocation && <div className="dg-location-guide"><strong>현재 위치를 확인하면 실제 경로를 보여드려요</strong><p>위치 권한을 허용하면 현재 위치 마커와 도보·대중교통·자동차 경로가 자동으로 표시됩니다.</p><button type="button" onClick={onRequestLocation}>현재 위치 사용하기</button></div>}
             <div className="dg-route-card-divider" />
             <div className="dg-map-link-group"><strong>지도에서 더 자세히 보기</strong>
               <button className="dg-map-link-card" type="button" onClick={() => setShowRoadview((value) => !value)}><span className="dg-map-link-icon dg-roadview-icon" aria-hidden="true">◉</span><span><b>{showRoadview ? "시설 거리뷰 닫기" : "시설 거리뷰 보기"}</b><small>카카오 거리뷰에서 시설 주변을 직접 확인해요</small></span><em aria-hidden="true">↗</em></button>
