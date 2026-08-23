@@ -90,7 +90,15 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /role="승차"/);
   assert.match(webMapSource, /role="하차"/);
   assert.match(webMapSource, /교통정보 · 카카오맵 제공/);
-  assert.match(webMapSource, /activeRoute\s*\|\|\s*routeSheetCollapsed/);
+  assert.match(webMapSource, /routePanelActive\s*&&\s*routePanelMode\s*===\s*"route"/);
+  assert.match(webMapSource, /type RoutePanelSnap = "hidden" \| "collapsed" \| "expanded"/);
+  assert.match(webMapSource, /collapsed:\s*mode === "route" \? 230 : hasNearbySelection \? 368 : 350/);
+  assert.match(webMapSource, /routePanelSnap === "expanded" && delta > 45/);
+  assert.match(webMapSource, /routePanelSnap === "collapsed" && delta > 55/);
+  assert.match(webMapSource, /도착지 주변 둘러보기/);
+  assert.match(webMapStyle, /\.dg-side-panel\.dg-main-route-panel-expanded/);
+  assert.match(webMapStyle, /--dg-main-route-panel-height:\s*230px/);
+  assert.match(webMapStyle, /dg-main-route-panel-collapsed\.dg-main-route-panel-mode-nearby[^}]*350px/);
   assert.match(webMapStyle, /\.dg-route-preview/);
   assert.match(webMapStyle, /\.dg-journey-card/);
   assert.match(webMapStyle, /\.dg-map-link-card/);

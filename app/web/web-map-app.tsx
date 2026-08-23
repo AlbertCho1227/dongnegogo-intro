@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeftRight, BusFront, CarFront, ChevronRight, CircleAlert, Info, MapPin, Navigation, PersonStanding, Route, Search, TramFront } from "lucide-react";
+import { ArrowLeftRight, BusFront, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Info, MapPin, Navigation, PersonStanding, Route, Search, TramFront, Undo2, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebProgram } from "@/lib/web-program-data";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
@@ -71,6 +71,8 @@ type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: n
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
 type AlertDialogState = { program: WebProgram; scheduledAt: string };
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
+type RoutePanelMode = "route" | "nearby";
+type RoutePanelSnap = "hidden" | "collapsed" | "expanded";
 type LocationRequestState = "idle" | "checking" | "granted" | "denied" | "unavailable" | "timeout";
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
@@ -154,6 +156,15 @@ function mobileSheetHeights(viewportHeight: number) {
     medium: Math.min(520, Math.max(330, Math.round(available * 0.56))),
     expanded: Math.max(320, available - 8),
   } satisfies Record<MobileSheetSnap, number>;
+}
+
+function routePanelHeights(viewportHeight: number, mode: RoutePanelMode = "route", hasNearbySelection = false) {
+  const available = Math.max(500, viewportHeight - 82);
+  return {
+    hidden: 0,
+    collapsed: mode === "route" ? 230 : hasNearbySelection ? 368 : 350,
+    expanded: Math.min(840, available, Math.max(500, Math.round(viewportHeight * 0.91))),
+  } satisfies Record<RoutePanelSnap, number>;
 }
 
 function markerPlaceKey(program: WebProgram) {
@@ -240,6 +251,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const sheetGrabberRef = useRef<HTMLButtonElement>(null);
   const routeSheetDragRef = useRef({ pointerID: -1, startY: 0, moved: false });
   const routeSheetGrabberRef = useRef<HTMLButtonElement>(null);
+  const mainRoutePanelRef = useRef<HTMLElement>(null);
+  const mainRoutePanelDragRef = useRef({ pointerID: -1, startY: 0, startHeight: 230, moved: false });
   const mapModeRef = useRef<"individual" | "cluster">("individual");
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
@@ -254,6 +267,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [mobileSheetDragHeight, setMobileSheetDragHeight] = useState<number | null>(null);
   const [routeSheetCollapsed, setRouteSheetCollapsed] = useState(false);
   const [routeSheetDragOffset, setRouteSheetDragOffset] = useState<number | null>(null);
+  const [routePanelActive, setRoutePanelActive] = useState(false);
+  const [routePanelMode, setRoutePanelMode] = useState<RoutePanelMode>("route");
+  const [routePanelSnap, setRoutePanelSnap] = useState<RoutePanelSnap>("collapsed");
+  const [routePanelDragHeight, setRoutePanelDragHeight] = useState<number | null>(null);
   const [auxiliaryPanel, setAuxiliaryPanel] = useState<AuxiliaryPanel>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [query, setQuery] = useState("");
@@ -650,6 +667,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     heatShelterModeRef.current = next;
     setHeatShelterMode(next);
     setSelected(null);
+    setRoutePanelActive(false);
     setSelectedHeatShelter(null);
     setPlaceSheet(null);
     if (!next) setHeatShelters([]);
@@ -699,6 +717,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
 
   const selectProgram = useCallback(async (program: WebProgram) => {
     setSelected(program);
+    setRoutePanelActive(false);
+    setRoutePanelMode("route");
+    setRoutePanelSnap("collapsed");
+    setRoutePanelDragHeight(null);
     setRouteSheetCollapsed(false);
     setRouteSheetDragOffset(null);
     setActiveRoute(null);
@@ -721,6 +743,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const openProgramSheet = useCallback(async (group: WebProgram[], expectedCount: number) => {
     const initial = [...group].sort((a, b) => statusRank(a) - statusRank(b) || a.id.localeCompare(b.id));
     setSelected(null);
+    setRoutePanelActive(false);
     setSelectedHeatShelter(null);
     setAuxiliaryPanel(null);
     setPlaceSheet({ programs: initial, index: 0, expectedCount: Math.max(initial.length, expectedCount), loading: initial.length < expectedCount });
@@ -768,7 +791,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       });
       return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
     }
-    if ((selected && activeRoute) || (auxiliaryPanel === "nearby" && nearbyDestination && nearbySummary)) {
+    if ((selected && routePanelActive) || (auxiliaryPanel === "nearby" && nearbyDestination && nearbySummary)) {
       return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
     }
     if (mapMode === "cluster" && tab === "map" && fieldFilter === "전체" && !freeOnly && !paidOnly && !seniorOnly && !audienceFilter && subjectFilters.length === 0 && statusFilter === "전체" && !todayOnly && radiusKm === null) {
@@ -826,7 +849,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, audienceFilter, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, activeRoute, auxiliaryPanel, nearbyDestination, nearbySummary]);
+  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, audienceFilter, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary]);
 
   const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
     if (!nearbyDestination) return;
@@ -890,10 +913,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       }));
     };
 
-    if (auxiliaryPanel === "nearby" && nearbyDestination && nearbySummary) {
+    const nearbyMapProgram = routePanelActive && routePanelMode === "nearby"
+      ? selected
+      : auxiliaryPanel === "nearby" ? nearbyDestination : null;
+    if (nearbyMapProgram && nearbySummary) {
       mapItemsRef.current.push(new maps.Circle({
         map,
-        center: new maps.LatLng(nearbyDestination.latitude, nearbyDestination.longitude),
+        center: new maps.LatLng(nearbyMapProgram.latitude, nearbyMapProgram.longitude),
         radius: nearbyRadius,
         strokeWeight: 2,
         strokeColor: "#22b14c",
@@ -903,7 +929,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         fillOpacity: 0.10,
       }));
       const mapPlaces = nearbySummary.mapPlaces.filter((place) => nearbyCategory === "all" || place.placeType === nearbyCategory);
-      marker(nearbyDestination, "dg-route-endpoint dg-route-destination", `${nearbyDestination.facility} 목적지`, "도착");
+      marker(nearbyMapProgram, "dg-route-endpoint dg-route-destination", `${nearbyMapProgram.facility} 목적지`, "🏢");
       mapPlaces.slice(0, 400).forEach((place) => {
         const selectedPlace = selectedNearbyPlace?.id === place.id;
         const icon = place.placeType === "cafe" ? "☕" : place.placeType === "convenience_store" ? "▣" : place.placeType === "fast_food" ? "🥤" : "🍴";
@@ -921,27 +947,27 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       }
       const bounds = new maps.LatLngBounds();
       const latitudeDelta = nearbyRadius / 111_000;
-      const longitudeDelta = nearbyRadius / (111_000 * Math.max(0.3, Math.cos(nearbyDestination.latitude * Math.PI / 180)));
+      const longitudeDelta = nearbyRadius / (111_000 * Math.max(0.3, Math.cos(nearbyMapProgram.latitude * Math.PI / 180)));
       [
-        { latitude: nearbyDestination.latitude + latitudeDelta, longitude: nearbyDestination.longitude },
-        { latitude: nearbyDestination.latitude - latitudeDelta, longitude: nearbyDestination.longitude },
-        { latitude: nearbyDestination.latitude, longitude: nearbyDestination.longitude + longitudeDelta },
-        { latitude: nearbyDestination.latitude, longitude: nearbyDestination.longitude - longitudeDelta },
+        { latitude: nearbyMapProgram.latitude + latitudeDelta, longitude: nearbyMapProgram.longitude },
+        { latitude: nearbyMapProgram.latitude - latitudeDelta, longitude: nearbyMapProgram.longitude },
+        { latitude: nearbyMapProgram.latitude, longitude: nearbyMapProgram.longitude + longitudeDelta },
+        { latitude: nearbyMapProgram.latitude, longitude: nearbyMapProgram.longitude - longitudeDelta },
       ].forEach((point) => bounds.extend(new maps.LatLng(point.latitude, point.longitude)));
       if (selectedNearbyPlace) bounds.extend(new maps.LatLng(selectedNearbyPlace.latitude, selectedNearbyPlace.longitude));
       const compactMap = window.innerWidth < 900;
       map.setBounds(bounds, 70, compactMap ? 40 : 80, compactMap ? 110 : 70, compactMap ? 40 : 500);
-    } else if (selected && (activeRoute || routeSheetCollapsed)) {
+    } else if (selected && routePanelActive && routePanelMode === "route") {
       const routeColors: Record<WebRouteMode, string> = {
-        WALKING: "#ef7b2d",
-        TRANSIT: "#2daa50",
-        DRIVING: "#296edc",
+        WALKING: "#2daa50",
+        TRANSIT: "#1f73eb",
+        DRIVING: "#f47a24",
       };
       activeRoute?.segments.forEach((segment) => {
         polyline(segment.points, routeColors[activeRoute.mode], 7, activeRoute.isEstimated ? "dash" : "solid");
       });
-      marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", usesFallbackLocation ? "기본" : "현재");
-      marker(selected, "dg-route-endpoint dg-route-destination", `${selected.facility} 목적지`, "도착");
+      marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", "●");
+      marker(selected, "dg-route-endpoint dg-route-destination", `${selected.facility} 목적지`, "🏢");
       const bounds = new maps.LatLngBounds();
       bounds.extend(new maps.LatLng(location.latitude, location.longitude));
       bounds.extend(new maps.LatLng(selected.latitude, selected.longitude));
@@ -956,7 +982,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       mapItemsRef.current.forEach((item) => item.setMap(null));
       mapItemsRef.current = [];
     };
-  }, [activeRoute, auxiliaryPanel, location, nearbyCategory, nearbyDestination, nearbyRadius, nearbySummary, nearbyWalkingRoute, routeSheetCollapsed, selected, selectedNearbyPlace, selectNearbyPlace, usesFallbackLocation]);
+  }, [activeRoute, auxiliaryPanel, location, nearbyCategory, nearbyDestination, nearbyRadius, nearbySummary, nearbyWalkingRoute, routePanelActive, routePanelMode, selected, selectedNearbyPlace, selectNearbyPlace, usesFallbackLocation]);
 
   const runSearch = async (rawTerm: string) => {
     const term = rawTerm.trim();
@@ -964,6 +990,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     searchActiveRef.current = true;
     setTab("search");
     setSelected(null);
+    setRoutePanelActive(false);
     setLoading(true);
     setSearchProgress(18);
     try {
@@ -1242,6 +1269,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     setNearbyLoading(true);
     setAuxiliaryPanel("nearby");
     setSelected(null);
+    setRoutePanelActive(false);
     try {
       const params = new URLSearchParams({ latitude: String(program.latitude), longitude: String(program.longitude), radiusMeters: String(radius) });
       const response = await fetch(`/api/web-nearby-places?${params}`);
@@ -1257,6 +1285,27 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
   }, [nearbyRadius]);
 
+  const loadRouteNearbyPlaces = useCallback(async (program: WebProgram, radius = 100) => {
+    setNearbyDestination(program);
+    setNearbyRadius(radius);
+    setSelectedNearbyPlace(null);
+    setNearbyWalkingRoute(null);
+    setNearbyLoading(true);
+    try {
+      const params = new URLSearchParams({ latitude: String(program.latitude), longitude: String(program.longitude), radiusMeters: String(radius) });
+      const response = await fetch(`/api/web-nearby-places?${params}`);
+      const payload = await response.json() as WebNearbyPlacesSummary & { message?: string };
+      if (!response.ok) throw new Error(payload.message ?? "주변 가게를 불러오지 못했습니다.");
+      setNearbySummary(payload);
+      setError("");
+    } catch (nearbyError) {
+      setNearbySummary(null);
+      setError(nearbyError instanceof Error ? nearbyError.message : "주변 가게를 불러오지 못했습니다.");
+    } finally {
+      setNearbyLoading(false);
+    }
+  }, []);
+
   const changeTab = (nextTab: Tab) => {
     if (nextTab === "saved" && !session && window.matchMedia("(max-width: 820px)").matches) {
       openAccountSignIn();
@@ -1267,6 +1316,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if (nextTab !== "search") setSearchIntent(null);
     setTab(nextTab);
     setSelected(null);
+    setRoutePanelActive(false);
     setActiveRoute(null);
     setSelectedNearbyPlace(null);
     setNearbyWalkingRoute(null);
@@ -1281,6 +1331,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       return;
     }
     setSelected(null);
+    setRoutePanelActive(false);
     setPlaceSheet(null);
     setAuxiliaryPanel(panel);
   };
@@ -1300,6 +1351,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const sidePanelStyle = ({
     ...(mobileSheetDragHeight === null ? {} : { "--dg-mobile-sheet-height": `${mobileSheetDragHeight}px` }),
     ...(routeSheetDragOffset === null ? {} : { "--dg-route-sheet-offset": `${routeSheetDragOffset}px` }),
+    ...(routePanelDragHeight === null ? {} : { "--dg-main-route-panel-height": `${routePanelDragHeight}px` }),
   }) as CSSProperties;
 
   useEffect(() => {
@@ -1467,6 +1519,93 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     };
   }, [routeSheetCollapsed, selected]);
 
+  useEffect(() => {
+    if (!routePanelActive || routePanelSnap === "hidden") return;
+    const panel = mainRoutePanelRef.current;
+    if (!panel) return;
+
+    const begin = (pointerID: number, clientY: number) => {
+      const height = panel.getBoundingClientRect().height || routePanelHeights(window.innerHeight, routePanelMode, Boolean(selectedNearbyPlace))[routePanelSnap];
+      mainRoutePanelDragRef.current = { pointerID, startY: clientY, startHeight: height, moved: false };
+      setRoutePanelDragHeight(height);
+    };
+    const move = (pointerID: number, clientY: number) => {
+      const drag = mainRoutePanelDragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const heights = routePanelHeights(window.innerHeight, routePanelMode, Boolean(selectedNearbyPlace));
+      const delta = drag.startY - clientY;
+      if (Math.abs(delta) > 6) drag.moved = true;
+      setRoutePanelDragHeight(Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight + delta)));
+    };
+    const finish = (pointerID: number, clientY: number) => {
+      const drag = mainRoutePanelDragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const delta = clientY - drag.startY;
+      let next = routePanelSnap;
+      if (routePanelSnap === "expanded" && delta > 45) next = "collapsed";
+      if (routePanelSnap === "collapsed" && delta < -45) next = "expanded";
+      if (routePanelSnap === "collapsed" && delta > 55) next = "hidden";
+      mainRoutePanelDragRef.current.pointerID = -1;
+      setRoutePanelDragHeight(null);
+      setRoutePanelSnap(next);
+    };
+    const canBegin = (target: EventTarget | null) => {
+      const element = target instanceof HTMLElement ? target : null;
+      if (!element) return false;
+      if (element.closest(".dg-main-route-grabber, .dg-main-route-title")) return true;
+      return !element.closest("button, a, input, select, textarea");
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || !canBegin(event.target)) return;
+      begin(event.pointerId, event.clientY);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (mainRoutePanelDragRef.current.pointerID !== event.pointerId) return;
+      if (mainRoutePanelDragRef.current.moved) event.preventDefault();
+      move(event.pointerId, event.clientY);
+    };
+    const onPointerEnd = (event: PointerEvent) => finish(event.pointerId, event.clientY);
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.changedTouches[0];
+      if (!touch || !canBegin(event.target)) return;
+      begin(touch.identifier, touch.clientY);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === mainRoutePanelDragRef.current.pointerID);
+      if (!touch) return;
+      if (mainRoutePanelDragRef.current.moved) event.preventDefault();
+      move(touch.identifier, touch.clientY);
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === mainRoutePanelDragRef.current.pointerID);
+      if (touch) finish(touch.identifier, touch.clientY);
+    };
+
+    if ("PointerEvent" in window) {
+      panel.addEventListener("pointerdown", onPointerDown);
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerEnd);
+      window.addEventListener("pointercancel", onPointerEnd);
+      return () => {
+        panel.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerEnd);
+        window.removeEventListener("pointercancel", onPointerEnd);
+      };
+    }
+
+    panel.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      panel.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [routePanelActive, routePanelMode, routePanelSnap, selectedNearbyPlace]);
+
   const cycleMobileSheet = () => {
     if (sheetDragRef.current.moved) {
       sheetDragRef.current.moved = false;
@@ -1482,6 +1621,15 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
     setRouteSheetCollapsed(true);
     setRouteSheetDragOffset(null);
+  };
+
+  const toggleRoutePanelSnap = () => {
+    if (mainRoutePanelDragRef.current.moved) {
+      mainRoutePanelDragRef.current.moved = false;
+      return;
+    }
+    setRoutePanelSnap((current) => current === "expanded" ? "collapsed" : "expanded");
+    setRoutePanelDragHeight(null);
   };
 
   return (
@@ -1501,7 +1649,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       </aside>
 
       <section
-        className={`dg-side-panel dg-side-panel-${tab}${sidePanelOverlay ? " dg-side-panel-overlay" : ""}${selected ? ` dg-route-detail-sheet${routeSheetCollapsed ? " dg-route-detail-sheet-collapsed" : ""}${routeSheetDragOffset !== null ? " dg-route-detail-sheet-dragging" : ""}` : ""}${tab === "search" && searchIntent ? " dg-search-active" : ""}${mobileMapPanel ? ` dg-mobile-map-sheet dg-mobile-sheet-${mobileSheetSnap}${mobileSheetDragHeight !== null ? " dg-mobile-sheet-dragging" : ""}${placeSheet ? " dg-mobile-sheet-suppressed" : ""}` : ""}`}
+        ref={routePanelActive ? mainRoutePanelRef : undefined}
+        className={`dg-side-panel dg-side-panel-${tab}${sidePanelOverlay ? " dg-side-panel-overlay" : ""}${routePanelActive ? ` dg-main-route-panel-shell dg-main-route-panel-${routePanelSnap} dg-main-route-panel-mode-${routePanelMode}${selectedNearbyPlace ? " dg-main-route-panel-nearby-selected" : ""}${routePanelDragHeight !== null ? " dg-main-route-panel-dragging" : ""}` : selected ? ` dg-route-detail-sheet${routeSheetCollapsed ? " dg-route-detail-sheet-collapsed" : ""}${routeSheetDragOffset !== null ? " dg-route-detail-sheet-dragging" : ""}` : ""}${tab === "search" && searchIntent ? " dg-search-active" : ""}${mobileMapPanel ? ` dg-mobile-map-sheet dg-mobile-sheet-${mobileSheetSnap}${mobileSheetDragHeight !== null ? " dg-mobile-sheet-dragging" : ""}${placeSheet ? " dg-mobile-sheet-suppressed" : ""}` : ""}`}
         style={sidePanelStyle}
         aria-label="프로그램 탐색 패널"
       >
@@ -1512,7 +1661,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           aria-label={`지도 프로그램 패널 ${mobileSheetSnap === "hidden" || mobileSheetSnap === "collapsed" ? "중간으로 열기" : mobileSheetSnap === "medium" ? "전체로 펼치기" : "숨기기"}`}
           onClick={cycleMobileSheet}
         ><span aria-hidden="true" /><em>{mobileSheetSnap === "hidden" || mobileSheetSnap === "collapsed" ? "올려서 프로그램 보기" : mobileSheetSnap === "expanded" ? "내리면 패널 숨기기" : "위아래로 움직여 조절"}</em></button>}
-        {selected && <button
+        {selected && !routePanelActive && <button
           type="button"
           ref={routeSheetGrabberRef}
           className="dg-route-sheet-grabber"
@@ -1521,6 +1670,59 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         ><span aria-hidden="true" /><em>내리면 패널 숨기기</em></button>}
         {selectedHeatShelter ? (
           <HeatShelterDetail shelter={selectedHeatShelter} current={location} onBack={() => setSelectedHeatShelter(null)} />
+        ) : selected && routePanelActive ? (
+          <RouteInfoPanel
+            program={selected}
+            current={location}
+            usesFallbackLocation={usesFallbackLocation}
+            locationRequestState={locationRequestState}
+            locationRequestMessage={locationRequestMessage}
+            transport={transport}
+            route={activeRoute}
+            mode={routePanelMode}
+            snap={routePanelSnap}
+            nearbySummary={nearbySummary}
+            nearbyLoading={nearbyLoading}
+            nearbyRadius={nearbyRadius}
+            nearbyCategory={nearbyCategory}
+            selectedNearbyPlace={selectedNearbyPlace}
+            nearbyWalkingRoute={nearbyWalkingRoute}
+            onToggleSnap={toggleRoutePanelSnap}
+            onBack={() => {
+              setRoutePanelActive(false);
+              setRoutePanelMode("route");
+              setRoutePanelSnap("collapsed");
+              setRoutePanelDragHeight(null);
+              setRouteSheetCollapsed(false);
+              setActiveRoute(null);
+              setSelectedNearbyPlace(null);
+              setNearbyWalkingRoute(null);
+            }}
+            onClose={() => {
+              setSelected(null);
+              setRoutePanelActive(false);
+              setRoutePanelMode("route");
+              setRoutePanelSnap("collapsed");
+              setRoutePanelDragHeight(null);
+              setActiveRoute(null);
+              setSelectedNearbyPlace(null);
+              setNearbyWalkingRoute(null);
+            }}
+            onMode={(mode) => {
+              setRoutePanelMode(mode);
+              setSelectedNearbyPlace(null);
+              setNearbyWalkingRoute(null);
+              if (mode === "nearby" && (nearbyDestination?.id !== selected.id || !nearbySummary)) {
+                void loadRouteNearbyPlaces(selected, 100);
+              }
+            }}
+            onTransport={(value) => { setTransport(value); setActiveRoute(null); }}
+            onRouteChange={setActiveRoute}
+            onRequestLocation={moveToCurrentLocation}
+            onRadius={(value) => { void loadRouteNearbyPlaces(selected, value); }}
+            onCategory={(value) => { setNearbyCategory(value); setSelectedNearbyPlace(null); setNearbyWalkingRoute(null); }}
+            onSelectNearby={(place) => { void selectNearbyPlace(place); }}
+          />
         ) : selected ? (
           <ProgramDetail
             program={selected} current={location} favorite={favorites.includes(selected.id)}
@@ -1536,7 +1738,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             locationRequestState={locationRequestState}
             locationRequestMessage={locationRequestMessage}
             onShowRouteOnMap={() => {
-              setRouteSheetCollapsed(true);
+              setRoutePanelActive(true);
+              setRoutePanelMode("route");
+              setRoutePanelSnap("collapsed");
+              setRoutePanelDragHeight(null);
+              setRouteSheetCollapsed(false);
               setRouteSheetDragOffset(null);
             }}
             onShare={() => share(selected)}
@@ -1711,12 +1917,18 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           reminderIDs={reminders}
         />}
       </section>
-      {selected && routeSheetCollapsed && <button
+      {selected && !routePanelActive && routeSheetCollapsed && <button
         type="button"
         className="dg-route-restore-bar"
         onClick={() => setRouteSheetCollapsed(false)}
         aria-label={`${selected.facility} 목적지까지 가는 길 다시 열기`}
       ><span aria-hidden="true" /><strong>목적지까지 가는 길</strong><em aria-hidden="true">⌃</em></button>}
+      {selected && routePanelActive && routePanelSnap === "hidden" && <button
+        type="button"
+        className="dg-route-restore-bar"
+        onClick={() => setRoutePanelSnap("collapsed")}
+        aria-label={`${selected.facility} 목적지까지 가는 길 패널 다시 열기`}
+      ><span aria-hidden="true" /><strong>{routePanelMode === "nearby" ? "도착지 주변 가게" : "목적지까지 가는 길"}</strong><ChevronUp aria-hidden="true" size={17} /></button>}
       {showFilter && <FullFilterDialog
         field={fieldFilter} audience={audienceFilter} subjects={subjectFilters} status={statusFilter}
         freeOnly={freeOnly} paidOnly={paidOnly} radiusKm={radiusKm} count={visiblePrograms.length}
@@ -1776,6 +1988,142 @@ function WebAuthDialog({ consentAccepted, loading, onAccept, onBrowse, onProvide
       </>}
     </section>
   </div>;
+}
+
+function RouteInfoPanel({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, transport, route, mode, snap, nearbySummary, nearbyLoading, nearbyRadius, nearbyCategory, selectedNearbyPlace, nearbyWalkingRoute, onToggleSnap, onBack, onClose, onMode, onTransport, onRouteChange, onRequestLocation, onRadius, onCategory, onSelectNearby }: {
+  program: WebProgram;
+  current: Coordinate;
+  usesFallbackLocation: boolean;
+  locationRequestState: LocationRequestState;
+  locationRequestMessage: string;
+  transport: Transport;
+  route: WebRouteResult | null;
+  mode: RoutePanelMode;
+  snap: RoutePanelSnap;
+  nearbySummary: WebNearbyPlacesSummary | null;
+  nearbyLoading: boolean;
+  nearbyRadius: number;
+  nearbyCategory: NearbyCategory;
+  selectedNearbyPlace: WebNearbyPlace | null;
+  nearbyWalkingRoute: WebRouteResult | null;
+  onToggleSnap: () => void;
+  onBack: () => void;
+  onClose: () => void;
+  onMode: (mode: RoutePanelMode) => void;
+  onTransport: (transport: Transport) => void;
+  onRouteChange: (route: WebRouteResult | null) => void;
+  onRequestLocation: () => void;
+  onRadius: (radius: number) => void;
+  onCategory: (category: NearbyCategory) => void;
+  onSelectNearby: (place: WebNearbyPlace) => void;
+}) {
+  const routeEstimate = estimatedRoute(distanceMeters(current, program), transport);
+  const [routeState, setRouteState] = useState<"waiting" | "loading" | "loaded" | "unavailable">(
+    usesFallbackLocation ? "waiting" : route?.mode === ROUTE_MODE[transport] ? "loaded" : "loading",
+  );
+  const [routeError, setRouteError] = useState("");
+  const [nearbyPreviewCount, setNearbyPreviewCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const expectedMode = ROUTE_MODE[transport];
+    void Promise.resolve().then(async () => {
+      if (controller.signal.aborted) return;
+      if (usesFallbackLocation) {
+        setRouteState("waiting");
+        return;
+      }
+      if (route?.mode === expectedMode) {
+        setRouteState("loaded");
+        setRouteError("");
+        return;
+      }
+      setRouteState("loading");
+      setRouteError("");
+      onRouteChange(null);
+      const response = await fetch("/api/web-route", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: expectedMode,
+          origin: current,
+          destination: { latitude: program.latitude, longitude: program.longitude },
+          destinationName: program.facility,
+        }),
+        signal: controller.signal,
+      });
+      const payload = await response.json() as WebRouteResult & { message?: string };
+      if (!response.ok) throw new Error(payload.message ?? "실제 경로를 불러오지 못했어요.");
+      setRouteState("loaded");
+      onRouteChange(payload);
+    }).catch((loadError) => {
+      if (loadError instanceof DOMException && loadError.name === "AbortError") return;
+      setRouteState("unavailable");
+      setRouteError(loadError instanceof Error ? loadError.message : "실제 경로를 불러오지 못했어요.");
+    });
+    return () => controller.abort();
+  }, [current, onRouteChange, program.facility, program.latitude, program.longitude, route?.mode, transport, usesFallbackLocation]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const params = new URLSearchParams({ latitude: String(program.latitude), longitude: String(program.longitude), radiusMeters: "1000" });
+    void fetch(`/api/web-nearby-places?${params}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as WebNearbyPlacesSummary;
+        if (response.ok) setNearbyPreviewCount(payload.totalCount);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [program.id, program.latitude, program.longitude]);
+
+  const nearbyCount = mode === "nearby" ? nearbySummary?.totalCount ?? 0 : nearbyPreviewCount;
+  return <article className="dg-main-route-panel">
+    <button type="button" className="dg-main-route-grabber" onClick={onToggleSnap} aria-label={snap === "expanded" ? "경로 패널 접기" : "경로 패널 펼치기"}><span aria-hidden="true" /></button>
+    <header className="dg-main-route-header">
+      <button type="button" className="dg-main-route-title" onClick={onToggleSnap}>
+        <strong>{mode === "nearby" ? "도착지 주변 둘러보기" : "목적지까지 가는 길"}</strong>
+        <span>{program.facility}</span>
+      </button>
+      <div>
+        <button type="button" onClick={onBack} aria-label="프로그램 자세히 보기로 돌아가기"><Undo2 aria-hidden="true" /></button>
+        <button type="button" onClick={onClose} aria-label="경로 안내 닫기"><X aria-hidden="true" /></button>
+      </div>
+    </header>
+    <div className="dg-main-route-mode" aria-label="목적지 정보 선택">
+      <button type="button" className={mode === "route" ? "active" : ""} onClick={() => onMode("route")} aria-pressed={mode === "route"}><PersonStanding aria-hidden="true" />가는 길</button>
+      <button type="button" className={mode === "nearby" ? "active" : ""} onClick={() => onMode("nearby")} aria-pressed={mode === "nearby"}><Coffee aria-hidden="true" />주변 가게 {nearbyCount === null ? "…" : nearbyCount}</button>
+    </div>
+    <div className="dg-main-route-scroll">
+      {mode === "route" ? <div className="dg-main-route-content">
+        <div className="dg-transport-tabs" aria-label="이동 수단 선택">
+          <button type="button" className={transport === "walk" ? "active" : ""} onClick={() => onTransport("walk")} aria-pressed={transport === "walk"}><PersonStanding aria-hidden="true" />도보</button>
+          <button type="button" className={transport === "transit" ? "active" : ""} onClick={() => onTransport("transit")} aria-pressed={transport === "transit"}><TramFront aria-hidden="true" />대중교통</button>
+          <button type="button" className={transport === "car" ? "active" : ""} onClick={() => onTransport("car")} aria-pressed={transport === "car"}><CarFront aria-hidden="true" />자동차</button>
+        </div>
+        {usesFallbackLocation && <div className="dg-location-guide" data-state={locationRequestState} role="status" aria-live="polite"><strong>현재 위치를 확인하면 실제 경로를 보여드려요</strong><p>{locationRequestMessage || "위치 권한을 허용하면 현재 위치 마커와 도보·대중교통·자동차 경로가 자동으로 표시됩니다."}</p><button type="button" onClick={onRequestLocation} disabled={locationRequestState === "checking"}>{locationRequestState === "checking" ? "현재 위치 확인 중…" : "현재 위치 사용하기"}</button></div>}
+        <RouteJourneyDetails program={program} transport={transport} route={route} routeState={routeState} routeError={routeError} estimate={routeEstimate} usesFallbackLocation={usesFallbackLocation} />
+        <div className="dg-route-card-divider" />
+        <div className="dg-map-link-group"><strong>지도에서 더 자세히 보기</strong>
+          <a className="dg-map-link-card" href={route?.landingURL || routeLink(program, current, transport)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon kakao" aria-hidden="true" /><span><b>카카오 지도</b><small>카카오맵에서 시설 위치를 확인해요</small></span><em aria-hidden="true">↗</em></a>
+          <a className="dg-map-link-card" href={naverMapLink(program)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon naver" aria-hidden="true" /><span><b>네이버 지도</b><small>시설명과 실제 좌표가 일치하는 위치를 열어요</small></span><em aria-hidden="true">↗</em></a>
+          <a className="dg-map-link-card" href={googleMapLink(program)} target="_blank" rel="noreferrer"><span className="dg-map-brand-icon google" aria-hidden="true" /><span><b>Google 지도</b><small>Google 지도에서 시설 위치를 확인해요</small></span><em aria-hidden="true">↗</em></a>
+        </div>
+      </div> : <NearbyPlacesPanel
+        embedded
+        program={program}
+        summary={nearbySummary}
+        loading={nearbyLoading}
+        radius={nearbyRadius}
+        category={nearbyCategory}
+        selected={selectedNearbyPlace}
+        walkingRoute={nearbyWalkingRoute}
+        onBack={() => onMode("route")}
+        onRadius={onRadius}
+        onCategory={onCategory}
+        onSelect={onSelectNearby}
+      />}
+    </div>
+  </article>;
 }
 
 function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
@@ -2349,13 +2697,14 @@ function HistoryPanel({ history, onBack, onOpen }: { history: Array<{ program: W
   return <section className="dg-aux-panel"><PanelHeader title="보관함" subtitle="오늘부터 3일 전까지 열어본 프로그램이에요" onBack={onBack} /><div className="dg-history-summary"><strong>{recent.length}</strong><span>열어본 프로그램</span></div><div className="dg-aux-list">{recent.length ? recent.map((item) => <button key={`${item.program.id}-${item.viewedAt.slice(0, 10)}`} type="button" onClick={() => onOpen(item.program)}><img src={`/markers/${programIconName(item.program)}.png`} alt="" /><span><small>{new Date(item.viewedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}</small><strong>{item.program.name}</strong><em>{item.program.facility}</em></span></button>) : <div className="dg-empty"><strong>최근 4일 동안 열어본 프로그램이 없어요.</strong><p>지도 마커나 목록에서 프로그램을 확인하면 자동으로 기록됩니다.</p></div>}</div></section>;
 }
 
-function NearbyPlacesPanel({ program, summary, loading, radius, category, selected, walkingRoute, onBack, onRadius, onCategory, onSelect }: {
+function NearbyPlacesPanel({ program, summary, loading, radius, category, selected, walkingRoute, embedded = false, onBack, onRadius, onCategory, onSelect }: {
   program: WebProgram; summary: WebNearbyPlacesSummary | null; loading: boolean; radius: number; category: NearbyCategory; selected: WebNearbyPlace | null; walkingRoute: WebRouteResult | null;
+  embedded?: boolean;
   onBack: () => void; onRadius: (value: number) => void; onCategory: (value: NearbyCategory) => void; onSelect: (place: WebNearbyPlace) => void;
 }) {
   const places = (summary?.places ?? []).filter((place) => category === "all" || place.placeType === category);
   const categoryTitle: Record<NearbyCategory, string> = { all: "전체", restaurant: "음식점", cafe: "카페", fast_food: "패스트푸드", convenience_store: "편의점", other_food: "분식" };
-  return <section className="dg-aux-panel"><PanelHeader title="주변 가게" subtitle={`${program.facility}에서 걸어서 갈 만한 곳`} onBack={onBack} /><div className="dg-radius-row">{[100, 300, 500, 1000].map((value) => <button type="button" key={value} className={radius === value ? "active" : ""} onClick={() => onRadius(value)}>{value === 1000 ? "1km" : `${value}m`}</button>)}</div><div className="dg-nearby-categories">{(Object.keys(categoryTitle) as NearbyCategory[]).map((value) => <button type="button" key={value} className={category === value ? "active" : ""} onClick={() => onCategory(value)}>{categoryTitle[value]} {value === "all" ? summary?.totalCount ?? 0 : summary?.categoryCounts[value] ?? 0}</button>)}</div>{selected && <div className="dg-nearby-route-summary"><strong>{selected.name}</strong><span>{walkingRoute ? `도보 약 ${walkingRoute.totalMinutes}분 · ${distanceLabel(walkingRoute.totalDistanceMeters)}` : `직선 ${distanceLabel(selected.distanceMeters)} · 도보 경로 계산 중`}</span></div>}<div className="dg-aux-list dg-nearby-list">{loading ? <div className="dg-loading"><strong>목적지 주변을 찾고 있어요</strong></div> : places.length ? <>{places.map((place) => {
+  return <section className={`dg-aux-panel${embedded ? " dg-route-nearby-panel" : ""}`}>{!embedded && <PanelHeader title="주변 가게" subtitle={`${program.facility}에서 걸어서 갈 만한 곳`} onBack={onBack} />}<div className="dg-radius-row">{[100, 300, 500, 1000].map((value) => <button type="button" key={value} className={radius === value ? "active" : ""} onClick={() => onRadius(value)}>{value === 1000 ? "1km" : `${value}m`}</button>)}</div><div className="dg-nearby-categories">{(Object.keys(categoryTitle) as NearbyCategory[]).map((value) => <button type="button" key={value} className={category === value ? "active" : ""} onClick={() => onCategory(value)}>{categoryTitle[value]} {value === "all" ? summary?.totalCount ?? 0 : summary?.categoryCounts[value] ?? 0}</button>)}</div>{selected && <div className="dg-nearby-route-summary"><strong>{selected.name}</strong><span>{walkingRoute ? `도보 약 ${walkingRoute.totalMinutes}분 · ${distanceLabel(walkingRoute.totalDistanceMeters)}` : `직선 ${distanceLabel(selected.distanceMeters)} · 도보 경로 계산 중`}</span></div>}<div className="dg-aux-list dg-nearby-list">{loading ? <div className="dg-loading"><strong>목적지 주변을 찾고 있어요</strong></div> : places.length ? <>{places.map((place) => {
     const displayName = place.branchName && !place.name.includes(place.branchName) ? `${place.name} ${place.branchName}` : place.name;
     const parking = place.parkingLotID ? place.parkingAvailableSpaces && place.parkingAvailableSpaces > 0 ? `주변 주차 가능 · ${place.parkingAvailableSpaces}면` : `주변 주차장 · ${place.parkingDistanceMeters ? distanceLabel(place.parkingDistanceMeters) : "정보 확인"}` : "주차 정보 없음";
     return <article id={`nearby-place-${place.id}`} className={`dg-nearby-card${selected?.id === place.id ? " selected" : ""}`} key={place.id}><button type="button" className="dg-nearby-card-main" onClick={() => onSelect(place)}><span className="dg-place-type">{place.placeType === "cafe" ? "☕" : place.placeType === "convenience_store" ? "▣" : place.placeType === "fast_food" ? "🥤" : "🍴"}</span><span><small>{place.businessStatusName ?? categoryTitle[place.placeType]}</small><strong>{displayName}</strong><em>{distanceLabel(place.distanceMeters)} · {place.address ?? "주소 정보 없음"}</em><em className="dg-parking-copy">{parking}</em></span></button><div className="dg-nearby-map-actions"><button type="button" onClick={() => onSelect(place)}>🗺️ 동네고고 지도</button><a href={nearbyNaverLink(place)} target="_blank" rel="noreferrer">네이버 지도</a><a href={nearbyKakaoLink(place)} target="_blank" rel="noreferrer">카카오 지도</a></div></article>;
