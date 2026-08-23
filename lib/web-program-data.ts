@@ -59,6 +59,15 @@ export type WebMapViewportResult = {
   revision: string;
 };
 
+export type WebPlaceSuggestion = {
+  displayName: string;
+  placeKind: "administrative" | "facility" | "local";
+  latitude: number | null;
+  longitude: number | null;
+  programCount: number;
+  confidence: number;
+};
+
 export type WebHeatShelter = {
   id: string;
   name: string;
@@ -427,6 +436,25 @@ function normalizeCluster(value: unknown, scope: WebMapCluster["scope"]): WebMap
   };
 }
 
+function normalizePlaceSuggestion(value: unknown): WebPlaceSuggestion | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Record<string, unknown>;
+  const displayName = textValue(row.display_name);
+  if (!displayName) return null;
+  const rawKind = textValue(row.place_kind);
+  const placeKind = rawKind === "administrative" || rawKind === "facility" || rawKind === "local"
+    ? rawKind
+    : "local";
+  return {
+    displayName,
+    placeKind,
+    latitude: numberValue(row.latitude),
+    longitude: numberValue(row.longitude),
+    programCount: Math.max(0, Math.round(numberValue(row.program_count) ?? 0)),
+    confidence: Math.max(0, Math.min(100, Math.round(numberValue(row.confidence) ?? 0))),
+  };
+}
+
 export async function fetchWebMapViewport(input: {
   south: number; west: number; north: number; east: number;
   previousMode?: "individual" | "cluster";
@@ -487,6 +515,43 @@ export async function fetchWebSearchCandidates(input: Pick<ProgramQuery, "subjec
     if (Array.isArray(value)) return compactProgram(value);
     return value && typeof value === "object" ? normalizedProgram(value as ProgramRow) : null;
   }).filter((item): item is WebProgram => Boolean(item));
+}
+
+export async function fetchWebPlaceSuggestions(query: string, limit = 60): Promise<WebPlaceSuggestion[]> {
+  const safeQuery = safeSearchTerm(query);
+  if (safeQuery.length < 2) return [];
+  const rows = await rpc("search_program_place_suggestions_v1", {
+    p_query: safeQuery,
+    p_limit: Math.max(1, Math.min(60, Math.round(limit))),
+  });
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  return rows.map(normalizePlaceSuggestion).filter((item): item is WebPlaceSuggestion => {
+    if (!item) return false;
+    const key = `${item.placeKind}:${item.displayName}`;
+    return !seen.has(key) && Boolean(seen.add(key));
+  });
+}
+
+export async function fetchWebProgramsNear(input: {
+  latitude: number;
+  longitude: number;
+  radiusKm: number;
+  limit?: number;
+}): Promise<WebProgram[]> {
+  const limit = Math.max(1, Math.min(4_000, Math.round(input.limit ?? 2_000)));
+  const rows = await rpc("get_programs_near", {
+    p_lat: input.latitude,
+    p_lon: input.longitude,
+    p_radius: Math.max(0.3, Math.min(20, input.radiusKm)),
+    p_limit: limit,
+    p_offset: 0,
+  });
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  return rows.map((value) => value && typeof value === "object"
+    ? normalizedProgram(value as ProgramRow)
+    : null).filter((item): item is WebProgram => Boolean(item) && !seen.has(item!.id) && Boolean(seen.add(item!.id)));
 }
 
 export async function fetchWebPrograms(input: ProgramQuery): Promise<WebProgram[]> {

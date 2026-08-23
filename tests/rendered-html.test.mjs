@@ -314,12 +314,16 @@ test("웹 프로그램 API는 공개 SELECT와 읽기 전용 RPC만 사용하며
   assert.match(data, /sb_publishable_/);
   assert.match(data, /get_program_map_viewport_v4/);
   assert.match(data, /search_program_candidates_v2/);
+  assert.match(data, /search_program_place_suggestions_v1/);
+  assert.match(data, /get_programs_near/);
   const rpcNames = [...data.matchAll(/rpc\("([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(rpcNames.sort(), [
     "get_heat_shelters_in_bounds",
     "get_program_map_viewport_v4",
+    "get_programs_near",
     "nearby_places_summary_v2",
     "search_program_candidates_v2",
+    "search_program_place_suggestions_v1",
   ]);
   assert.doesNotMatch(`${data}\n${route}`, /service_role|sb_secret_|method:\s*"(?:PUT|PATCH|DELETE)"|\.insert\(|\.update\(|\.upsert\(|\.delete\(/i);
 });

@@ -1,14 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, BusFront, CakeSlice, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, MapPin, Navigation, PersonStanding, Route, Search, Store, TrainFront, TramFront, Undo2, Utensils, X } from "lucide-react";
-import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebProgram } from "@/lib/web-program-data";
+import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
-import { haversineMeters, parseSearchIntent, relaxedSuggestions, searchPrograms, type SearchIntent } from "@/lib/web-search-engine";
+import {
+  hasAmbiguousAdministrativeSuggestions,
+  haversineMeters,
+  parseSearchIntent,
+  preferredPlaceSuggestion,
+  programMatchesAreaTerms,
+  relaxedSuggestions,
+  resolveSearchCityScope,
+  searchAroundPlacePrograms,
+  searchPrograms,
+  searchResultCategories,
+  searchResultCategoryIDs,
+  searchSuggestionQuery,
+  shouldRequestPlaceSuggestions,
+  type SearchCityScope,
+  type SearchIntent,
+  type SearchResultCategory,
+} from "@/lib/web-search-engine";
 import type { WebRouteMode, WebRouteResult } from "@/lib/web-route-data";
 import {
   currentWebSession,
@@ -75,6 +92,14 @@ type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
 type RoutePanelMode = "route" | "nearby";
 type RoutePanelSnap = "hidden" | "collapsed" | "expanded";
 type LocationRequestState = "idle" | "checking" | "granted" | "denied" | "unavailable" | "timeout";
+type SearchSort = "relevance" | "distance" | "available" | "free";
+type SearchAssistantState =
+  | { kind: "idle" }
+  | { kind: "placeOffer"; place: WebPlaceSuggestion; radiusKm: number }
+  | { kind: "placeSearching"; place: WebPlaceSuggestion; radiusKm: number }
+  | { kind: "placeFound"; place: WebPlaceSuggestion; radiusKm: number; count: number }
+  | { kind: "placeExpand"; place: WebPlaceSuggestion; currentRadiusKm: number; nextRadiusKm: number; remoteSucceeded: boolean }
+  | { kind: "alternativeFound"; message: string; count: number };
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
   walk: "WALKING",
@@ -100,6 +125,7 @@ const SEARCH_EXAMPLES = [
   "오전에 들을 수 있는 음악 강좌",
 ];
 const SEARCH_EXAMPLE_ICONS = ["🌅", "⏰", "👴", "🏊", "🎨", "🎵"];
+const SEARCH_PLACE_RADIUS_OPTIONS = [0.3, 0.5, 1, 3, 5, 10, 20];
 
 const SUBJECT_FILTERS = ["음악", "외국어", "수영", "글쓰기", "탁구", "에어로빅", "미술", "요가", "독서논술", "농구", "우쿨렐레", "스마트폰", "건강체조", "요리", "인문학", "공연/전시", "복지", "테니스", "기타"];
 
@@ -110,6 +136,15 @@ function distanceMeters(a: Coordinate, b: Coordinate) {
 function distanceLabel(meters: number) {
   if (!Number.isFinite(meters)) return "거리 확인 중";
   return meters < 1_000 ? `${Math.max(10, Math.round(meters / 10) * 10)}m` : `${(meters / 1_000).toFixed(1)}km`;
+}
+
+function searchRadiusLabel(radiusKm: number) {
+  return radiusKm < 1 ? `${Math.round(radiusKm * 1_000)}m` : `${radiusKm.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}km`;
+}
+
+function uniquePrograms(programs: WebProgram[]) {
+  const seen = new Set<string>();
+  return programs.filter((program) => !seen.has(program.id) && Boolean(seen.add(program.id)));
 }
 
 function travelDuration(minutes: number, approximate = false) {
@@ -312,14 +347,39 @@ async function fetchPrograms(params: URLSearchParams, signal?: AbortSignal): Pro
   return payload.programs ?? [];
 }
 
+async function fetchSearchSuggestions(query: string): Promise<WebPlaceSuggestion[]> {
+  const params = new URLSearchParams({ q: query });
+  const response = await fetch(`/api/web-search-assistant?${params}`, { cache: "no-store" });
+  const payload = await response.json() as { suggestions?: WebPlaceSuggestion[]; message?: string };
+  if (!response.ok) throw new Error(payload.message ?? "지역·장소 이름을 확인하지 못했습니다.");
+  return payload.suggestions ?? [];
+}
+
+async function fetchProgramsAroundPlace(place: WebPlaceSuggestion, radiusKm: number): Promise<WebProgram[]> {
+  if (place.latitude === null || place.longitude === null) return [];
+  const params = new URLSearchParams({
+    mode: "nearby",
+    latitude: String(place.latitude),
+    longitude: String(place.longitude),
+    radiusKm: String(radiusKm),
+  });
+  const response = await fetch(`/api/web-search-assistant?${params}`, { cache: "no-store" });
+  const payload = await response.json() as { programs?: WebProgram[]; message?: string };
+  if (!response.ok) throw new Error(payload.message ?? "장소 주변 프로그램을 불러오지 못했습니다.");
+  return payload.programs ?? [];
+}
+
 export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const queryRef = useRef("");
   const mapRef = useRef<KakaoMap | null>(null);
   const overlaysRef = useRef<KakaoOverlay[]>([]);
   const routeOverlaysRef = useRef<KakaoOverlay[]>([]);
   const mapItemsRef = useRef<KakaoMapItem[]>([]);
   const mapRequestIDRef = useRef(0);
+  const searchRequestIDRef = useRef(0);
+  const searchSuggestionRequestIDRef = useRef(0);
   const idleTimerRef = useRef<number | null>(null);
   const sheetDragRef = useRef({ pointerID: -1, startY: 0, startHeight: 0, moved: false });
   const sheetGrabberRef = useRef<HTMLButtonElement>(null);
@@ -350,7 +410,18 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [query, setQuery] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [searchCandidates, setSearchCandidates] = useState<WebProgram[]>([]);
+  const [searchResults, setSearchResults] = useState<WebProgram[]>([]);
   const [searchProgress, setSearchProgress] = useState(0);
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [searchCityScope, setSearchCityScope] = useState<SearchCityScope>({ displayName: "서울", regionPath: "서울", candidateAreaTerms: ["서울"] });
+  const [searchSuggestions, setSearchSuggestions] = useState<WebPlaceSuggestion[]>([]);
+  const [searchSuggestionsLoading, setSearchSuggestionsLoading] = useState(false);
+  const [searchSuggestionError, setSearchSuggestionError] = useState("");
+  const [searchWarning, setSearchWarning] = useState("");
+  const [searchAlternativeNotice, setSearchAlternativeNotice] = useState("");
+  const [searchAssistant, setSearchAssistant] = useState<SearchAssistantState>({ kind: "idle" });
+  const [searchResultCategory, setSearchResultCategory] = useState<string | null>(null);
+  const [searchSort, setSearchSort] = useState<SearchSort>("relevance");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [sort, setSort] = useState<Sort>("distance");
   const [fieldFilter, setFieldFilter] = useState("전체");
@@ -443,6 +514,29 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
   }, [tab]);
+
+  useEffect(() => {
+    if (tab !== "search") return;
+    const term = query.trim();
+    if (!term || term === submittedQuery) return;
+    const intent = parseSearchIntent(term);
+    if (!shouldRequestPlaceSuggestions(term, intent)) return;
+    const candidate = searchSuggestionQuery(term, intent);
+    const requestID = ++searchSuggestionRequestIDRef.current;
+    const timer = window.setTimeout(() => {
+      void fetchSearchSuggestions(candidate).then((suggestions) => {
+        if (requestID !== searchSuggestionRequestIDRef.current || queryRef.current.trim() !== term) return;
+        setSearchSuggestions(suggestions);
+      }).catch(() => {
+        if (requestID !== searchSuggestionRequestIDRef.current || queryRef.current.trim() !== term) return;
+        setSearchSuggestions([]);
+        setSearchSuggestionError("추가 지역·장소 이름을 확인하지 못했어요. 검색은 그대로 진행할 수 있어요.");
+      }).finally(() => {
+        if (requestID === searchSuggestionRequestIDRef.current) setSearchSuggestionsLoading(false);
+      });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [query, submittedQuery, tab]);
 
   const synchronizeAccount = useCallback(async (activeSession: Session) => {
     setAccountError("");
@@ -749,6 +843,21 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   };
 
   const visiblePrograms = useMemo(() => {
+    if (tab === "search" && searchIntent) {
+      const categorized = searchResultCategory
+        ? searchResults.filter((program) => searchResultCategoryIDs(program).includes(searchResultCategory))
+        : searchResults;
+      if (searchSort === "relevance") return categorized;
+      const searchOrigin = (searchAssistant.kind === "placeFound" || searchAssistant.kind === "placeOffer" || searchAssistant.kind === "placeSearching")
+        && searchAssistant.place.latitude !== null && searchAssistant.place.longitude !== null
+        ? { latitude: searchAssistant.place.latitude, longitude: searchAssistant.place.longitude }
+        : location;
+      return [...categorized].sort((a, b) => {
+        if (searchSort === "free" && a.isFree !== b.isFree) return a.isFree ? -1 : 1;
+        if (searchSort === "available" && isAvailable(a) !== isAvailable(b)) return isAvailable(a) ? -1 : 1;
+        return distanceMeters(searchOrigin, a) - distanceMeters(searchOrigin, b);
+      });
+    }
     const items = programs.filter((program) => {
       if (!fieldMatches(program, fieldFilter)) return false;
       if (freeOnly && !program.isFree) return false;
@@ -775,7 +884,9 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       if (sort === "available" && isAvailable(a) !== isAvailable(b)) return isAvailable(a) ? -1 : 1;
       return distanceMeters(center, a) - distanceMeters(center, b);
     });
-  }, [programs, fieldFilter, freeOnly, paidOnly, seniorOnly, audienceFilter, subjectFilters, statusFilter, todayOnly, radiusKm, location, tab, favorites, sort, center]);
+  }, [programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, audienceFilter, subjectFilters, statusFilter, todayOnly, radiusKm, location, tab, favorites, sort, center]);
+
+  const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
   const visibleClusters = useMemo(() => {
     const limitByScope: Record<WebMapCluster["scope"], number> = { localArea: 12, neighborhood: 22, district: 18, city: 16, province: 18 };
@@ -1065,42 +1176,232 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     };
   }, [activeRoute, auxiliaryPanel, location, nearbyCategory, nearbyDestination, nearbyRadius, nearbySummary, nearbyWalkingRoute, routePanelActive, routePanelMode, selected, selectedNearbyPlace, selectNearbyPlace, usesFallbackLocation]);
 
+  const rememberSearch = (term: string) => {
+    const nextRecent = [term, ...recentSearches.filter((item) => item !== term)].slice(0, 8);
+    setRecentSearches(nextRecent);
+    localStorage.setItem("dongnegogo.web.recentSearches", JSON.stringify(nextRecent));
+  };
+
+  const runPlaceSearch = async (
+    expectedQuery: string,
+    place: WebPlaceSuggestion,
+    radius: number,
+    requestID = ++searchRequestIDRef.current,
+  ) => {
+    setSearchAssistant({ kind: "placeSearching", place, radiusKm: radius });
+    setSearchWarning("");
+    setLoading(true);
+    setSearchProgress(82);
+    try {
+      const candidates = await fetchProgramsAroundPlace(place, radius);
+      if (requestID !== searchRequestIDRef.current) return;
+      const assisted = searchAroundPlacePrograms(candidates, expectedQuery, place, radius);
+      const matches = assisted.results.map((item) => item.program);
+      setSearchCandidates(candidates);
+      setSearchIntent(assisted.intent);
+      setSearchResults(matches);
+      setSearchResultCategory(null);
+      setSearchSort("relevance");
+      setSearchProgress(100);
+      if (place.latitude !== null && place.longitude !== null) {
+        setCenter({ latitude: place.latitude, longitude: place.longitude });
+        setCenteredArea(place.displayName);
+        const maps = window.kakao?.maps;
+        if (mapRef.current && maps) {
+          if (matches.length) {
+            const bounds = new maps.LatLngBounds();
+            matches.slice(0, 120).forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
+            mapRef.current.setBounds(bounds, 60, 60, 60, 60);
+          } else {
+            mapRef.current.setCenter(new maps.LatLng(place.latitude, place.longitude));
+            mapRef.current.setLevel(4);
+          }
+        }
+      }
+      if (matches.length) {
+        setSearchAssistant({ kind: "placeFound", place, radiusKm: radius, count: matches.length });
+      } else {
+        const nextRadius = SEARCH_PLACE_RADIUS_OPTIONS.find((value) => value > radius + 0.01);
+        setSearchAssistant(nextRadius
+          ? { kind: "placeExpand", place, currentRadiusKm: radius, nextRadiusKm: nextRadius, remoteSucceeded: true }
+          : { kind: "idle" });
+      }
+    } catch {
+      if (requestID !== searchRequestIDRef.current) return;
+      const nextRadius = SEARCH_PLACE_RADIUS_OPTIONS.find((value) => value > radius + 0.01);
+      setSearchResults([]);
+      setSearchProgress(100);
+      setSearchAssistant(nextRadius
+        ? { kind: "placeExpand", place, currentRadiusKm: radius, nextRadiusKm: nextRadius, remoteSucceeded: false }
+        : { kind: "idle" });
+    } finally {
+      if (requestID === searchRequestIDRef.current) setLoading(false);
+    }
+  };
+
   const runSearch = async (rawTerm: string) => {
     const term = rawTerm.trim();
-    if (!term) { searchActiveRef.current = false; setSearchIntent(null); setTab("map"); if (mapRef.current) loadBounds(mapRef.current); return; }
+    if (!term) return;
+    queryRef.current = term;
+    const requestID = ++searchRequestIDRef.current;
+    const intent = parseSearchIntent(term);
+    let hadLocalResults = false;
     searchActiveRef.current = true;
     setTab("search");
     setSelected(null);
     setRoutePanelActive(false);
+    setSubmittedQuery(term);
+    setSearchIntent(intent);
+    setSearchResults([]);
+    setSearchResultCategory(null);
+    setSearchSort("relevance");
+    setSearchAlternativeNotice("");
+    setSearchWarning("");
+    setSearchSuggestionError("");
+    setSearchAssistant({ kind: "idle" });
     setLoading(true);
-    setSearchProgress(18);
+    setSearchProgress(15);
+
     try {
-      const intent = parseSearchIntent(term);
-      setSearchIntent(intent);
+      let suggestions = searchSuggestions;
+      if (shouldRequestPlaceSuggestions(term, intent)) {
+        try {
+          suggestions = await fetchSearchSuggestions(searchSuggestionQuery(term, intent));
+          if (requestID !== searchRequestIDRef.current) return;
+          setSearchSuggestions(suggestions);
+        } catch {
+          suggestions = [];
+          setSearchSuggestions([]);
+          setSearchWarning("지역·장소 자동완성 연결이 잠시 불안정하지만 프로그램 검색은 계속 진행해요.");
+        }
+      }
+      if (hasAmbiguousAdministrativeSuggestions(term, suggestions)) {
+        setSubmittedQuery(term);
+        setSearchIntent(null);
+        setSearchResults([]);
+        setSearchSuggestionError("같은 이름의 지역이 여러 곳이에요. 정확한 전체 행정지역을 선택해 주세요.");
+        window.requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }));
+        return;
+      }
+
+      const cityScope = resolveSearchCityScope(intent, centeredArea);
+      setSearchCityScope(cityScope);
+      const localPool = uniquePrograms([...programs, ...searchCandidates])
+        .filter((program) => programMatchesAreaTerms(program, cityScope.candidateAreaTerms));
+      const localMatches = searchPrograms(localPool, intent, location).map((item) => item.program);
+      hadLocalResults = localMatches.length > 0;
+      setSearchResults(localMatches);
+      setSearchProgress(35);
+
       const params = new URLSearchParams();
       intent.subjectTerms.forEach((value) => params.append("subject", value));
-      intent.areaTerms.forEach((value) => params.append("area", value));
+      [...new Set([...intent.areaTerms, ...cityScope.candidateAreaTerms])].forEach((value) => params.append("area", value));
       intent.generalTerms.forEach((value) => params.append("general", value));
       const candidates = await fetchPrograms(params);
+      if (requestID !== searchRequestIDRef.current) return;
       setSearchProgress(82);
       setSearchCandidates(candidates);
       const matches = searchPrograms(candidates, intent, location).map((item) => item.program);
-      setPrograms(matches);
-      setMapMode("individual");
-      setMapClusters([]);
-      const nextRecent = [term, ...recentSearches.filter((item) => item !== term)].slice(0, 8);
-      setRecentSearches(nextRecent);
-      localStorage.setItem("dongnegogo.web.recentSearches", JSON.stringify(nextRecent));
-      setError("");
+      setSearchResults(matches);
       setSearchProgress(100);
+      setError("");
+      rememberSearch(term);
+
+      const place = preferredPlaceSuggestion(term, intent, suggestions);
+      if (place && place.placeKind !== "administrative") {
+        const shouldAutomaticallySearch = place.confidence >= 90 || matches.length <= 10;
+        if (shouldAutomaticallySearch) {
+          await runPlaceSearch(term, place, 1, requestID);
+          return;
+        }
+        setSearchAssistant({ kind: "placeOffer", place, radiusKm: 1 });
+      }
+
       const maps = window.kakao?.maps;
       if (mapRef.current && matches.length && maps) {
         const bounds = new maps.LatLngBounds();
         matches.slice(0, 120).forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
         mapRef.current.setBounds(bounds, 70, 70, 70, 70);
       }
-    } catch (searchError) { setError((searchError as Error).message); }
-    finally { setLoading(false); }
+    } catch {
+      if (requestID !== searchRequestIDRef.current) return;
+      setSearchProgress(100);
+      setSearchWarning(hadLocalResults
+        ? "새 프로그램 연결이 잠시 불안정해 저장된 검색 결과를 먼저 보여드려요."
+        : "검색 연결이 잠시 불안정해요. 잠시 후 다시 검색해 주세요.");
+    } finally {
+      if (requestID === searchRequestIDRef.current) setLoading(false);
+    }
+  };
+
+  const updateSearchQuery = (value: string) => {
+    queryRef.current = value;
+    setQuery(value);
+    searchSuggestionRequestIDRef.current += 1;
+    setSearchSuggestions([]);
+    const valueIntent = parseSearchIntent(value.trim());
+    setSearchSuggestionsLoading(shouldRequestPlaceSuggestions(value.trim(), valueIntent));
+    setSearchSuggestionError("");
+    if (value.trim() === submittedQuery) return;
+    searchRequestIDRef.current += 1;
+    setSubmittedQuery("");
+    setSearchIntent(null);
+    setSearchResults([]);
+    setSearchProgress(0);
+    setSearchWarning("");
+    setSearchAlternativeNotice("");
+    setSearchAssistant({ kind: "idle" });
+    setSearchResultCategory(null);
+    setLoading(false);
+    setError("");
+  };
+
+  const clearSearch = () => {
+    queryRef.current = "";
+    searchRequestIDRef.current += 1;
+    searchSuggestionRequestIDRef.current += 1;
+    setQuery("");
+    setSubmittedQuery("");
+    setSearchIntent(null);
+    setSearchCandidates([]);
+    setSearchResults([]);
+    setSearchSuggestions([]);
+    setSearchSuggestionsLoading(false);
+    setSearchSuggestionError("");
+    setSearchWarning("");
+    setSearchAlternativeNotice("");
+    setSearchAssistant({ kind: "idle" });
+    setSearchResultCategory(null);
+    setSearchProgress(0);
+    setLoading(false);
+    window.requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }));
+  };
+
+  const selectSearchSuggestion = (suggestion: WebPlaceSuggestion) => {
+    if (suggestion.latitude === null || suggestion.longitude === null) {
+      setSearchSuggestionError("입력한 지역과 일치하는 위치를 확인하지 못했어요. 시·도나 시·군·구 이름을 함께 입력해 주세요.");
+      return;
+    }
+    queryRef.current = suggestion.displayName;
+    setQuery(suggestion.displayName);
+    setSubmittedQuery(suggestion.displayName);
+    rememberSearch(suggestion.displayName);
+    setSearchSuggestionError("");
+    setSearchSuggestions([]);
+    searchActiveRef.current = false;
+    setTab("map");
+    setSelected(null);
+    setRoutePanelActive(false);
+    setAuxiliaryPanel(null);
+    setMobileSheetSnap("medium");
+    setCenter({ latitude: suggestion.latitude, longitude: suggestion.longitude });
+    setCenteredArea(suggestion.displayName);
+    const maps = window.kakao?.maps;
+    if (mapRef.current && maps) {
+      mapRef.current.setCenter(new maps.LatLng(suggestion.latitude, suggestion.longitude));
+      mapRef.current.setLevel(suggestion.placeKind === "administrative" ? 6 : 4);
+      window.setTimeout(() => mapRef.current && void loadBounds(mapRef.current), 0);
+    }
   };
 
   const submitSearch = (event?: FormEvent) => {
@@ -1108,21 +1409,34 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     void runSearch(query);
   };
 
+  const submitSearchFromKeyboard = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    void runSearch(query);
+  };
+
   const chooseSearch = (term: string) => {
+    queryRef.current = term;
     setQuery(term);
     void runSearch(term);
   };
 
-  const applyRelaxedIntent = (intent: SearchIntent) => {
+  const applyRelaxedIntent = (intent: SearchIntent, notice: string) => {
     setSearchIntent(intent);
-    setPrograms(searchPrograms(searchCandidates, intent, location).map((item) => item.program));
+    const origin = searchAssistant.kind === "placeFound" && searchAssistant.place.latitude !== null && searchAssistant.place.longitude !== null
+      ? { latitude: searchAssistant.place.latitude, longitude: searchAssistant.place.longitude }
+      : location;
+    const matches = searchPrograms(searchCandidates, intent, origin).map((item) => item.program);
+    setSearchResults(matches);
+    setSearchAlternativeNotice(notice);
+    setSearchAssistant({ kind: "alternativeFound", message: notice, count: matches.length });
   };
 
   const removeIntentChip = (chip: string) => {
     if (!searchIntent) return;
     const next: SearchIntent = {
       ...searchIntent,
-      subjectTerms: searchIntent.subjectTerms.filter((term) => term !== chip),
+      subjectTerms: searchIntent.subjectTerms.includes(chip) ? [] : searchIntent.subjectTerms,
       areaTerms: searchIntent.areaTerms.filter((term) => term !== chip),
       audiences: ["어르신", "아이", "가족", "직장인"].includes(chip) ? [] : searchIntent.audiences,
       free: ["무료", "유료"].includes(chip) ? null : searchIntent.free,
@@ -1130,11 +1444,15 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       time: ["오전", "오후", "저녁"].includes(chip) ? null : searchIntent.time,
       status: ["접수중", "접수예정", "마감임박"].includes(chip) ? null : searchIntent.status,
       dateTarget: ["오늘", "내일"].includes(chip) ? null : searchIntent.dateTarget,
-      radiusKm: chip.endsWith("km 이내") ? null : searchIntent.radiusKm,
+      radiusKm: chip === "근처" || /(?:km|m) 이내$/.test(chip) ? null : searchIntent.radiusKm,
       chips: searchIntent.chips.filter((item) => item !== chip),
     };
     setSearchIntent(next);
-    setPrograms(searchPrograms(searchCandidates, next, location).map((item) => item.program));
+    const origin = searchAssistant.kind === "placeFound" && searchAssistant.place.latitude !== null && searchAssistant.place.longitude !== null
+      ? { latitude: searchAssistant.place.latitude, longitude: searchAssistant.place.longitude }
+      : location;
+    setSearchResults(searchPrograms(searchCandidates, next, origin).map((item) => item.program));
+    setSearchAlternativeNotice("");
   };
 
   const startVoiceSearch = () => {
@@ -1394,7 +1712,6 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
     searchActiveRef.current = nextTab === "search";
     if (nextTab === "map") setMobileSheetSnap("medium");
-    if (nextTab !== "search") setSearchIntent(null);
     setTab(nextTab);
     setSelected(null);
     setRoutePanelActive(false);
@@ -1930,19 +2247,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             <header className="dg-panel-header">
               <div className="dg-panel-title">{tab === "search" || auxiliaryPanel === "programs" ? <button type="button" onClick={() => auxiliaryPanel === "programs" ? setAuxiliaryPanel(null) : changeTab("map")}>‹ 지도</button> : <Link href="/">‹ 소개</Link>}<h1>{tab === "saved" ? "찜한 프로그램" : tab === "search" ? "찾기" : "지도 주변"}</h1></div>
               <form className="dg-search" onSubmit={submitSearch}>
-                <span aria-hidden="true">⌕</span><input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="시설명·강좌명 또는 자연어로 검색" aria-label="프로그램 검색" />
-                {query && <button type="button" className="dg-clear" onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}
+                <span aria-hidden="true">⌕</span><input ref={searchInputRef} value={query} onChange={(event) => updateSearchQuery(event.target.value)} onKeyDown={submitSearchFromKeyboard} placeholder="시설명·강좌명 또는 자연어로 검색" aria-label="프로그램 검색" />
+                {query && <button type="button" className="dg-clear" onClick={clearSearch} aria-label="검색어 지우기">×</button>}
                 <button type="button" className="dg-voice" onClick={startVoiceSearch} aria-label="음성으로 검색">◉</button>
                 <button type="submit" className="dg-search-button">검색</button>
               </form>
-              {tab === "search" && searchIntent && <div className="dg-intent-chips" aria-label="검색 조건">{searchIntent.chips.map((chip) => <button key={chip} type="button" onClick={() => removeIntentChip(chip)} aria-label={`${chip} 조건 삭제`}>{chip} ×</button>)}</div>}
-              {tab === "search" && !searchIntent && <div className="dg-search-suggestions">
-                {recentSearches.length > 0 && <><small>최근 검색 <button type="button" onClick={() => { setRecentSearches([]); localStorage.removeItem("dongnegogo.web.recentSearches"); }}>전체 삭제</button></small>{recentSearches.map((recent) => <button key={recent} type="button" onClick={() => chooseSearch(recent)}>↻ {recent}</button>)}</>}
-                <small>이렇게 검색해보세요</small>
-                {SEARCH_EXAMPLES.map((example, index) => <button key={example} type="button" onClick={() => chooseSearch(example)}>{SEARCH_EXAMPLE_ICONS[index]} {example}</button>)}
-              </div>}
-              {tab === "search" && searchIntent && <p className="dg-search-scope">{loading ? `${centeredArea.split(" ").slice(0, 2).join(" ")} 지역 기준으로 먼저 찾고 있어요. ${searchProgress}%` : `${centeredArea.split(" ").slice(0, 2).join(" ")} 지역 기준 ${visiblePrograms.length}곳을 찾았어요.`}</p>}
-              {(tab !== "search" || searchIntent) && <><div className="dg-location-row"><button type="button" onClick={moveToCurrentLocation}>● {centeredArea.split(" ").slice(-2).join(" ")}</button><span>{heatShelterMode ? `${heatShelters.length}곳` : `${visiblePrograms.length}곳`}</span></div>
+              {tab !== "search" && <><div className="dg-location-row"><button type="button" onClick={moveToCurrentLocation}>● {centeredArea.split(" ").slice(-2).join(" ")}</button><span>{heatShelterMode ? `${heatShelters.length}곳` : `${visiblePrograms.length}곳`}</span></div>
               <div className="dg-filter-row">
                 <button type="button" className={heatShelterMode ? "active heat" : ""} onClick={toggleHeatShelterMode}>❄ 무더위쉼터</button>
                 {["교육", "문화예술", "건강운동", "공연전시", "복지", "디지털"].map((field) => <button key={field} type="button" className={!heatShelterMode && fieldFilter === field ? "active" : ""} onClick={() => toggleMapField(field)}>{field}</button>)}
@@ -1958,11 +2268,45 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
                 <button type="button" className={sort === "free" ? "active" : ""} onClick={() => setSort("free")}>무료 먼저</button>
               </div></>}
             </header>
-            <div className={`dg-result-list${tab === "search" && !searchIntent ? " dg-search-idle" : ""}`}>
-              {loading && <div className="dg-loading"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><strong>{heatShelterMode ? "무더위쉼터를 불러오고 있어요" : "우리 동네 프로그램을 찾고 있어요"}</strong>{tab === "search" && <progress max="100" value={searchProgress} aria-label="검색 진행률" />}</div>}
+            {tab === "search" ? <SearchExperience
+              key={submittedQuery || "search-idle"}
+              query={query}
+              submittedQuery={submittedQuery}
+              intent={searchIntent}
+              suggestions={searchSuggestions}
+              suggestionsLoading={searchSuggestionsLoading}
+              suggestionError={searchSuggestionError}
+              recentSearches={recentSearches}
+              loading={loading}
+              progress={searchProgress}
+              cityScope={searchCityScope}
+              warning={searchWarning}
+              alternativeNotice={searchAlternativeNotice}
+              assistant={searchAssistant}
+              allResults={searchResults}
+              visibleResults={visiblePrograms}
+              categories={searchCategoryCounts}
+              selectedCategory={searchResultCategory}
+              sort={searchSort}
+              origin={searchAssistant.kind === "placeFound" && searchAssistant.place.latitude !== null && searchAssistant.place.longitude !== null
+                ? { latitude: searchAssistant.place.latitude, longitude: searchAssistant.place.longitude }
+                : location}
+              onChoose={chooseSearch}
+              onClearRecent={() => { setRecentSearches([]); localStorage.removeItem("dongnegogo.web.recentSearches"); }}
+              onSelectSuggestion={selectSearchSuggestion}
+              onRetry={() => { void runSearch(query); }}
+              onRemoveChip={removeIntentChip}
+              onRelax={applyRelaxedIntent}
+              onCategory={setSearchResultCategory}
+              onSort={setSearchSort}
+              onPlaceRadius={(place, radius) => { void runPlaceSearch(submittedQuery, place, radius); }}
+              onDismissPlace={() => setSearchAssistant({ kind: "idle" })}
+              onOpen={(program) => { void selectProgram(program); }}
+            /> : <div className="dg-result-list">
+              {loading && <div className="dg-loading"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><strong>{heatShelterMode ? "무더위쉼터를 불러오고 있어요" : "우리 동네 프로그램을 찾고 있어요"}</strong></div>}
               {!loading && error && <div className="dg-empty"><strong>{error}</strong><button type="button" onClick={() => mapRef.current && loadBounds(mapRef.current)}>다시 불러오기</button></div>}
-              {!loading && !error && !heatShelterMode && visiblePrograms.length === 0 && <div className="dg-empty"><img src="/web-assets/beodeuli-search-success.png" alt="" /><strong>조건에 맞는 프로그램을 못 찾았어요.</strong><p>조건 하나만 넓혀 다시 찾아볼 수 있어요.</p>{searchIntent && <div className="dg-relaxed-search">{relaxedSuggestions(searchIntent).map((item) => <button key={item.label} type="button" onClick={() => applyRelaxedIntent(item.intent)}>{item.label}</button>)}</div>}</div>}
-              {!loading && !(tab === "search" && !searchIntent) && !heatShelterMode && visiblePrograms.slice(0, 160).map((program) => (
+              {!loading && !error && !heatShelterMode && visiblePrograms.length === 0 && <div className="dg-empty"><img src="/web-assets/beodeuli-search-success.png" alt="" /><strong>조건에 맞는 프로그램을 못 찾았어요.</strong><p>조건 하나만 넓혀 다시 찾아볼 수 있어요.</p></div>}
+              {!loading && !heatShelterMode && visiblePrograms.slice(0, 160).map((program) => (
                 <button className="dg-program-card" type="button" key={program.id} onClick={() => { void selectProgram(program); }}>
                   <img src={`/markers/${programIconName(program)}.png`} alt="" />
                   <span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(center, program))} · {program.facility}</small><em>{program.isFree ? "무료" : program.feeText}</em></span>
@@ -1970,7 +2314,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
                 </button>
               ))}
               {!loading && heatShelterMode && heatShelters.map((shelter) => <button className="dg-program-card" type="button" key={shelter.id} onClick={() => setSelectedHeatShelter(shelter)}><img src="/markers/icon_heat_shelter.png" alt="" /><span className="dg-card-copy"><span className="dg-status">운영 정보 확인</span><strong>{shelter.name}</strong><small>{distanceLabel(distanceMeters(center, shelter))} · {shelter.roadAddress ?? shelter.address ?? "주소 정보 없음"}</small><em>{shelter.airconCount ? `에어컨 ${shelter.airconCount}대` : "냉방 시설"}</em></span><span className="dg-card-arrow">›</span></button>)}
-            </div>
+            </div>}
           </>
         )}
       </section>
@@ -2051,6 +2395,114 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       {accountError && tab !== "me" && <button type="button" className="dg-sync-toast" onClick={() => setAccountError("")} aria-label="동기화 안내 닫기">{accountError} ×</button>}
     </main>
   );
+}
+
+function SearchExperience({
+  query, submittedQuery, intent, suggestions, suggestionsLoading, suggestionError, recentSearches,
+  loading, progress, cityScope, warning, alternativeNotice, assistant, allResults, visibleResults,
+  categories, selectedCategory, sort, origin, onChoose, onClearRecent, onSelectSuggestion, onRetry,
+  onRemoveChip, onRelax, onCategory, onSort, onPlaceRadius, onDismissPlace, onOpen,
+}: {
+  query: string;
+  submittedQuery: string;
+  intent: SearchIntent | null;
+  suggestions: WebPlaceSuggestion[];
+  suggestionsLoading: boolean;
+  suggestionError: string;
+  recentSearches: string[];
+  loading: boolean;
+  progress: number;
+  cityScope: SearchCityScope;
+  warning: string;
+  alternativeNotice: string;
+  assistant: SearchAssistantState;
+  allResults: WebProgram[];
+  visibleResults: WebProgram[];
+  categories: SearchResultCategory[];
+  selectedCategory: string | null;
+  sort: SearchSort;
+  origin: Coordinate;
+  onChoose: (term: string) => void;
+  onClearRecent: () => void;
+  onSelectSuggestion: (suggestion: WebPlaceSuggestion) => void;
+  onRetry: () => void;
+  onRemoveChip: (chip: string) => void;
+  onRelax: (intent: SearchIntent, notice: string) => void;
+  onCategory: (category: string | null) => void;
+  onSort: (sort: SearchSort) => void;
+  onPlaceRadius: (place: WebPlaceSuggestion, radius: number) => void;
+  onDismissPlace: () => void;
+  onOpen: (program: WebProgram) => void;
+}) {
+  const trimmed = query.trim();
+  const active = Boolean(intent && submittedQuery);
+  const relaxations = intent ? relaxedSuggestions(intent) : [];
+  const managedRadius = assistant.kind === "placeOffer" || assistant.kind === "placeSearching"
+    || assistant.kind === "placeFound" || assistant.kind === "placeExpand";
+
+  if (!active) {
+    return <div className="dg-search-idle-panel">
+      {trimmed ? <>
+        {suggestions.length > 0 && <section className="dg-search-place-suggestions">
+          <header><span>▥</span><strong>지역으로 지도 이동</strong></header>
+          <p>시·군·구 또는 통합된 읍·면·동 단위로 프로그램 수를 모아 보여드려요.</p>
+          <div>{suggestions.map((suggestion) => <button type="button" key={`${suggestion.placeKind}:${suggestion.displayName}`} onClick={() => onSelectSuggestion(suggestion)}>
+            <span aria-hidden="true">⌖</span><span><strong>{suggestion.displayName}</strong><small>{suggestion.placeKind === "administrative" ? "행정구역 군집" : suggestion.placeKind === "facility" ? "시설 중심" : "장소 중심"} · 프로그램 {suggestion.programCount.toLocaleString("ko-KR")}개</small></span><em>›</em>
+          </button>)}</div>
+        </section>}
+        {suggestionsLoading && <p className="dg-search-inline-progress"><span /><strong>{suggestions.length ? "추가 지역·장소 이름을 확인하고 있어요" : "입력한 지역·장소의 정확한 행정명을 확인하고 있어요"}</strong></p>}
+        {suggestionError && <p className="dg-search-error" role="alert"><span>!</span>{suggestionError}</p>}
+        {!suggestionsLoading && !suggestions.length && !suggestionError && <p className="dg-search-submit-hint">검색 키를 누르면 프로그램명·시설명·자연어 조건으로 찾아요.</p>}
+      </> : <>
+        {recentSearches.length > 0 && <section className="dg-search-idle-section"><header><strong>최근 검색</strong><button type="button" onClick={onClearRecent}>전체 삭제</button></header><div>{recentSearches.map((recent) => <button key={recent} type="button" onClick={() => onChoose(recent)}>◷ {recent}</button>)}</div></section>}
+        <section className="dg-search-idle-section"><header><strong>이렇게 검색해보세요</strong></header><div>{SEARCH_EXAMPLES.map((example, index) => <button key={example} type="button" onClick={() => onChoose(example)}>{SEARCH_EXAMPLE_ICONS[index]} {example}</button>)}</div></section>
+      </>}
+    </div>;
+  }
+
+  const assistantCard = (() => {
+    if (assistant.kind === "idle") return null;
+    if (assistant.kind === "alternativeFound") return <section className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-success.png" alt="" /><small>원하시는 결과를 찾았어요</small><strong>{assistant.message} 관련 프로그램 {assistant.count.toLocaleString("ko-KR")}곳을 아래에 정리했어요.</strong>
+    </section>;
+    if (assistant.kind === "placeOffer") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>원하시는 장소를 이해했어요</small><strong>‘{submittedQuery}’는 {assistant.place.displayName} 주변을 찾으시는 뜻으로 이해했어요. 제목에 장소명이 없어도 실제 위치를 기준으로 찾아드릴게요.</strong>
+    </div><button type="button" className="dg-search-primary-action" onClick={() => onPlaceRadius(assistant.place, assistant.radiusKm)}>⌖ {searchRadiusLabel(assistant.radiusKm)} 주변 프로그램 찾아보기</button><button type="button" className="dg-search-secondary-action" onClick={onDismissPlace}>일반 검색 결과만 볼게요</button></section>;
+    if (assistant.kind === "placeSearching") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-delivering.png" alt="" /><small>버들이가 꼼꼼히 살펴보는 중</small><strong>{assistant.place.displayName} {searchRadiusLabel(assistant.radiusKm)} 안에서 진행되는 프로그램을 찾아서 곧 전달해 드릴게요.</strong>
+    </div><p className="dg-search-inline-progress"><span /><strong>프로그램 위치와 조건을 함께 확인하고 있어요</strong></p></section>;
+    if (assistant.kind === "placeExpand") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>{assistant.remoteSucceeded ? "조금 더 넓게 찾아볼까요?" : "연결이 잠시 불안정해요"}</small><strong>{assistant.remoteSucceeded
+        ? `${assistant.place.displayName} ${searchRadiusLabel(assistant.currentRadiusKm)} 안에서는 맞는 프로그램을 찾지 못했어요. ${searchRadiusLabel(assistant.nextRadiusKm)}까지 반경을 넓혀드릴까요?`
+        : `새 프로그램을 불러오지 못했어요. 다시 연결해서 ${searchRadiusLabel(assistant.nextRadiusKm)}까지 찾아볼 수 있어요.`}</strong>
+    </div><button type="button" className="dg-search-primary-action" onClick={() => onPlaceRadius(assistant.place, assistant.nextRadiusKm)}>⌖ 네, {searchRadiusLabel(assistant.nextRadiusKm)}까지 찾아주세요</button><button type="button" className="dg-search-secondary-action" onClick={onDismissPlace}>여기서 그만 찾을게요</button></section>;
+    return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-success.png" alt="" /><small>원하시는 결과를 찾았어요</small><strong>{assistant.place.displayName} <em>{searchRadiusLabel(assistant.radiusKm)}</em> 안에서 <em>{Math.min(assistant.count, 300).toLocaleString("ko-KR")}곳</em>{assistant.count >= 300 ? "을 먼저 찾았어요. 거리순으로 차례로 보여드릴게요." : "을 찾았어요. 가까운 프로그램부터 차례로 보여드릴게요."}</strong>
+    </div><section className="dg-search-radius-card"><header><span>⌖</span><span><strong>검색 반경 조절</strong><small>원하는 거리를 누르면 같은 장소에서 바로 다시 찾아요</small></span><em>{searchRadiusLabel(assistant.radiusKm)} 이내</em></header><div>{SEARCH_PLACE_RADIUS_OPTIONS.map((radius) => <button type="button" key={radius} className={radius === assistant.radiusKm ? "active" : ""} onClick={() => radius !== assistant.radiusKm && onPlaceRadius(assistant.place, radius)}>{radius === assistant.radiusKm && "✓ "}{searchRadiusLabel(radius)}</button>)}</div></section></section>;
+  })();
+
+  return <div className="dg-search-results-panel">
+    {assistantCard}
+    {warning && <p className="dg-search-warning" role="status"><span>!</span><strong>{warning}</strong><button type="button" onClick={onRetry}>다시 검색</button></p>}
+    {alternativeNotice && assistant.kind !== "alternativeFound" && <p className="dg-search-alternative-notice">✓ {alternativeNotice}</p>}
+    <section className="dg-search-result-header">
+      <div><strong><em>{cityScope.displayName}</em> 지역 기준으로 {loading ? "먼저 찾고 있어요." : <><b>{visibleResults.length.toLocaleString("ko-KR")}곳</b>을 찾았어요.</>}</strong>{loading && <span>{progress}%</span>}</div>
+      {loading && <progress max="100" value={progress} aria-label="검색 진행률" />}
+      {!loading && <p>다른 지역 검색을 원하시면,<br />검색창에 찾고자 하시는 지역명을 함께 입력해주세요.</p>}
+    </section>
+    {(intent!.chips.length > 0 || (!loading && !allResults.length && relaxations.length > 0)) && <section className="dg-search-intent-card">
+      {!loading && !allResults.length && relaxations.length > 0 && <header><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><strong>버들이의 다른 제안</strong></header>}
+      <p>찾으시는 결과가 없으시면, 아래 키워드를 삭제하셔서 검색 조건을 조정해 주세요.</p>
+      {intent!.chips.length > 0 && <div className="dg-intent-chips" aria-label="검색 조건">{intent!.chips.map((chip) => managedRadius && (chip === "근처" || /(?:km|m) 이내$/.test(chip))
+        ? <span key={chip}>✓ {chip}</span>
+        : <button key={chip} type="button" onClick={() => onRemoveChip(chip)} aria-label={`${chip} 조건 삭제`}>{chip}<i>×</i></button>)}</div>}
+      {!loading && !allResults.length && relaxations.length > 0 && <div className="dg-search-alternatives">{relaxations.map((item) => <article key={item.label}><p>{item.message}</p><button type="button" onClick={() => onRelax(item.intent, item.appliedNotice)}>⊕ {item.label}<span>→</span></button></article>)}</div>}
+    </section>}
+    {allResults.length > 0 && <section className="dg-search-filter-card"><div><small>프로그램 분류</small><div><button type="button" className={selectedCategory === null ? "active" : ""} onClick={() => onCategory(null)}>✨ 전체 <b>{allResults.length}</b></button>{categories.map((category) => <button type="button" key={category.id} className={selectedCategory === category.id ? "active" : ""} onClick={() => onCategory(category.id)}>{category.emoji} {category.label} <b>{category.count}</b></button>)}</div></div><hr /><div className="dg-search-sort-row">{([[
+      "relevance", "관련도 순"], ["distance", "가까운 순"], ["available", "신청 가능한 순"], ["free", "무료 먼저"]] as Array<[SearchSort, string]>).map(([value, label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => onSort(value)}>{label}</button>)}</div></section>}
+    {!loading && !allResults.length && assistant.kind === "idle" && !relaxations.length && <div className="dg-search-empty-state"><div className="dg-search-assistant-card"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>버들이가 함께 찾아볼게요</small><strong>‘{submittedQuery}’에 꼭 맞는 결과가 아직 없어요. 표현이나 조건을 한 가지만 바꾸면 더 잘 찾을 수 있어요.</strong></div><section><strong>이렇게 바꿔보세요</strong><p>💡 더 짧게: ‘{parseSearchIntent(submittedQuery).generalTerms[0] ?? submittedQuery}’</p><p>💡 시설명으로: ‘정릉복지관’, ‘성북구민수영장’</p><p>💡 분야로: ‘수영’, ‘요가’, ‘스마트폰’</p></section></div>}
+    <div className="dg-search-program-list">{visibleResults.slice(0, 300).map((program) => <button className="dg-program-card" type="button" key={program.id} onClick={() => onOpen(program)}><img src={`/markers/${programIconName(program)}.png`} alt="" /><span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.isFree ? "무료" : program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small><em>{program.scheduleText ?? program.periodText ?? (program.isFree ? "무료" : program.feeText)}</em></span><span className="dg-card-arrow" aria-hidden="true">›</span></button>)}</div>
+  </div>;
 }
 
 function Preference({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {

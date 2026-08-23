@@ -7,6 +7,7 @@ import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
 const webMapStyle = readFileSync(new URL("../app/web/web-map.css", import.meta.url), "utf8");
 const webMapLinksSource = readFileSync(new URL("../lib/web-map-links.ts", import.meta.url), "utf8");
+const webSearchAssistantRoute = readFileSync(new URL("../app/api/web-search-assistant/route.ts", import.meta.url), "utf8");
 const webRouteSource = readFileSync(new URL("../lib/web-route-data.ts", import.meta.url), "utf8");
 const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.meta.url), "utf8");
 
@@ -27,7 +28,7 @@ test("iOS 자연어 검색의 비용·거리·종목 조건을 AND로 해석한�
   assert.equal(intent.free, true);
   assert.equal(intent.radiusKm, 5);
   assert.ok(intent.subjectTerms.includes("수영"));
-  assert.deepEqual(intent.chips, ["수영", "무료", "5km 이내"]);
+  assert.deepEqual(intent.chips, ["근처", "무료", "수영"]);
 });
 
 test("오픈런 문장에서 내일 접수 시작 조건을 별도 축으로 해석한다", () => {
@@ -58,6 +59,31 @@ test("iOS 마커 우선순위와 동일 좌표 대표 아이콘을 재현한다"
     program({ id: "swim-a", name: "성인 수영", status: "접수중" }),
   ], (item) => item.status === "접수중" ? 0 : 1);
   assert.equal(representative.id, "swim-a");
+});
+
+test("iOS 찾기의 입력·도시·장소·대안 상태를 웹에 유지한다", () => {
+  for (const copy of [
+    "지역으로 지도 이동",
+    "같은 이름의 지역이 여러 곳이에요",
+    "원하시는 장소를 이해했어요",
+    "버들이가 꼼꼼히 살펴보는 중",
+    "검색 반경 조절",
+    "버들이의 다른 제안",
+    "다른 지역 검색을 원하시면",
+    "프로그램 분류",
+    "관련도 순",
+  ]) assert.ok(webMapSource.includes(copy), `${copy} 검색 상태가 빠졌습니다.`);
+  assert.match(webMapSource, /SEARCH_PLACE_RADIUS_OPTIONS = \[0\.3, 0\.5, 1, 3, 5, 10, 20\]/);
+  assert.match(webMapSource, /searchSuggestionsLoading/);
+  assert.match(webMapSource, /hasAmbiguousAdministrativeSuggestions/);
+  assert.match(webMapSource, /preferredPlaceSuggestion/);
+  assert.match(webMapSource, /searchAroundPlacePrograms/);
+  assert.match(webSearchAssistantRoute, /fetchWebPlaceSuggestions/);
+  assert.match(webSearchAssistantRoute, /fetchWebProgramsNear/);
+  assert.match(webMapStyle, /\.dg-search-place-suggestions/);
+  assert.match(webMapStyle, /\.dg-search-assistant-card/);
+  assert.match(webMapStyle, /\.dg-search-radius-card/);
+  assert.match(webMapStyle, /\.dg-search-filter-card/);
 });
 
 test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
