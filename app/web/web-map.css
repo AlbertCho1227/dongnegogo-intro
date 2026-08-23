@@ -648,6 +648,7 @@
   .dg-nav-rail { position: fixed; z-index: 50; left: 0; right: 0; bottom: 0; height: 74px; padding: 6px max(8px, env(safe-area-inset-right)) max(5px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); border-top: 1px solid var(--dg-line); border-right: 0; flex-direction: row; gap: 0; box-shadow: 0 -5px 18px rgba(20,40,25,.06); }
   .dg-brand-mark, .dg-home-link { display: none; }
   .dg-nav-rail nav { height: 100%; display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 1px; }
+  .dg-nav-rail nav.dg-public-nav { max-width: 240px; margin: 0 auto; grid-template-columns: repeat(2, minmax(72px, 96px)); justify-content: center; gap: 24px; }
   .dg-nav-rail nav button { min-height: 0; height: 100%; border-radius: 13px; gap: 2px; font-size: 11px; font-weight: 700; }
   .dg-nav-rail nav button span { font-size: 23px; }
   .dg-side-panel { position: fixed; z-index: 35; inset: 0 0 74px; height: auto; overflow: hidden; border-radius: 0; box-shadow: none; }

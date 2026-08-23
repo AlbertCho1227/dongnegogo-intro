@@ -109,12 +109,18 @@ const ROUTE_MODE: Record<Transport, WebRouteMode> = {
 };
 
 const FALLBACK: Coordinate = { latitude: 37.6027, longitude: 127.0128 };
-const TABS: Array<{ id: Tab; icon: string; label: string }> = [
-  { id: "map", icon: "⌖", label: "지도" },
-  { id: "search", icon: "⌕", label: "찾기" },
+// Web account sign-in is intentionally unavailable. Keep account-only screens
+// behind one boundary so map/search/public schedule behavior stays independent.
+const WEB_ACCOUNT_FEATURES_VISIBLE = false;
+const ACCOUNT_TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "openrun", icon: "♧", label: "오픈런" },
   { id: "saved", icon: "♡", label: "찜" },
   { id: "me", icon: "♙", label: "내정보" },
+];
+const TABS: Array<{ id: Tab; icon: string; label: string }> = [
+  { id: "map", icon: "⌖", label: "지도" },
+  { id: "search", icon: "⌕", label: "찾기" },
+  ...(WEB_ACCOUNT_FEATURES_VISIBLE ? ACCOUNT_TABS : []),
 ];
 
 const SEARCH_EXAMPLES = [
@@ -504,7 +510,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [nearbyWalkingRoute, setNearbyWalkingRoute] = useState<WebRouteResult | null>(null);
   const [activeRoute, setActiveRoute] = useState<WebRouteResult | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [authLoading, setAuthLoading] = useState(() => webAuthConfigured());
+  const [authLoading, setAuthLoading] = useState(() => WEB_ACCOUNT_FEATURES_VISIBLE && webAuthConfigured());
   const [accountError, setAccountError] = useState("");
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [authConsentAccepted, setAuthConsentAccepted] = useState(false);
@@ -523,16 +529,18 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       try { return JSON.parse(localStorage.getItem(key) ?? "[]") as string[]; } catch { return []; }
     };
     const hydratePreferences = () => {
-      setFavorites(read("dongnegogo.web.favorites"));
-      setReminders(read("dongnegogo.web.reminders"));
-      try {
-        const alerts = JSON.parse(localStorage.getItem("dongnegogo.web.alerts") ?? "[]") as WebUserAlert[];
-        setUserAlerts(alerts.filter((alert) => alert?.program_id));
-      } catch { setUserAlerts([]); }
-      try {
-        const family = JSON.parse(localStorage.getItem("dongnegogo.web.family") ?? "[]") as WebFamilyMember[];
-        setFamilyMembers(family.filter((member) => member?.role && member.age_group && member.region));
-      } catch { setFamilyMembers([]); }
+      if (WEB_ACCOUNT_FEATURES_VISIBLE) {
+        setFavorites(read("dongnegogo.web.favorites"));
+        setReminders(read("dongnegogo.web.reminders"));
+        try {
+          const alerts = JSON.parse(localStorage.getItem("dongnegogo.web.alerts") ?? "[]") as WebUserAlert[];
+          setUserAlerts(alerts.filter((alert) => alert?.program_id));
+        } catch { setUserAlerts([]); }
+        try {
+          const family = JSON.parse(localStorage.getItem("dongnegogo.web.family") ?? "[]") as WebFamilyMember[];
+          setFamilyMembers(family.filter((member) => member?.role && member.age_group && member.region));
+        } catch { setFamilyMembers([]); }
+      }
       setBigText(localStorage.getItem("dongnegogo.web.bigText") === "true");
       setEasyFirst(localStorage.getItem("dongnegogo.web.easyFirst") !== "false");
       setPhoneFirst(localStorage.getItem("dongnegogo.web.phoneFirst") === "true");
@@ -631,7 +639,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   }, [synchronizeAccount]);
 
   useEffect(() => {
-    if (!webAuthConfigured()) return;
+    if (!WEB_ACCOUNT_FEATURES_VISIBLE || !webAuthConfigured()) return;
     let disposed = false;
     void currentWebSession().then((currentSession) => {
       if (disposed) return;
@@ -662,6 +670,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   }, [synchronizeAuthenticatedAccount]);
 
   useEffect(() => {
+    if (!WEB_ACCOUNT_FEATURES_VISIBLE) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     const timers: number[] = [];
     const maximumDelay = 2_147_000_000;
@@ -1761,6 +1770,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   }, []);
 
   const changeTab = (nextTab: Tab) => {
+    if (!WEB_ACCOUNT_FEATURES_VISIBLE && (nextTab === "openrun" || nextTab === "saved" || nextTab === "me")) return;
     if (nextTab === "saved" && !session && window.matchMedia("(max-width: 820px)").matches) {
       openAccountSignIn();
       return;
@@ -1779,6 +1789,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   };
 
   const openMapTool = (panel: Exclude<AuxiliaryPanel, "nearby" | null>) => {
+    if (!WEB_ACCOUNT_FEATURES_VISIBLE && panel === "family") return;
     if ((panel === "family" || panel === "history") && !session && window.matchMedia("(max-width: 820px)").matches) {
       openAccountSignIn();
       return;
@@ -2091,7 +2102,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         <Link className="dg-brand-mark" href="/" aria-label="동네고고 소개 페이지로 돌아가기">
           <img src="/brand/app-icon.png" alt="" /><strong>동네<br />고고</strong>
         </Link>
-        <nav>
+        <nav className={!WEB_ACCOUNT_FEATURES_VISIBLE ? "dg-public-nav" : undefined}>
           {TABS.map((item) => (
             <button key={item.id} type="button" className={tab === item.id && !selected ? "active" : ""} onClick={() => changeTab(item.id)}>
               <span aria-hidden="true">{item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
@@ -2184,6 +2195,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         ) : selected ? (
           <ProgramDetail
             program={selected} current={location} favorite={favorites.includes(selected.id)}
+            accountFeaturesVisible={WEB_ACCOUNT_FEATURES_VISIBLE}
             usesFallbackLocation={usesFallbackLocation}
             reminder={reminders.includes(selected.id)} transport={transport} easyFirst={easyFirst}
             favoriteTargets={favoriteTargets[selected.id] ?? (favorites.includes(selected.id) ? ["personal"] : [])}
@@ -2234,13 +2246,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           />
         ) : auxiliaryPanel === "calendar" ? (
           <CalendarPanel programs={programs} reminders={reminders} onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }} />
-        ) : auxiliaryPanel === "family" ? (
+        ) : WEB_ACCOUNT_FEATURES_VISIBLE && auxiliaryPanel === "family" ? (
           <FamilyPanel programs={programs} members={familyMembers} signedIn={Boolean(session)}
             onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }}
             onSave={saveFamily} onRemove={removeFamily} />
         ) : auxiliaryPanel === "history" ? (
           <HistoryPanel history={viewHistory} onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }} />
-        ) : tab === "me" ? (
+        ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "me" ? (
           <section className="dg-profile-panel">
             <div className="dg-panel-title"><Link href="/">‹ 지도</Link><h1>내정보</h1></div>
             <div className="dg-profile-card dg-account-card">
@@ -2295,7 +2307,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             </div>
             <p className="dg-readonly-note">로그인 전에는 이 브라우저에만 저장되고, 로그인 후에는 본인에게만 보이는 Supabase 행으로 동기화됩니다.</p>
           </section>
-        ) : tab === "openrun" ? (
+        ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "openrun" ? (
           <OpenRunPanel programs={programs} reminders={reminders} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
         ) : (
           <>
@@ -2381,7 +2393,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <div className="dg-mobile-map-header">
             <Link href="/" aria-label="지도 홈">⌂</Link>
             <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em>●</em></button>
-            <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림">♧<i /></button>
+            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림">♧<i /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
             <button type="button" className={heatShelterMode ? "active heat" : ""} onClick={toggleHeatShelterMode}>❄ 무더위쉼터</button>
@@ -2396,7 +2408,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <button type="button" onClick={moveToCurrentLocation}><span className="dg-map-tool-current"><UserRound aria-hidden="true" /></span>내 위치</button>
           <button type="button" onClick={() => window.matchMedia("(max-width: 820px)").matches ? openMapTool("programs") : changeTab("map")}><span><MapIcon aria-hidden="true" /></span>주변</button>
           <button type="button" onClick={() => openMapTool("calendar")}><span><CalendarDays aria-hidden="true" /></span>일정</button>
-          <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>
+          {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>}
           <button type="button" onClick={() => openMapTool("history")}><span><Archive aria-hidden="true" /></span>보관함</button>
         </div>
         <div className="dg-zoom-tools"><button type="button" aria-label="지도 확대" onClick={() => mapRef.current?.setLevel(Math.max(1, mapRef.current.getLevel() - 1))}>＋</button><button type="button" aria-label="지도 축소" onClick={() => mapRef.current?.setLevel(Math.min(14, mapRef.current.getLevel() + 1))}>−</button></div>
@@ -2404,6 +2416,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         {placeSheet && <ProgramPlaceSheet
           state={placeSheet}
           current={location}
+          accountFeaturesVisible={WEB_ACCOUNT_FEATURES_VISIBLE}
           onClose={() => setPlaceSheet(null)}
           onIndex={(index) => setPlaceSheet((current) => current ? { ...current, index } : current)}
           onDetail={(program) => { void selectProgram(program); }}
@@ -2431,7 +2444,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         onPaid={(value) => { setPaidOnly(value); if (value) setFreeOnly(false); }} onRadius={setRadiusKm}
         onReset={resetFilters} onClose={() => setShowFilter(false)}
       />}
-      {alertDialog && <AlertScheduleDialog
+      {WEB_ACCOUNT_FEATURES_VISIBLE && alertDialog && <AlertScheduleDialog
         state={alertDialog}
         saved={reminders.includes(alertDialog.program.id)}
         onChange={(scheduledAt) => setAlertDialog((current) => current ? { ...current, scheduledAt } : current)}
@@ -2439,7 +2452,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         onRemove={() => { void removeAlert(); }}
         onClose={() => setAlertDialog(null)}
       />}
-      {showAuthDialog && !session && <WebAuthDialog
+      {WEB_ACCOUNT_FEATURES_VISIBLE && showAuthDialog && !session && <WebAuthDialog
         consentAccepted={authConsentAccepted}
         loading={authLoading}
         onAccept={acceptAccountConsent}
@@ -2447,7 +2460,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         onProvider={(provider) => { void startAccountSignIn(provider); }}
         onClose={() => setShowAuthDialog(false)}
       />}
-      {accountError && tab !== "me" && <button type="button" className="dg-sync-toast" onClick={() => setAccountError("")} aria-label="동기화 안내 닫기">{accountError} ×</button>}
+      {WEB_ACCOUNT_FEATURES_VISIBLE && accountError && tab !== "me" && <button type="button" className="dg-sync-toast" onClick={() => setAccountError("")} aria-label="동기화 안내 닫기">{accountError} ×</button>}
     </main>
   );
 }
@@ -2730,8 +2743,8 @@ function RouteInfoPanel({ program, current, usesFallbackLocation, locationReques
   </article>;
 }
 
-function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
-  program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
+function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
+  program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; accountFeaturesVisible: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
   locationRequestState: LocationRequestState; locationRequestMessage: string;
   onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void;
 }) {
@@ -2795,7 +2808,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
         <div className="dg-detail-actions">
           <button type="button" onClick={onBack} aria-label="목록으로 돌아가기"><span className="dg-ios-back-icon" aria-hidden="true">‹</span></button>
           <span />
-          <button type="button" className={`dg-ios-action-button favorite${favorite ? " active" : ""}`} onClick={onFavorite} aria-label={favorite ? "찜 해제" : "찜하기"}><span className="dg-ios-heart-icon" aria-hidden="true">{favorite ? "♥" : "♡"}</span></button>
+          {accountFeaturesVisible && <button type="button" className={`dg-ios-action-button favorite${favorite ? " active" : ""}`} onClick={onFavorite} aria-label={favorite ? "찜 해제" : "찜하기"}><span className="dg-ios-heart-icon" aria-hidden="true">{favorite ? "♥" : "♡"}</span></button>}
           <button type="button" className="dg-ios-action-button share" onClick={onShare} aria-label="공유하기"><span className="dg-ios-share-icon" aria-hidden="true" /></button>
           <a className="dg-ios-action-button map" href={mapLink(program)} target="_blank" rel="noreferrer" aria-label="Kakao 지도에서 보기"><span className="dg-ios-map-icon" aria-hidden="true"><i /><i /><i /></span></a>
         </div>
@@ -2807,7 +2820,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
         {easyFirst && <section className="dg-easy-summary"><h2>이 프로그램은요</h2><p>{program.summary}</p></section>}
         <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><small>누가 신청할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><small>언제 하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><small>어디서 하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><small>비용과 준비물</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
         {!easyFirst && <section className="dg-easy-summary"><h2>프로그램 안내</h2><p>{program.summary}</p></section>}
-        {favorite && <section className="dg-favorite-targets"><h2>누구의 찜으로 저장할까요?</h2><div>{targetOptions.map((target) => <button type="button" key={target.id} className={favoriteTargets.includes(target.id) ? "active" : ""} onClick={() => onFavoriteTarget(target.id)}>{target.label}{favoriteTargets.includes(target.id) ? " ✓" : ""}</button>)}</div></section>}
+        {accountFeaturesVisible && favorite && <section className="dg-favorite-targets"><h2>누구의 찜으로 저장할까요?</h2><div>{targetOptions.map((target) => <button type="button" key={target.id} className={favoriteTargets.includes(target.id) ? "active" : ""} onClick={() => onFavoriteTarget(target.id)}>{target.label}{favoriteTargets.includes(target.id) ? " ✓" : ""}</button>)}</div></section>}
         <section>
           <h2>거리정보</h2>
           <div className="dg-distance-card">
@@ -2853,7 +2866,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
       </div>
       <footer className="dg-detail-footer">
         {officialAccess ? <a className="dg-apply" href={officialAccess.href} target="_blank" rel="external nofollow noopener noreferrer" referrerPolicy="no-referrer">{officialAccess.requiresHomepageSearch ? `${officialAccess.providerName} 홈에서 검색` : "신청하러 가기"}</a> : <button className="dg-apply" type="button" disabled>신청 링크 확인 중</button>}
-        <div><button type="button" className={reminder ? "active" : ""} onClick={onReminder}>♧ {reminder ? "알림 저장됨" : "알림 받기"}</button><button type="button" onClick={onShare}>↗ 공유</button>{program.phone ? <a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>☎ 전화 문의</a> : <span>전화번호 없음</span>}</div>
+        <div>{accountFeaturesVisible && <button type="button" className={reminder ? "active" : ""} onClick={onReminder}>♧ {reminder ? "알림 저장됨" : "알림 받기"}</button>}<button type="button" onClick={onShare}>↗ 공유</button>{program.phone ? <a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>☎ 전화 문의</a> : <span>전화번호 없음</span>}</div>
       </footer>
     </article>
   );
@@ -3235,8 +3248,8 @@ function KakaoRoadviewPreview({ coordinate, facilityName }: { coordinate: Coordi
   </div>;
 }
 
-function ProgramPlaceSheet({ state, current, reminderIDs, onClose, onIndex, onDetail, onReminder }: {
-  state: PlaceSheetState; current: Coordinate; reminderIDs: string[];
+function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs, onClose, onIndex, onDetail, onReminder }: {
+  state: PlaceSheetState; current: Coordinate; accountFeaturesVisible: boolean; reminderIDs: string[];
   onClose: () => void; onIndex: (index: number) => void; onDetail: (program: WebProgram) => void; onReminder: (program: WebProgram) => void;
 }) {
   const program = state.programs[state.index];
@@ -3251,7 +3264,7 @@ function ProgramPlaceSheet({ state, current, reminderIDs, onClose, onIndex, onDe
       <h2>{program.name}</h2><p className="dg-sheet-distance">⌖ 우리 집에서 {distanceLabel(distanceMeters(current, program))}</p>
       <dl><div><dt>▥</dt><dd>{program.facility}</dd></div><div><dt>◷</dt><dd>{program.scheduleText ?? program.periodText ?? "이용시간은 예약 페이지에서 확인"}</dd></div><div><dt>₩</dt><dd>{program.isFree ? "무료" : program.feeText} · {program.status}</dd></div></dl>
       <button className="dg-sheet-detail" type="button" onClick={() => onDetail(program)}>자세히 보기</button>
-      <div className="dg-sheet-actions"><button type="button" className={reminderIDs.includes(program.id) ? "active" : ""} onClick={() => onReminder(program)}>♧ {reminderIDs.includes(program.id) ? "알림 저장됨" : "알림 받기"}</button><a href={mapLink(program)} target="_blank" rel="noreferrer">➤ 길찾기</a></div>
+      <div className="dg-sheet-actions">{accountFeaturesVisible && <button type="button" className={reminderIDs.includes(program.id) ? "active" : ""} onClick={() => onReminder(program)}>♧ {reminderIDs.includes(program.id) ? "알림 저장됨" : "알림 받기"}</button>}<a href={mapLink(program)} target="_blank" rel="noreferrer">➤ 길찾기</a></div>
     </div> : <div className="dg-sheet-loading"><strong>{state.loading ? "같은 장소 프로그램을 불러오고 있어요" : "프로그램 정보를 확인할 수 없어요"}</strong></div>}
   </section>;
 }
