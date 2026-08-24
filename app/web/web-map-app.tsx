@@ -109,6 +109,14 @@ function mapFilterClusterKeyword(request: MapFilterRequest) {
     ?? (request.radiusMeters ? `${request.radiusMeters < 1_000 ? `${request.radiusMeters}m` : `${request.radiusMeters / 1_000}km`} 이내` : null)
     ?? "선택 조건";
 }
+
+function visibleClusterInsightLabel(value: string | null | undefined) {
+  const trimmed = (value ?? "").trim();
+  const key = trimmed.replace(/\s+/g, "");
+  return !trimmed || key === "전체" || ["이용가능", "이용가능프로그램", "신청가능한강좌", "신청가능한프로그램"].includes(key)
+    ? null
+    : trimmed;
+}
 type AuxiliaryPanel = "calendar" | "family" | "history" | "nearby" | "programs" | null;
 type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: number; loading: boolean };
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
@@ -1341,9 +1349,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if (mapMode === "cluster" && tab === "map") {
       const clusterKeyword = activeConditionCount > 0 ? mapFilterClusterKeyword(mapFilterRequestRef.current) : "";
       visibleClusters.forEach((cluster) => {
+        const insightText = activeConditionCount > 0 ? null : visibleClusterInsightLabel(cluster.categoryName);
+        const compactAdministrativeRow = activeConditionCount === 0
+          && ["localArea", "neighborhood", "district"].includes(cluster.scope)
+          && !insightText;
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `dg-cluster-marker dg-cluster-${cluster.scope}${activeConditionCount > 0 ? " is-filtered" : ""}`;
+        button.className = `dg-cluster-marker dg-cluster-${cluster.scope}${activeConditionCount > 0 ? " is-filtered" : ""}${compactAdministrativeRow ? " is-compact-admin" : ""}`;
         button.setAttribute("aria-label", `${cluster.areaName} ${cluster.programCount}개 프로그램`);
         const area = document.createElement("strong");
         area.textContent = clusterDisplayAreaName(cluster.areaName);
@@ -1354,9 +1366,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         if (activeConditionCount > 0) {
           button.append(area, count);
         } else {
-          const insight = document.createElement("small");
-          insight.textContent = cluster.categoryName || "신청 가능한 프로그램";
-          button.append(area, count, insight);
+          button.append(area, count);
+          if (insightText && cluster.scope === "localArea") {
+            const insight = document.createElement("small");
+            insight.textContent = insightText;
+            button.append(insight);
+          }
         }
         button.addEventListener("click", () => {
           map.panTo(new window.kakao!.maps.LatLng(cluster.latitude, cluster.longitude));
