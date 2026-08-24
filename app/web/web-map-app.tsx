@@ -454,6 +454,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const mapScopeRef = useRef<WebMapAggregationScope>("individual");
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
+  const programFilterActiveRef = useRef(false);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
   const [programCounts, setProgramCounts] = useState<Record<string, number>>({});
@@ -472,6 +473,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [routePanelDragHeight, setRoutePanelDragHeight] = useState<number | null>(null);
   const [auxiliaryPanel, setAuxiliaryPanel] = useState<AuxiliaryPanel>(null);
   const [showFilter, setShowFilter] = useState(false);
+  const [filterFitRequestId, setFilterFitRequestId] = useState(0);
   const [query, setQuery] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [searchCandidates, setSearchCandidates] = useState<WebProgram[]>([]);
@@ -554,6 +556,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if (seniorOnly && !personaFilters.includes("시니어")) count += 1;
     return count;
   }, [fieldFilter, freeOnly, paidOnly, personaFilters, radiusKm, seniorOnly, statusFilter, subjectFilters, todayOnly]);
+  programFilterActiveRef.current = activeConditionCount > 0;
 
   useEffect(() => {
     const read = (key: string) => {
@@ -816,12 +819,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       resolveCenteredArea(nextCenter);
     const radiusKm = distanceMeters(nextCenter, { latitude: ne.getLat(), longitude: ne.getLng() }) / 1_000;
     const requestedScope = webMapScopeForRadius(radiusKm, mapScopeRef.current);
+    const hasActiveProgramFilter = programFilterActiveRef.current;
     const params = new URLSearchParams({
       south: String(sw.getLat()), west: String(sw.getLng()),
       north: String(ne.getLat()), east: String(ne.getLng()),
       previousMode: mapModeRef.current,
       scope: requestedScope === "individual" ? "localArea" : requestedScope,
-      forceCluster: String(requestedScope !== "individual"),
+      forceCluster: String(requestedScope !== "individual" && !hasActiveProgramFilter),
     });
     const requestID = ++mapRequestIDRef.current;
     setLoading(true);
@@ -852,12 +856,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       if (mapRequestIDRef.current !== requestID) return;
       let nextPrograms = payload.programs;
       if (payload.mode === "cluster") {
-        setMapClusters(payload.clusters);
+        setMapClusters(hasActiveProgramFilter ? [] : payload.clusters);
         setProgramCounts(payload.programCounts ?? {});
-        setMapMode("cluster");
-        mapModeRef.current = "cluster";
-        setMapScope(payload.scope);
-        mapScopeRef.current = payload.scope;
+        setMapMode(hasActiveProgramFilter ? "individual" : "cluster");
+        mapModeRef.current = hasActiveProgramFilter ? "individual" : "cluster";
+        setMapScope(hasActiveProgramFilter ? "individual" : payload.scope);
+        mapScopeRef.current = hasActiveProgramFilter ? "individual" : payload.scope;
         const listParams = new URLSearchParams({
           south: String(sw.getLat()), west: String(sw.getLng()), north: String(ne.getLat()), east: String(ne.getLng()), limit: "4000",
         });
@@ -878,12 +882,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       }
       if (mapRequestIDRef.current !== requestID) return;
       setPrograms(nextPrograms);
-      setMapClusters(payload.clusters);
+      setMapClusters(hasActiveProgramFilter ? [] : payload.clusters);
       setProgramCounts(payload.programCounts ?? {});
-      setMapMode(payload.mode);
-      mapModeRef.current = payload.mode;
-      setMapScope(payload.scope);
-      mapScopeRef.current = payload.scope;
+      setMapMode(hasActiveProgramFilter ? "individual" : payload.mode);
+      mapModeRef.current = hasActiveProgramFilter ? "individual" : payload.mode;
+      setMapScope(hasActiveProgramFilter ? "individual" : payload.scope);
+      mapScopeRef.current = hasActiveProgramFilter ? "individual" : payload.scope;
       setError("");
     } catch (fetchError) {
       if (mapRequestIDRef.current === requestID) setError((fetchError as Error).message);
@@ -1015,6 +1019,29 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       return distanceMeters(center, a) - distanceMeters(center, b);
     });
   }, [programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, tab, favorites, sort, center]);
+
+  useEffect(() => {
+    if (filterFitRequestId === 0 || tab !== "map" || heatShelterMode || routePanelActive) return;
+    const map = mapRef.current;
+    const maps = window.kakao?.maps;
+    if (!map || !maps) return;
+    const matches = visiblePrograms.filter((program) => Number.isFinite(program.latitude) && Number.isFinite(program.longitude));
+    setMapClusters([]);
+    setMapMode("individual");
+    mapModeRef.current = "individual";
+    setMapScope("individual");
+    mapScopeRef.current = "individual";
+    if (!matches.length) return;
+    if (matches.length === 1) {
+      map.panTo(new maps.LatLng(matches[0].latitude, matches[0].longitude));
+      map.setLevel(4);
+      return;
+    }
+    const bounds = new maps.LatLngBounds();
+    matches.forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
+    const compactMap = window.innerWidth < 900;
+    map.setBounds(bounds, compactMap ? 160 : 80, compactMap ? 44 : 80, compactMap ? 120 : 80, compactMap ? 44 : 420);
+  }, [filterFitRequestId]);
 
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
@@ -1872,12 +1899,29 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setHeatShelters([]);
     }
     setFieldFilter("전체");
-    setSubjectFilters((current) => current.includes(label) ? current.filter((item) => item !== label) : [...current, label]);
-    if (mapRef.current) window.setTimeout(() => mapRef.current && void loadBounds(mapRef.current), 0);
+    setSubjectFilters(subjectFilters.includes(label) ? subjectFilters.filter((item) => item !== label) : [...subjectFilters, label]);
+    setFilterFitRequestId((current) => current + 1);
   };
 
   const toggleMapPersona = (label: string) => {
-    setPersonaFilters((current) => current.includes(label) ? current.filter((item) => item !== label) : [...current, label]);
+    setPersonaFilters(personaFilters.includes(label) ? personaFilters.filter((item) => item !== label) : [...personaFilters, label]);
+    setFilterFitRequestId((current) => current + 1);
+  };
+
+  const toggleQuickFree = () => {
+    setFreeOnly(!freeOnly);
+    if (!freeOnly) setPaidOnly(false);
+    setFilterFitRequestId((current) => current + 1);
+  };
+
+  const toggleQuickToday = () => {
+    setTodayOnly(!todayOnly);
+    setFilterFitRequestId((current) => current + 1);
+  };
+
+  const toggleQuickOpenStatus = () => {
+    setStatusFilter(statusFilter === "접수중" ? "전체" : "접수중");
+    setFilterFitRequestId((current) => current + 1);
   };
 
   const sidePanelOverlay = Boolean(selectedHeatShelter || selected || auxiliaryPanel);
@@ -2394,10 +2438,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
                 <ConditionFilterButton count={activeConditionCount} onClick={() => setShowFilter(true)} />
                 <button type="button" className={heatShelterMode ? "active heat" : ""} onClick={toggleHeatShelterMode}>❄ 무더위쉼터</button>
                 {WEB_DETAIL_FILTERS.filter((item) => item.featured || subjectFilters.includes(item.label)).map((item) => <button key={item.label} type="button" className={!heatShelterMode && subjectFilters.includes(item.label) ? "active" : ""} onClick={() => toggleMapDetail(item.label)}><img src={`/markers/${item.iconName}.png`} alt="" />{item.label}</button>)}
-                <button type="button" className={freeOnly ? "active" : ""} onClick={() => setFreeOnly((value) => !value)}>무료</button>
+                <button type="button" className={freeOnly ? "active" : ""} onClick={toggleQuickFree}>무료</button>
                 <button type="button" className={personaFilters.includes("시니어") ? "active" : ""} onClick={() => toggleMapPersona("시니어")}>👴 시니어</button>
-                <button type="button" className={todayOnly ? "active" : ""} onClick={() => setTodayOnly((value) => !value)}>오늘 신청</button>
-                <button type="button" className={statusFilter === "접수중" ? "active" : ""} onClick={() => setStatusFilter((value) => value === "접수중" ? "전체" : "접수중")}>접수중</button>
+                <button type="button" className={todayOnly ? "active" : ""} onClick={toggleQuickToday}>오늘 신청</button>
+                <button type="button" className={statusFilter === "접수중" ? "active" : ""} onClick={toggleQuickOpenStatus}>접수중</button>
               </div>
               <div className="dg-sort-row">
                 <button type="button" className={sort === "distance" ? "active" : ""} onClick={() => setSort("distance")}>가까운 순</button>
@@ -2471,7 +2515,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             {WEB_DETAIL_FILTERS.filter((item) => item.featured || subjectFilters.includes(item.label)).map((item) => <button key={item.label} type="button" className={!heatShelterMode && subjectFilters.includes(item.label) ? "active" : ""} onClick={() => toggleMapDetail(item.label)}><img src={`/markers/${item.iconName}.png`} alt="" />{item.label}</button>)}
             <button type="button" className={personaFilters.includes("시니어") ? "active" : ""} onClick={() => toggleMapPersona("시니어")}>👴 시니어</button>
             <button type="button" className={personaFilters.includes("어린이") ? "active" : ""} onClick={() => toggleMapPersona("어린이")}>🧒 어린이</button>
-            <button type="button" className={freeOnly ? "active" : ""} onClick={() => setFreeOnly((value) => !value)}>🆓 무료</button>
+            <button type="button" className={freeOnly ? "active" : ""} onClick={toggleQuickFree}>🆓 무료</button>
           </div>
         </div>
         <div className="dg-map-tools" aria-label="지도 도구">
@@ -2512,7 +2556,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         onPersonas={setPersonaFilters} onSubjects={setSubjectFilters}
         onStatus={setStatusFilter} onFree={(value) => { setFreeOnly(value); if (value) setPaidOnly(false); }}
         onPaid={(value) => { setPaidOnly(value); if (value) setFreeOnly(false); }} onRadius={(value) => { setRadiusKm(value); if (value !== null && usesFallbackLocation) moveToCurrentLocation(); }}
-        onReset={resetFilters} onClose={() => setShowFilter(false)}
+        onReset={resetFilters} onApply={() => { setShowFilter(false); setFilterFitRequestId((current) => current + 1); }} onClose={() => setShowFilter(false)}
       />}
       {WEB_ACCOUNT_FEATURES_VISIBLE && alertDialog && <AlertScheduleDialog
         state={alertDialog}
@@ -3480,21 +3524,28 @@ function OpenRunPanel({ programs, reminders, onToggleReminder, onOpen }: { progr
   return <section className="dg-openrun-panel"><header><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong><small>자세히 보기 ›</small></div><p>관심 키워드를 선택하면 해당 프로그램만 알려드려요</p><div>{suggestions.map((keyword) => <button type="button" key={keyword} className={keywords.includes(keyword) ? "active" : ""} onClick={() => setKeywords((current) => current.includes(keyword) ? current.filter((item) => item !== keyword) : [...current, keyword])}>{keywords.includes(keyword) ? `${keyword} ✓` : keyword}</button>)}</div></section>{upcoming.length ? upcoming.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{keywords.length ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{keywords.length > 0 && <button type="button" onClick={() => setKeywords([])}>키워드 해제하기</button>}</div>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
 }
 
-function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onClose }: {
+function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {
   personas: string[]; subjects: string[]; status: StatusFilter; freeOnly: boolean; paidOnly: boolean; radiusKm: number | null; count: number;
   onPersonas: (value: string[]) => void; onSubjects: (value: string[]) => void; onStatus: (value: StatusFilter) => void;
-  onFree: (value: boolean) => void; onPaid: (value: boolean) => void; onRadius: (value: number | null) => void; onReset: () => void; onClose: () => void;
+  onFree: (value: boolean) => void; onPaid: (value: boolean) => void; onRadius: (value: number | null) => void; onReset: () => void; onApply: () => void; onClose: () => void;
 }) {
   const toggleSubject = (subject: string) => onSubjects(subjects.includes(subject) ? subjects.filter((item) => item !== subject) : [...subjects, subject]);
   const togglePersona = (persona: string) => onPersonas(personas.includes(persona) ? personas.filter((item) => item !== persona) : [...personas, persona]);
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollToTop = () => {
+    dialogRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    window.setTimeout(() => setShowScrollTop(false), 420);
+  };
   return <div className="dg-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="dg-filter-dialog" role="dialog" aria-modal="true" aria-labelledby="dg-filter-title">
+    <section ref={dialogRef} className="dg-filter-dialog" role="dialog" aria-modal="true" aria-labelledby="dg-filter-title" onScroll={(event) => setShowScrollTop(event.currentTarget.scrollTop > 140)}>
       <header><h2 id="dg-filter-title">조건 고르기</h2><button type="button" onClick={onReset}>초기화</button><button type="button" className="dg-modal-x" onClick={onClose} aria-label="닫기">×</button></header>
       <FeeStatusFilterSection status={status} freeOnly={freeOnly} paidOnly={paidOnly} onStatus={onStatus} onFree={onFree} onPaid={onPaid} />
       <ProgramDistanceSelector radiusKm={radiusKm} onRadius={onRadius} />
       <PersonaFilterSection active={personas} onClick={togglePersona} />
       <DetailFilterSection active={subjects} onClick={toggleSubject} />
-      <button className="dg-filter-apply" type="button" onClick={onClose}>선택한 조건으로 {count.toLocaleString("ko-KR")}곳 보기</button>
+      {showScrollTop && <button className="dg-filter-scroll-top" type="button" onClick={scrollToTop} aria-label="조건 목록 맨 위로 이동"><ChevronUp aria-hidden="true" /></button>}
+      <button className="dg-filter-apply" type="button" onClick={onApply}>선택한 조건으로 {count.toLocaleString("ko-KR")}곳 보기</button>
     </section>
   </div>;
 }

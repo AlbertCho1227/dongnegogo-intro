@@ -498,6 +498,9 @@
 .dg-program-radius-card header > span > span { display: flex; flex-direction: column; gap: 2px; }
 .dg-program-radius-card header > span b { color: #252d27; font-size: 17px; font-weight: 950; letter-spacing: -.4px; }
 .dg-program-radius-card header > span small { color: #909891; font-size: 12px; font-weight: 650; line-height: 1.35; }
+.dg-filter-scroll-top { position: fixed; z-index: 103; right: max(28px, calc((100vw - 760px) / 2 + 30px)); bottom: max(92px, calc((100dvh - 860px) / 2 + 92px)); width: 52px; height: 52px; padding: 0; display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; color: #fff; background: var(--dg-green); box-shadow: 0 6px 18px rgba(23,72,34,.26); cursor: pointer; animation: dgFilterTopIn .2s ease-out; }
+.dg-filter-scroll-top svg { width: 25px; height: 25px; stroke-width: 3; }
+@keyframes dgFilterTopIn { from { opacity: 0; transform: translateY(8px) scale(.86); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .dg-filter-apply { position: sticky; bottom: 0; width: 100%; height: 54px; margin-top: 24px; border: 0; border-radius: 16px; color: #fff; background: linear-gradient(100deg,var(--dg-lime),var(--dg-green)); font-size: 16px; font-weight: 900; box-shadow: 0 8px 22px rgba(34,177,76,.25); cursor: pointer; }
 
 .dg-aux-panel, .dg-openrun-panel { min-height: 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
@@ -895,6 +898,7 @@
   .dg-place-sheet .dg-sheet-body, .dg-place-sheet .dg-sheet-loading { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
   .dg-modal-backdrop { padding: 0; align-items: flex-end; }
   .dg-filter-dialog, .dg-alert-dialog, .dg-auth-dialog { width: 100%; max-height: calc(100dvh - 34px); padding: 20px; overflow-y: auto; border-radius: 28px 28px 0 0; }
+  .dg-filter-scroll-top { right: 20px; bottom: calc(88px + env(safe-area-inset-bottom)); }
   .dg-auth-dialog { padding-bottom: max(26px,env(safe-area-inset-bottom)); }
   .dg-alert-dialog { padding-bottom: max(20px,env(safe-area-inset-bottom)); }
   .dg-profile-panel { padding: max(14px,env(safe-area-inset-top)) 20px 28px; background: #fff; }

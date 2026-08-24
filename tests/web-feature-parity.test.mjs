@@ -187,8 +187,8 @@ test("상세 종목과 대상 조건은 마커와 같은 분류를 사용하고 
   assert.match(webProgramFiltersSource, /personaLabels\.some/);
   assert.match(webProgramFiltersSource, /label: "컴퓨터·스마트폰·AI"/);
   assert.match(webProgramFiltersSource, /label: "1인가구"/);
-  assert.match(webMapSource, /setSubjectFilters\(\(current\) => current\.includes\(label\)/);
-  assert.match(webMapSource, /setPersonaFilters\(\(current\) => current\.includes\(label\)/);
+  assert.match(webMapSource, /setSubjectFilters\(subjectFilters\.includes\(label\)/);
+  assert.match(webMapSource, /setPersonaFilters\(personaFilters\.includes\(label\)/);
   assert.match(webMapSource, /\/markers\/\$\{detail\.iconName\}\.png/);
   assert.doesNotMatch(webMapSource, /어떤 분야인가요\? \(대분류\)/);
 });
@@ -226,6 +226,23 @@ test("요금 상태 다음 거리 조건이 공통 슬라이더와 실제 위치
   assert.ok(webMapSource.indexOf("<ProgramDistanceSelector") < webMapSource.indexOf("<PersonaFilterSection"));
   assert.match(webMapStyle, /\.dg-program-radius-card/);
   assert.match(webMapStyle, /\.dg-fee-status-filter-section/);
+});
+
+test("조건 화면을 내리면 오른쪽 아래 맨 위로 버튼을 제공한다", () => {
+  assert.match(webMapSource, /showScrollTop/);
+  assert.match(webMapSource, /scrollTop > 140/);
+  assert.match(webMapSource, /aria-label="조건 목록 맨 위로 이동"/);
+  assert.match(webMapSource, /scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+  assert.match(webMapStyle, /\.dg-filter-scroll-top[^}]*position:\s*fixed;[^}]*right:/);
+});
+
+test("조건 적용과 지도 상단 키워드는 결과 범위로 이동하고 개별 마커 모드를 유지한다", () => {
+  assert.match(webMapSource, /filterFitRequestId/);
+  assert.match(webMapSource, /setMapMode\("individual"\)/);
+  assert.match(webMapSource, /map\.setBounds\(bounds/);
+  assert.match(webMapSource, /setMapClusters\(hasActiveProgramFilter \? \[\] : payload\.clusters\)/);
+  assert.match(webMapSource, /onApply=\{\(\) => \{ setShowFilter\(false\); setFilterFitRequestId/);
+  assert.match(webMapSource, /setSubjectFilters\(subjectFilters\.includes\(label\)/);
 });
 
 test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 표시한다", () => {
