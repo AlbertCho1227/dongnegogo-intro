@@ -10,6 +10,7 @@ const webMapLinksSource = readFileSync(new URL("../lib/web-map-links.ts", import
 const webSearchAssistantRoute = readFileSync(new URL("../app/api/web-search-assistant/route.ts", import.meta.url), "utf8");
 const webRouteSource = readFileSync(new URL("../lib/web-route-data.ts", import.meta.url), "utf8");
 const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.meta.url), "utf8");
+const webProgramFiltersSource = readFileSync(new URL("../lib/web-program-filters.ts", import.meta.url), "utf8");
 
 function program(overrides = {}) {
   return {
@@ -90,7 +91,8 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   for (const copy of [
     "같은 장소 프로그램",
     "누구를 위한 프로그램인가요?",
-    "세부 종목 선택",
+    "어떤 종목을 찾으세요?",
+    "분야를 따라가며 골라보세요",
     "선택한 조건으로",
     "무더위쉼터",
     "목적지 주변 가게 보기",
@@ -177,6 +179,49 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /timeout:\s*20_000/);
   assert.ok(webMapSource.indexOf('className="dg-location-guide"') < webMapSource.indexOf('className="dg-route-map-guide"'), "현재 위치 안내가 지도 선택 안내보다 먼저 표시되어야 합니다.");
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
+});
+
+test("상세 종목과 대상 조건은 마커와 같은 분류를 사용하고 다중 선택한다", () => {
+  assert.match(webProgramFiltersSource, /programIconName\(program\)/);
+  assert.match(webProgramFiltersSource, /detailLabels\.some/);
+  assert.match(webProgramFiltersSource, /personaLabels\.some/);
+  assert.match(webProgramFiltersSource, /label: "컴퓨터·스마트폰·AI"/);
+  assert.match(webProgramFiltersSource, /label: "1인가구"/);
+  assert.match(webMapSource, /setSubjectFilters\(\(current\) => current\.includes\(label\)/);
+  assert.match(webMapSource, /setPersonaFilters\(\(current\) => current\.includes\(label\)/);
+  assert.match(webMapSource, /\/markers\/\$\{detail\.iconName\}\.png/);
+  assert.doesNotMatch(webMapSource, /어떤 분야인가요\? \(대분류\)/);
+});
+
+test("세부 종목은 네 개의 흰색 카드로 빠짐없이 그룹화한다", () => {
+  assert.match(webProgramFiltersSource, /title: "스포츠·운동"/);
+  assert.match(webProgramFiltersSource, /title: "공연·예술"/);
+  assert.match(webProgramFiltersSource, /title: "배움·교육"/);
+  assert.match(webProgramFiltersSource, /title: "생활·공간"/);
+  assert.match(webProgramFiltersSource, /slice\(0, 22\)/);
+  assert.match(webProgramFiltersSource, /slice\(22, 32\)/);
+  assert.match(webProgramFiltersSource, /slice\(32, 39\)/);
+  assert.match(webProgramFiltersSource, /slice\(39, 44\)/);
+  assert.match(webMapSource, /WEB_DETAIL_FILTER_GROUPS\.map/);
+  assert.match(webMapStyle, /\.dg-detail-filter-card[^}]*background:\s*#fff;[^}]*box-shadow:/);
+});
+
+test("프로그램 거리 조건은 맨 위 공통 슬라이더와 실제 위치 기준으로 동작한다", () => {
+  assert.match(webMapSource, /PROGRAM_DISTANCE_RADII_KM[^=]*= \[\s*null, 0\.1, 0\.3, 0\.5, 1, 3, 5, 10, 20/);
+  assert.match(webMapSource, /function ProgramDistanceSelector/);
+  assert.match(webMapSource, /집에서 얼마나 가까운 곳을 찾으세요\?/);
+  assert.match(webMapSource, /aria-label="집에서 프로그램까지 검색 반경"/);
+  assert.match(webMapSource, /radiusKm !== null && !usesFallbackLocation && distanceMeters/);
+  assert.ok(webMapSource.indexOf("<ProgramDistanceSelector") < webMapSource.indexOf("<PersonaFilterSection"));
+  assert.match(webMapStyle, /\.dg-program-radius-card/);
+});
+
+test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 표시한다", () => {
+  assert.match(webMapSource, /function ConditionFilterButton/);
+  assert.match(webMapSource, /선택한 조건 \$\{count\}개/);
+  assert.ok(webMapSource.indexOf("<ConditionFilterButton") < webMapSource.indexOf("heatShelterMode ? \"active heat\""));
+  assert.match(webMapStyle, /\.dg-condition-filter-button[^}]*position:\s*sticky;[^}]*left:\s*0/);
+  assert.match(webMapStyle, /\.dg-filter-count-badge[^}]*top:\s*-5px;[^}]*right:\s*-5px/);
 });
 
 test("군집 마커는 지역명과 강좌 수를 말줄임 없이 표시한다", () => {
