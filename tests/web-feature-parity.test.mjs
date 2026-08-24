@@ -245,6 +245,9 @@ test("조건 적용과 지도 상단 키워드는 결과 범위로 이동하고 
   assert.match(webMapSource, /setMapMode\("individual"\)/);
   assert.match(webMapSource, /map\.setBounds\(bounds/);
   assert.match(webMapSource, /setMapClusters\(hasActiveProgramFilter \? \[\] : payload\.clusters\)/);
+  assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?fetchPrograms\(listParams\)/);
+  assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?setMapClusters\(\[\]\)/);
+  assert.match(webMapSource, /requestAnimationFrame\(\(\) => \{[\s\S]*?loadBounds\(mapRef\.current\)/);
   assert.match(webMapSource, /onApply=\{\(\) => \{ setShowFilter\(false\); setFilterFitRequestId/);
   assert.match(webMapSource, /setSubjectFilters\(subjectFilters\.includes\(label\)/);
 });

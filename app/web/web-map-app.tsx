@@ -894,6 +894,27 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         setError("");
         return;
       }
+      if (hasActiveProgramFilter) {
+        // 조건 검색 중에는 adaptive 군집 응답을 먼저 요청하지 않는다.
+        // 사용자가 옮긴 현재 지도 경계의 실제 프로그램 행을 바로 읽어
+        // 서울 밖에서도 같은 조건의 개별 마커만 표시한다.
+        setMapClusters([]);
+        setProgramCounts({});
+        setMapMode("individual");
+        mapModeRef.current = "individual";
+        setMapScope("individual");
+        mapScopeRef.current = "individual";
+        const listParams = new URLSearchParams({
+          south: String(sw.getLat()), west: String(sw.getLng()),
+          north: String(ne.getLat()), east: String(ne.getLng()), limit: "4000",
+        });
+        const nextPrograms = await fetchPrograms(listParams);
+        if (mapRequestIDRef.current !== requestID) return;
+        setPrograms(nextPrograms);
+        setMapClusters([]);
+        setError("");
+        return;
+      }
       const response = await fetch(`/api/web-map?${params}`, { cache: "no-store" });
       const payload = await response.json() as WebMapViewportResult & { message?: string };
       if (!response.ok) throw new Error(payload.message ?? "지도 프로그램을 불러오지 못했습니다.");
@@ -999,6 +1020,17 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         // 최초 조건 결과 자동 맞춤은 한 번만 수행한다. 사용자가 다른 지역으로
         // 지도를 옮기면 이후 응답은 새 viewport의 조건 마커로 교체한다.
         setFilterFitAppliedSignature(null);
+        if (programFilterActiveRef.current) {
+          // 이전 지역의 군집 응답/장면을 즉시 무효화한다. idle 이후에는
+          // loadBounds가 새 화면의 조건별 개별 행만 다시 읽는다.
+          mapRequestIDRef.current += 1;
+          setMapClusters([]);
+          setProgramCounts({});
+          setMapMode("individual");
+          mapModeRef.current = "individual";
+          setMapScope("individual");
+          mapScopeRef.current = "individual";
+        }
       });
       maps.event.addListener(map, "idle", () => {
         if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
@@ -1022,6 +1054,15 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
     return () => { disposed = true; };
   }, [kakaoMapKey, loadBounds]);
+
+  useEffect(() => {
+    if (filterFitRequestId === 0 || !programFilterActiveRef.current || !mapRef.current) return;
+    // 선택 칩의 활성 색상을 먼저 그린 다음 현재 화면의 개별 행 조회를 시작한다.
+    const frame = window.requestAnimationFrame(() => {
+      if (mapRef.current) void loadBounds(mapRef.current);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [filterFitRequestId, loadBounds]);
 
   const toggleHeatShelterMode = () => {
     const next = !heatShelterMode;
