@@ -109,9 +109,9 @@ const ROUTE_MODE: Record<Transport, WebRouteMode> = {
 };
 
 const FALLBACK: Coordinate = { latitude: 37.6027, longitude: 127.0128 };
-// Web account sign-in is intentionally unavailable. Keep account-only screens
-// behind one boundary so map/search/public schedule behavior stays independent.
-const WEB_ACCOUNT_FEATURES_VISIBLE = false;
+// Keep account-only screens behind one boundary so authentication and the
+// related saved, alert, family, and profile experiences stay synchronized.
+const WEB_ACCOUNT_FEATURES_VISIBLE = true;
 const ACCOUNT_TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "openrun", icon: "♧", label: "오픈런" },
   { id: "saved", icon: "♡", label: "찜" },

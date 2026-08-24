@@ -226,8 +226,11 @@ test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만
   assert.doesNotMatch(webUserSource, /service_role|sb_secret_/i);
 });
 
-test("웹 로그인과 계정 종속 기능은 단일 공개 경계 뒤에 숨긴다", () => {
-  assert.match(webMapSource, /const WEB_ACCOUNT_FEATURES_VISIBLE = false/);
+test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두 표시한다", () => {
+  assert.match(webMapSource, /const WEB_ACCOUNT_FEATURES_VISIBLE = true/);
+  assert.match(webMapSource, /\{ id: "openrun", icon: "♧", label: "오픈런" \}/);
+  assert.match(webMapSource, /\{ id: "saved", icon: "♡", label: "찜" \}/);
+  assert.match(webMapSource, /\{ id: "me", icon: "♙", label: "내정보" \}/);
   assert.match(webMapSource, /\.\.\.\(WEB_ACCOUNT_FEATURES_VISIBLE \? ACCOUNT_TABS : \[\]\)/);
   assert.match(webMapSource, /if \(!WEB_ACCOUNT_FEATURES_VISIBLE \|\| !webAuthConfigured\(\)\) return/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell"/);
@@ -235,7 +238,7 @@ test("웹 로그인과 계정 종속 기능은 단일 공개 경계 뒤에 숨�
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && showAuthDialog && !session && <WebAuthDialog/);
   assert.match(webMapSource, /accountFeaturesVisible && <button type="button" className=\{`dg-ios-action-button favorite/);
   assert.match(webMapSource, /accountFeaturesVisible && <button type="button" className=\{reminderIDs\.includes\(program\.id\)/);
-  assert.match(webMapStyle, /nav\.dg-public-nav/);
+  assert.match(webMapSource, /className=\{!WEB_ACCOUNT_FEATURES_VISIBLE \? "dg-public-nav" : undefined\}/);
 });
 
 test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다", () => {
