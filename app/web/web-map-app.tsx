@@ -1468,6 +1468,32 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if ((selected && routePanelActive) || (auxiliaryPanel === "nearby" && nearbyDestination && nearbySummary)) {
       return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
     }
+    const focusedCarouselProgram = filteredClusterFocusedProgramID
+      ? filteredClusterCarouselPrograms.find((program) => program.id === filteredClusterFocusedProgramID)
+      : null;
+    if (focusedCarouselProgram && tab === "map") {
+      // 카드 선택은 직전 viewport의 군집 장면보다 우선한다. 선택 프로그램 한 건을
+      // 즉시 개별 마커로 고정하고 패널이 닫히면 기존 adaptive 장면으로 복귀한다.
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "dg-map-marker is-selected";
+      button.setAttribute("aria-label", `${focusedCarouselProgram.name} 선택됨`);
+      const image = document.createElement("img");
+      image.src = `/markers/${programIconName(focusedCarouselProgram)}.png`;
+      image.alt = "";
+      button.appendChild(image);
+      button.addEventListener("click", () => {
+        void openProgramSheet([focusedCarouselProgram], programCounts[focusedCarouselProgram.id] ?? 1);
+      });
+      overlaysRef.current.push(new window.kakao!.maps.CustomOverlay({
+        map,
+        position: new window.kakao!.maps.LatLng(focusedCarouselProgram.latitude, focusedCarouselProgram.longitude),
+        content: button,
+        yAnchor: 1.15,
+        zIndex: 12,
+      }));
+      return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
+    }
     if (mapMode === "cluster" && tab === "map") {
       const clusterKeyword = activeConditionCount > 0 ? mapFilterClusterKeyword(mapFilterRequestRef.current) : "";
       visibleClusters.forEach((cluster) => {
@@ -1556,7 +1582,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, loadBounds]);
+  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds]);
 
   const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
     if (!nearbyDestination) return;
@@ -3831,16 +3857,18 @@ function FilteredClusterProgramCarousel({ title, programs, origin, focusedProgra
     {expanded && <section className="dg-carousel-program-controls"><small>프로그램 분류</small><div className="dg-carousel-category-row"><button type="button" className={category === null ? "active" : ""} onClick={() => setCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => setCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div><div className="dg-carousel-sort-row">{([['relevance','관련도 순'],['distance','가까운 순'],['available','신청 가능한 순'],['free','무료 먼저']] as Array<[SearchSort,string]>).map(([value,label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => setSort(value)}>{label}</button>)}</div></section>}
     <div ref={pagesRef} className="dg-filtered-cluster-card-pages" onScroll={updateFocusedCard}>
       {visiblePrograms.map((program) => <div className="dg-filtered-cluster-card-page" key={program.id}>
-        <button className="dg-program-card" type="button" onClick={() => onOpen(program)}>
-          <img src={`/markers/${programIconName(program)}.png`} alt="" />
-          <span className="dg-card-copy">
-            <span className={`dg-status ${statusClass(program)}`}>{program.status}</span>
-            <strong>{program.name}</strong>
-            <small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small>
-            <em>{program.isFree ? "무료" : program.feeText}</em>
-          </span>
-          <span className="dg-card-arrow" aria-hidden="true">›</span>
-        </button>
+        <div className="dg-carousel-program-card">
+          <button className="dg-program-card" type="button" onClick={() => onOpen(program)}>
+            <img src={`/markers/${programIconName(program)}.png`} alt="" />
+            <span className="dg-card-copy">
+              <span className={`dg-status ${statusClass(program)}`}>{program.status}</span>
+              <strong>{program.name}</strong>
+              <small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small>
+              <em>{program.isFree ? "무료" : program.feeText}</em>
+            </span>
+          </button>
+          <button className="dg-carousel-map-action" type="button" onClick={() => onFocus(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" size={23} /></button>
+        </div>
       </div>)}
     </div>
   </section>;

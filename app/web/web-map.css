@@ -185,8 +185,8 @@
 
 .dg-map-marker { position: relative; width: 52px; height: 52px; padding: 3px; border: 4px solid #2fa84f; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 5px 14px rgba(20,40,25,.23); transition: transform .16s ease, box-shadow .16s ease; }
 .dg-map-marker:hover, .dg-map-marker.is-selected { transform: translateY(-4px) scale(1.08); box-shadow: 0 9px 20px rgba(20,40,25,.3); }
-.dg-map-marker.is-selected { animation: dg-selected-marker-shimmer .72s ease-in-out infinite alternate; }
-@keyframes dg-selected-marker-shimmer { from { border-color:#1fa34b; box-shadow:0 0 0 2px rgba(47,168,79,.12),0 7px 17px rgba(20,40,25,.25); } to { border-color:#78e293; box-shadow:0 0 0 8px rgba(47,168,79,.28),0 10px 23px rgba(20,40,25,.32); } }
+.dg-map-marker.is-selected { animation: dg-selected-marker-border-blink .58s ease-in-out infinite alternate; }
+@keyframes dg-selected-marker-border-blink { from { border-color:#1fa34b; box-shadow:0 7px 17px rgba(20,40,25,.25); } to { border-color:#91eba5; box-shadow:0 7px 17px rgba(20,40,25,.4); } }
 .dg-map-marker > img { width: 100%; height: 100%; display: block; border-radius: 50%; object-fit: cover; }
 .dg-map-marker > span { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 3px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #ff7a3c; font-size: 8.5px; font-weight: 900; }
 .dg-map-marker > small { position: absolute; top: 55px; left: 50%; max-width: 120px; padding: 3px 6px; overflow: hidden; transform: translateX(-50%); border-radius: 5px; color: #3c443d; background: rgba(255,255,255,.9); font-size: 10px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; text-shadow: 0 1px 2px #fff; white-space: nowrap; }
@@ -450,7 +450,10 @@
 .dg-filtered-cluster-carousel.is-expanded .dg-filtered-cluster-card-pages { height:calc(100% - 166px); }
 .dg-filtered-cluster-card-pages::-webkit-scrollbar { display: none; }
 .dg-filtered-cluster-card-page { min-height: 155px; padding: 3px 0; display: flex; align-items: center; box-sizing: border-box; scroll-snap-align: start; scroll-snap-stop: always; }
-.dg-filtered-cluster-card-page > .dg-program-card { width: 100%; margin: 0; }
+.dg-filtered-cluster-card-page > .dg-carousel-program-card { position:relative; width:100%; }
+.dg-carousel-program-card > .dg-program-card { width:100%; margin:0; padding-right:72px; grid-template-columns:54px minmax(0,1fr); }
+.dg-carousel-map-action { position:absolute; top:50%; right:15px; width:44px; height:44px; padding:0; display:grid; place-items:center; transform:translateY(-50%); border:0; border-radius:50%; color:#fff; background:var(--dg-green); box-shadow:0 5px 13px rgba(34,177,76,.24); cursor:pointer; }
+.dg-carousel-map-action:hover { background:#179f43; transform:translateY(-50%) scale(1.04); }
 .dg-place-sheet-grabber { display: none; }
 .dg-sheet-close { position: absolute; z-index: 2; top: 9px; right: 12px; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #6f776f; background: #f0f3f0; font-size: 20px; cursor: pointer; }
 .dg-place-sheet > header { min-height: 74px; padding: 10px 46px; display: grid; grid-template-columns: 48px minmax(0,1fr) 48px; align-items: center; gap: 12px; border-bottom: 1px solid var(--dg-line); }

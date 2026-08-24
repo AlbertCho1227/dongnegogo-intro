@@ -441,6 +441,10 @@ test("조건·주변 프로그램은 같은 지도 하단 카드와 분류 확�
   assert.match(webMapSource, /프로그램 분류 접기/);
   assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
   assert.match(webMapSource, /if \(dragOffset > 84\) onClose\(\)/);
+  assert.match(webMapSource, /focusedCarouselProgram[\s\S]*?dg-map-marker is-selected/);
+  assert.match(webMapSource, /className="dg-carousel-map-action"[\s\S]*?onClick=\{\(\) => onFocus\(program\)\}/);
   assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*align-items:\s*center/);
-  assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-shimmer/);
+  assert.match(webMapStyle, /\.dg-carousel-map-action \{[^}]*border-radius:50%/);
+  assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-border-blink/);
+  assert.doesNotMatch(webMapStyle, /dg-selected-marker-shimmer/);
 });
