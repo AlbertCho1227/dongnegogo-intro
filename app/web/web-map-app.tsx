@@ -519,6 +519,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     originLatitude: null, originLongitude: null, radiusMeters: null,
   });
   const filterCatalogPendingRef = useRef(false);
+  const mapFilterSignatureRef = useRef("");
+  const completeFilterCatalogRef = useRef<{ signature: string; programs: WebProgram[] } | null>(null);
   const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
@@ -642,7 +644,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     programRadiusFilterRef.current = { radiusKm, usesFallbackLocation };
     programFilterActiveRef.current = activeConditionCount > 0;
     mapFilterRequestRef.current = mapFilterRequest;
-  }, [activeConditionCount, mapFilterRequest, radiusKm, usesFallbackLocation]);
+    mapFilterSignatureRef.current = currentFilterSelectionSignature;
+    if (activeConditionCount === 0 || completeFilterCatalogRef.current?.signature !== currentFilterSelectionSignature) {
+      completeFilterCatalogRef.current = null;
+    }
+  }, [activeConditionCount, currentFilterSelectionSignature, mapFilterRequest, radiusKm, usesFallbackLocation]);
 
   useEffect(() => {
     if (filterFitRequestId > 0) setFilterFitAppliedSignature(currentFilterSelectionSignature);
@@ -951,6 +957,14 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         mapModeRef.current = "individual";
         setMapScope("individual");
         mapScopeRef.current = "individual";
+        const completeCatalog = completeFilterCatalogRef.current;
+        if (completeCatalog?.signature === mapFilterSignatureRef.current) {
+          setPrograms(completeCatalog.programs.filter((program) =>
+            program.latitude >= sw.getLat() && program.latitude <= ne.getLat()
+            && program.longitude >= sw.getLng() && program.longitude <= ne.getLng()));
+          setError("");
+          return;
+        }
         const payload = await fetchMapFilterCatalog({
           ...mapFilterRequestRef.current,
           south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng(),
@@ -1122,6 +1136,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       return;
     }
     const controller = new AbortController();
+    const requestedSignature = mapFilterSignatureRef.current;
     filterCatalogPendingRef.current = true;
     setFilterCatalogReadyRequestId(0);
     setMapClusters([]);
@@ -1135,6 +1150,9 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       void fetchMapFilterCatalog(mapFilterRequestRef.current, controller.signal)
         .then((payload) => {
           if (controller.signal.aborted) return;
+          completeFilterCatalogRef.current = payload.isComplete
+            ? { signature: requestedSignature, programs: payload.programs }
+            : null;
           setPrograms(payload.programs);
           setFilterCatalogReadyRequestId(filterFitRequestId);
           setError("");
