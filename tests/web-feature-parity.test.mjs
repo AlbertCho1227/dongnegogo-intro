@@ -272,7 +272,7 @@ test("기본 군집은 기존 디자인을 유지하고 조건 군집만 지역�
   assert.match(webMapStyle, /\.dg-cluster-marker span \{[^}]*white-space:\s*nowrap;/);
   assert.doesNotMatch(webMapStyle, /\.dg-cluster-marker strong \{[^}]*text-overflow:\s*ellipsis/);
   assert.match(webMapStyle, /\.dg-cluster-marker\.is-filtered \{[^}]*grid-template-columns:\s*max-content/);
-  assert.match(webMapSource, /`강좌 \$\{cluster\.programCount\}`/);
+  assert.match(webMapSource, /`활동 \$\{cluster\.programCount\}`/);
 });
 
 test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에서 사용한다", () => {

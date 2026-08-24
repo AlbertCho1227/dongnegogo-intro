@@ -1350,7 +1350,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         const count = document.createElement("span");
         count.textContent = activeConditionCount > 0
           ? `${clusterKeyword} ${cluster.programCount.toLocaleString("ko-KR")}`
-          : cluster.scope === "localArea" ? String(cluster.programCount) : `강좌 ${cluster.programCount}`;
+          : cluster.scope === "localArea" ? String(cluster.programCount) : `활동 ${cluster.programCount}`;
         if (activeConditionCount > 0) {
           button.append(area, count);
         } else {
