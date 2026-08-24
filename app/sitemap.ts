@@ -14,7 +14,7 @@ const routes = [
 ] as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date("2026-08-22T00:00:00+09:00");
+  const lastModified = new Date("2026-08-25T00:00:00+09:00");
 
   const staticRoutes: MetadataRoute.Sitemap = routes.map((route) => ({
     url: `https://www.dongnegogo.com${route}`,
