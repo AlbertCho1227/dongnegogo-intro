@@ -174,6 +174,8 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /dg-ios-map-icon/);
   assert.match(webMapSource, /mobileMapPanel && !placeSheet && !sidePanelOverlay/);
   assert.match(webMapSource, /<em>내리면 패널 숨기기<\/em>/);
+  assert.match(webMapSource, /addListener\(map, "dragstart"/);
+  assert.match(webMapSource, /setFilterFitAppliedSignature\(null\)/);
   assert.match(webMapSource, /locationRequestState === "checking"/);
   assert.match(webMapSource, /locationError\.code === 1/);
   assert.match(webMapSource, /timeout:\s*20_000/);

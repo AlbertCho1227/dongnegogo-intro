@@ -995,6 +995,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       });
       mapRef.current = map;
       setMapReady(true);
+      maps.event.addListener(map, "dragstart", () => {
+        // 최초 조건 결과 자동 맞춤은 한 번만 수행한다. 사용자가 다른 지역으로
+        // 지도를 옮기면 이후 응답은 새 viewport의 조건 마커로 교체한다.
+        setFilterFitAppliedSignature(null);
+      });
       maps.event.addListener(map, "idle", () => {
         if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = window.setTimeout(() => loadBounds(map), 420);
