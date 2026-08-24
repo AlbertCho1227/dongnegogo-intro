@@ -86,6 +86,17 @@ type Sort = "distance" | "available" | "free";
 type StatusFilter = "전체" | "접수중" | "접수예정" | "마감임박";
 type Transport = "walk" | "transit" | "car";
 type Coordinate = { latitude: number; longitude: number };
+type MapFilterRequest = {
+  details: string[]; personas: string[]; fields: string[]; audiences: string[];
+  fee: string | null; statuses: string[]; todayOnly: boolean;
+  originLatitude: number | null; originLongitude: number | null; radiusMeters: number | null;
+  south?: number; west?: number; north?: number; east?: number;
+};
+type MapFilterResponse = {
+  programs: WebProgram[]; matchCount: number; isComplete: boolean; revision: string;
+  south: number | null; west: number | null; north: number | null; east: number | null;
+  message?: string;
+};
 type AuxiliaryPanel = "calendar" | "family" | "history" | "nearby" | "programs" | null;
 type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: number; loading: boolean };
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
@@ -445,6 +456,19 @@ async function fetchPrograms(params: URLSearchParams, signal?: AbortSignal): Pro
   return payload.programs ?? [];
 }
 
+async function fetchMapFilterCatalog(body: MapFilterRequest, signal?: AbortSignal): Promise<MapFilterResponse> {
+  const response = await fetch("/api/web-map-filter", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+    cache: "no-store",
+  });
+  const payload = await response.json() as MapFilterResponse;
+  if (!response.ok) throw new Error(payload.message ?? "조건 프로그램을 불러오지 못했습니다.");
+  return payload;
+}
+
 async function fetchSearchSuggestions(query: string): Promise<WebPlaceSuggestion[]> {
   const params = new URLSearchParams({ q: query });
   const response = await fetch(`/api/web-search-assistant?${params}`, { cache: "no-store" });
@@ -490,6 +514,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
   const programFilterActiveRef = useRef(false);
+  const mapFilterRequestRef = useRef<MapFilterRequest>({
+    details: [], personas: [], fields: [], audiences: [], fee: null, statuses: [], todayOnly: false,
+    originLatitude: null, originLongitude: null, radiusMeters: null,
+  });
+  const filterCatalogPendingRef = useRef(false);
+  const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
   const [programCounts, setProgramCounts] = useState<Record<string, number>>({});
@@ -539,7 +569,6 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [location, setLocation] = useState<Coordinate>(FALLBACK);
   const [usesFallbackLocation, setUsesFallbackLocation] = useState(true);
   const programRadiusFilterRef = useRef({ radiusKm: null as number | null, usesFallbackLocation: true });
-  programRadiusFilterRef.current = { radiusKm, usesFallbackLocation };
   const [locationRequestState, setLocationRequestState] = useState<LocationRequestState>("idle");
   const [locationRequestMessage, setLocationRequestMessage] = useState("");
   const [center, setCenter] = useState<Coordinate>(FALLBACK);
@@ -596,7 +625,24 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     fieldFilter, personaFilters, subjectFilters, statusFilter, todayOnly,
     freeOnly, paidOnly, seniorOnly, radiusKm,
   });
-  programFilterActiveRef.current = activeConditionCount > 0;
+  const mapFilterRequest = useMemo<MapFilterRequest>(() => ({
+    details: subjectFilters,
+    personas: seniorOnly && !personaFilters.includes("시니어") ? [...personaFilters, "시니어"] : personaFilters,
+    fields: fieldFilter === "전체" ? [] : [fieldFilter],
+    audiences: [],
+    fee: freeOnly ? "무료" : paidOnly ? "유료" : null,
+    statuses: statusFilter === "전체" ? [] : [statusFilter],
+    todayOnly,
+    originLatitude: radiusKm !== null && !usesFallbackLocation ? location.latitude : null,
+    originLongitude: radiusKm !== null && !usesFallbackLocation ? location.longitude : null,
+    radiusMeters: radiusKm === null ? null : radiusKm * 1_000,
+  }), [fieldFilter, freeOnly, location.latitude, location.longitude, paidOnly, personaFilters, radiusKm, seniorOnly, statusFilter, subjectFilters, todayOnly, usesFallbackLocation]);
+
+  useEffect(() => {
+    programRadiusFilterRef.current = { radiusKm, usesFallbackLocation };
+    programFilterActiveRef.current = activeConditionCount > 0;
+    mapFilterRequestRef.current = mapFilterRequest;
+  }, [activeConditionCount, mapFilterRequest, radiusKm, usesFallbackLocation]);
 
   useEffect(() => {
     if (filterFitRequestId > 0) setFilterFitAppliedSignature(currentFilterSelectionSignature);
@@ -855,6 +901,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if (!map) return;
     if (searchActiveRef.current) return;
     if (programRadiusFilterRef.current.radiusKm !== null && !programRadiusFilterRef.current.usesFallbackLocation) return;
+    if (filterCatalogPendingRef.current && programFilterActiveRef.current) return;
     const bounds = map.getBounds();
     const sw = bounds.getSouthWest();
     const ne = bounds.getNorthEast();
@@ -904,13 +951,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         mapModeRef.current = "individual";
         setMapScope("individual");
         mapScopeRef.current = "individual";
-        const listParams = new URLSearchParams({
-          south: String(sw.getLat()), west: String(sw.getLng()),
-          north: String(ne.getLat()), east: String(ne.getLng()), limit: "4000",
+        const payload = await fetchMapFilterCatalog({
+          ...mapFilterRequestRef.current,
+          south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng(),
         });
-        const nextPrograms = await fetchPrograms(listParams);
         if (mapRequestIDRef.current !== requestID) return;
-        setPrograms(nextPrograms);
+        setPrograms(payload.programs);
         setMapClusters([]);
         setError("");
         return;
@@ -968,16 +1014,26 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     const controller = new AbortController();
     const latitudeDelta = Math.max(radiusKm / 111, .001);
     const longitudeDelta = Math.max(radiusKm / (111 * Math.max(.25, Math.cos(location.latitude * Math.PI / 180))), .001);
+    const boundsRequest = {
+      south: location.latitude - latitudeDelta,
+      west: location.longitude - longitudeDelta,
+      north: location.latitude + latitudeDelta,
+      east: location.longitude + longitudeDelta,
+    };
     const params = new URLSearchParams({
-      south: String(location.latitude - latitudeDelta),
-      west: String(location.longitude - longitudeDelta),
-      north: String(location.latitude + latitudeDelta),
-      east: String(location.longitude + longitudeDelta),
+      south: String(boundsRequest.south),
+      west: String(boundsRequest.west),
+      north: String(boundsRequest.north),
+      east: String(boundsRequest.east),
       limit: "4000",
     });
     const requestID = ++mapRequestIDRef.current;
     setLoading(true);
-    fetchPrograms(params, controller.signal).then((nextPrograms) => {
+    const request = programFilterActiveRef.current
+      ? fetchMapFilterCatalog({ ...mapFilterRequestRef.current, ...boundsRequest }, controller.signal)
+          .then((payload) => payload.programs)
+      : fetchPrograms(params, controller.signal);
+    request.then((nextPrograms) => {
       if (controller.signal.aborted || mapRequestIDRef.current !== requestID) return;
       setPrograms(nextPrograms);
       setMapClusters([]);
@@ -1034,7 +1090,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       });
       maps.event.addListener(map, "idle", () => {
         if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
-        idleTimerRef.current = window.setTimeout(() => loadBounds(map), 420);
+        idleTimerRef.current = window.setTimeout(
+          () => loadBounds(map),
+          programFilterActiveRef.current ? 90 : 420,
+        );
       });
       loadBounds(map);
     });
@@ -1056,12 +1115,45 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   }, [kakaoMapKey, loadBounds]);
 
   useEffect(() => {
-    if (filterFitRequestId === 0 || !programFilterActiveRef.current || !mapRef.current) return;
-    // 선택 칩의 활성 색상을 먼저 그린 다음 현재 화면의 개별 행 조회를 시작한다.
+    if (filterFitRequestId === 0 || !programFilterActiveRef.current || !mapRef.current) {
+      filterCatalogPendingRef.current = false;
+      setFilterCatalogReadyRequestId(0);
+      if (filterFitRequestId > 0 && mapRef.current) void loadBounds(mapRef.current);
+      return;
+    }
+    const controller = new AbortController();
+    filterCatalogPendingRef.current = true;
+    setFilterCatalogReadyRequestId(0);
+    setMapClusters([]);
+    setProgramCounts({});
+    setMapMode("individual");
+    mapModeRef.current = "individual";
+    setMapScope("individual");
+    mapScopeRef.current = "individual";
     const frame = window.requestAnimationFrame(() => {
-      if (mapRef.current) void loadBounds(mapRef.current);
+      setLoading(true);
+      void fetchMapFilterCatalog(mapFilterRequestRef.current, controller.signal)
+        .then((payload) => {
+          if (controller.signal.aborted) return;
+          setPrograms(payload.programs);
+          setFilterCatalogReadyRequestId(filterFitRequestId);
+          setError("");
+        })
+        .catch((reason: unknown) => {
+          if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "조건 프로그램을 불러오지 못했습니다.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) {
+            filterCatalogPendingRef.current = false;
+            setLoading(false);
+          }
+        });
     });
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      controller.abort();
+      filterCatalogPendingRef.current = false;
+    };
   }, [filterFitRequestId, loadBounds]);
 
   const toggleHeatShelterMode = () => {
@@ -1119,6 +1211,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
 
   useEffect(() => {
     if (filterFitRequestId === 0 || activeConditionCount === 0
+      || filterCatalogReadyRequestId !== filterFitRequestId
       || filterFitAppliedSignature !== currentFilterSelectionSignature
       || tab !== "map" || heatShelterMode || routePanelActive) return;
     const map = mapRef.current;
@@ -1131,6 +1224,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     setMapScope("individual");
     mapScopeRef.current = "individual";
     if (!matches.length) return;
+    setFilterCatalogReadyRequestId(0);
     if (matches.length === 1) {
       map.panTo(new maps.LatLng(matches[0].latitude, matches[0].longitude));
       map.setLevel(4);
@@ -1140,7 +1234,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     matches.forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
     const compactMap = window.innerWidth < 900;
     map.setBounds(bounds, compactMap ? 160 : 80, compactMap ? 44 : 80, compactMap ? 120 : 80, compactMap ? 44 : 420);
-  }, [activeConditionCount, currentFilterSelectionSignature, filterFitAppliedSignature, filterFitProgramSignature, filterFitRequestId, heatShelterMode, routePanelActive, tab]);
+  }, [activeConditionCount, currentFilterSelectionSignature, filterCatalogReadyRequestId, filterFitAppliedSignature, filterFitProgramSignature, filterFitRequestId, heatShelterMode, routePanelActive, tab, visiblePrograms]);
 
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 

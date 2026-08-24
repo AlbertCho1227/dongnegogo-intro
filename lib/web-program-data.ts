@@ -59,6 +59,17 @@ export type WebMapViewportResult = {
   revision: string;
 };
 
+export type WebMapFilterCatalogResult = {
+  programs: WebProgram[];
+  matchCount: number;
+  isComplete: boolean;
+  revision: string;
+  south: number | null;
+  west: number | null;
+  north: number | null;
+  east: number | null;
+};
+
 export type WebPlaceSuggestion = {
   displayName: string;
   placeKind: "administrative" | "facility" | "local";
@@ -494,6 +505,60 @@ export async function fetchWebMapViewport(input: {
     uniqueLocationCount: numberValue(payload.unique_location_count) ?? programs.length,
     isComplete: payload.is_complete === true,
     revision: textValue(payload.revision) ?? "web-map-v4",
+  };
+}
+
+/**
+ * Reads map-filter candidates after applying the conditions in Postgres.
+ * The conditions run before the 5,000-row cap and the result is interleaved by
+ * province, so a nationwide request cannot be consumed by dense Seoul rows.
+ */
+export async function fetchWebMapFilterCatalog(input: {
+  details?: string[];
+  personas?: string[];
+  fields?: string[];
+  audiences?: string[];
+  fee?: string | null;
+  statuses?: string[];
+  todayOnly?: boolean;
+  originLatitude?: number | null;
+  originLongitude?: number | null;
+  radiusMeters?: number | null;
+  south?: number | null;
+  west?: number | null;
+  north?: number | null;
+  east?: number | null;
+  limit?: number;
+}): Promise<WebMapFilterCatalogResult> {
+  const payload = await rpc("get_program_map_filter_catalog_v2", {
+    p_detail_filters: input.details ?? [],
+    p_persona_filters: input.personas ?? [],
+    p_field_filters: input.fields ?? [],
+    p_audience_filters: input.audiences ?? [],
+    p_fee_filter: input.fee ?? null,
+    p_status_filters: input.statuses ?? [],
+    p_today_only: input.todayOnly ?? false,
+    p_origin_latitude: input.originLatitude ?? null,
+    p_origin_longitude: input.originLongitude ?? null,
+    p_radius_meters: input.radiusMeters ?? null,
+    p_south: input.south ?? null,
+    p_west: input.west ?? null,
+    p_north: input.north ?? null,
+    p_east: input.east ?? null,
+    p_limit: Math.max(1, Math.min(5_000, Math.round(input.limit ?? 5_000))),
+  }) as Record<string, unknown>;
+  const programs = Array.isArray(payload.programs)
+    ? payload.programs.map(compactProgram).filter((item): item is WebProgram => Boolean(item))
+    : [];
+  return {
+    programs,
+    matchCount: Math.max(0, Math.round(numberValue(payload.match_count) ?? programs.length)),
+    isComplete: payload.is_complete === true,
+    revision: textValue(payload.revision) ?? "web-map-filter-v1",
+    south: numberValue(payload.south),
+    west: numberValue(payload.west),
+    north: numberValue(payload.north),
+    east: numberValue(payload.east),
   };
 }
 
