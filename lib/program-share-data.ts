@@ -221,6 +221,30 @@ async function fetchRows<T>(
   return Array.isArray(payload) ? payload as T[] : [];
 }
 
+async function fetchProgramByExactID(
+  projectUrl: URL,
+  publishableKey: string,
+  programID: string,
+): Promise<ProgramRow | null> {
+  const endpoint = new URL("/rest/v1/rpc/get_programs_by_map_cluster_ids", projectUrl);
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      apikey: publishableKey,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ p_ids: [programID] }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`Program share exact lookup failed with ${response.status}.`);
+  const payload: unknown = await response.json();
+  if (!Array.isArray(payload)) return null;
+  const first = payload[0];
+  return first && typeof first === "object" ? first as ProgramRow : null;
+}
+
 function collectImages(
   program: ProgramRow,
   programMedia: ProgramMediaRow[],
@@ -288,13 +312,9 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
   if (!validProgramID(id)) return null;
 
   const { projectUrl, publishableKey } = await readServerBindings();
-  const programQuery = new URLSearchParams({
-    id: `eq.${id}`,
-    select: "id,name,category,field,facility,room,address,area,latitude,longitude,is_free,fee_text,status,receipt_start,receipt_end,lecture_start,lecture_end,schedule_text,period_text,audiences,summary,primary_image_url,primary_image_source,apply_url,phone,source,updated_at,requirement,preparation,max_class_nm,min_class_nm",
-    limit: "1",
-  });
-  const programs = await fetchRows<ProgramRow>(projectUrl, publishableKey, "programs", programQuery);
-  const program = programs[0];
+  // Public-data IDs commonly contain punctuation that is significant to
+  // PostgREST filter grammar. Keep the ID in a JSON body for exact matching.
+  const program = await fetchProgramByExactID(projectUrl, publishableKey, id);
   if (!program) return null;
 
   const descriptionQuery = new URLSearchParams({

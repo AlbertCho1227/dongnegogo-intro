@@ -271,6 +271,8 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(data, /image_sha256/);
   assert.match(data, /imageContentIdentity/);
   assert.match(data, /program-share-v3-source-alias-dedup/);
+  assert.match(data, /get_programs_by_map_cluster_ids/);
+  assert.match(data, /JSON\.stringify\(\{ p_ids: \[programID\] \}\)/);
   assert.match(data, /DONGNEGOGO_SUPABASE_URL/);
   assert.match(data, /DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(data, /startsWith\("sb_publishable_"\)/);
