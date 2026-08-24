@@ -16,7 +16,13 @@ type FilterRequest = {
   west?: number | null;
   north?: number | null;
   east?: number | null;
+  clusterScope?: string;
 };
+
+function clusterScope(value: unknown) {
+  return value === "localArea" || value === "neighborhood" || value === "district"
+    || value === "city" || value === "province" ? value : "individual";
+}
 
 function strings(value: unknown) {
   return Array.isArray(value)
@@ -46,12 +52,13 @@ export async function POST(request: Request) {
       west: numberOrNull(body.west),
       north: numberOrNull(body.north),
       east: numberOrNull(body.east),
+      clusterScope: clusterScope(body.clusterScope),
     });
     return NextResponse.json(result, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "조건 프로그램을 불러오지 못했습니다.";
-    return NextResponse.json({ programs: [], message }, { status: 503 });
+    return NextResponse.json({ mode: "individual", scope: "individual", programs: [], clusters: [], message }, { status: 503 });
   }
 }

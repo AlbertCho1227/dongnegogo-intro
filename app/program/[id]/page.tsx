@@ -11,7 +11,9 @@ import styles from "./program-share.module.css";
 type PageProps = { params: Promise<{ id: string }> };
 
 function cleanID(value: string): string {
-  try { return decodeURIComponent(value).trim(); } catch { return value.trim(); }
+  // Next already decodes dynamic path parameters. Decoding a second time can
+  // turn a literal percent sequence in a public-data ID into another value.
+  return value.trim();
 }
 
 function categoryEmoji(program: SharedProgram): string {

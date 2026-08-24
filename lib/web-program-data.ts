@@ -60,7 +60,10 @@ export type WebMapViewportResult = {
 };
 
 export type WebMapFilterCatalogResult = {
+  mode: "individual" | "cluster";
+  scope: "individual" | WebMapCluster["scope"];
   programs: WebProgram[];
+  clusters: WebMapCluster[];
   matchCount: number;
   isComplete: boolean;
   revision: string;
@@ -528,9 +531,13 @@ export async function fetchWebMapFilterCatalog(input: {
   west?: number | null;
   north?: number | null;
   east?: number | null;
+  clusterScope?: "individual" | WebMapCluster["scope"];
   limit?: number;
 }): Promise<WebMapFilterCatalogResult> {
-  const payload = await rpc("get_program_map_filter_catalog_v2", {
+  const requestedScope = input.clusterScope === "individual"
+    ? "individual"
+    : clusterScope(input.clusterScope ?? "localArea");
+  const payload = await rpc("get_program_map_filter_catalog_v3", {
     p_detail_filters: input.details ?? [],
     p_persona_filters: input.personas ?? [],
     p_field_filters: input.fields ?? [],
@@ -546,12 +553,23 @@ export async function fetchWebMapFilterCatalog(input: {
     p_north: input.north ?? null,
     p_east: input.east ?? null,
     p_limit: Math.max(1, Math.min(5_000, Math.round(input.limit ?? 5_000))),
+    p_cluster_scope: requestedScope,
+    p_cluster_limit: 500,
   }) as Record<string, unknown>;
+  const mode = payload.mode === "cluster" ? "cluster" : "individual";
   const programs = Array.isArray(payload.programs)
     ? payload.programs.map(compactProgram).filter((item): item is WebProgram => Boolean(item))
     : [];
+  const responseScope = mode === "cluster" ? clusterScope(textValue(payload.scope) ?? requestedScope) : "individual";
+  const clusters = mode === "cluster" && Array.isArray(payload.clusters)
+    ? payload.clusters.map((item) => normalizeCluster(item, responseScope as WebMapCluster["scope"]))
+        .filter((item): item is WebMapCluster => Boolean(item))
+    : [];
   return {
+    mode,
+    scope: responseScope,
     programs,
+    clusters,
     matchCount: Math.max(0, Math.round(numberValue(payload.match_count) ?? programs.length)),
     isComplete: payload.is_complete === true,
     revision: textValue(payload.revision) ?? "web-map-filter-v1",
@@ -670,6 +688,15 @@ export async function fetchWebProgramsNear(input: {
 }
 
 export async function fetchWebPrograms(input: ProgramQuery): Promise<WebProgram[]> {
+  if (input.id) {
+    const id = input.id.trim().slice(0, 180);
+    if (!id) return [];
+    const rows = await rpc("get_programs_by_map_cluster_ids", { p_ids: [id] });
+    if (!Array.isArray(rows)) return [];
+    return rows.map((value) => value && typeof value === "object"
+      ? normalizedProgram(value as ProgramRow)
+      : null).filter((item): item is WebProgram => Boolean(item));
+  }
   const { projectUrl, publishableKey } = await readBindings();
   const endpoint = new URL("/rest/v1/programs", projectUrl);
   const params = endpoint.searchParams;
@@ -681,10 +708,7 @@ export async function fetchWebPrograms(input: ProgramQuery): Promise<WebProgram[
     "max_class_nm", "min_class_nm", "is_senior_recommended",
   ].join(","));
 
-  if (input.id) {
-    params.set("id", `eq.${input.id.slice(0, 180)}`);
-    params.set("limit", "1");
-  } else {
+  {
     if ([input.south, input.west, input.north, input.east].every(Number.isFinite)) {
       const south = Math.max(-90, Math.min(90, Math.min(input.south!, input.north!)));
       const north = Math.max(-90, Math.min(90, Math.max(input.south!, input.north!)));

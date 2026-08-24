@@ -260,12 +260,13 @@ test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시
   assert.match(webMapSource, /map\.setCenter\(new maps\.LatLng\(location\.latitude, location\.longitude\)\)/);
   assert.match(webMapSource, /map\.setLevel\(4\)/);
   assert.doesNotMatch(webMapSource, /filterFitProgramSignature/);
-  assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?paddedMapFilterBounds\(exactBounds\)[\s\S]*?fetchMapFilterCatalog/);
+  assert.match(webMapSource, /clusterScope: requestedScope/);
   assert.match(webMapSource, /mapFilterBoundsContain\(cached, exactBounds\)/);
   assert.match(webMapSource, /mapBoundsAbortRef\.current\?\.abort\(\)/);
-  assert.match(webMapSource, /clusterFilteredWebPrograms\(nextPrograms, requestedScope, keyword\)/);
+  assert.match(webMapSource, /setMapClusters\(payload\.clusters\)/);
+  assert.doesNotMatch(webMapSource, /clusterFilteredWebPrograms\(/);
   assert.match(webMapSource, /setMapMode\("cluster"\)/);
-  assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?setMapClusters\(\[\]\)/);
+  assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?mapBoundsAbortRef\.current\?\.abort\(\)/);
   assert.match(webMapSource, /programFilterActiveRef\.current \? 0 : 420/);
   assert.doesNotMatch(webMapSource, /unfilteredViewportProgramsRef/);
   assert.match(webMapSource, /const items = programs\.filter\(\(program\) =>/);
