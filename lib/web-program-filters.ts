@@ -68,6 +68,11 @@ export const WEB_DETAIL_FILTER_GROUPS: readonly WebDetailFilterGroup[] = [
   { title: "생활·공간", emoji: "🏛️", items: WEB_DETAIL_FILTERS.slice(39, 44) },
 ] as const;
 
+/** 세부 종목은 지도 조회 비용을 제한하기 위해 선택하지 않거나 한 개만 유지한다. */
+export function toggleSingleWebDetailFilter(current: readonly string[], label: string): string[] {
+  return current.includes(label) ? [] : [label];
+}
+
 type PersonaDefinition = {
   label: string;
   emoji: string;

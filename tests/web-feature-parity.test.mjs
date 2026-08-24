@@ -92,7 +92,7 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
     "같은 장소 프로그램",
     "누구를 위한 프로그램인가요?",
     "어떤 종목을 찾으세요?",
-    "분야를 따라가며 골라보세요",
+    "한 번에 한 종목만 선택할 수 있어요",
     "선택한 조건으로",
     "무더위쉼터",
     "목적지 주변 가게 보기",
@@ -183,14 +183,16 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });
 
-test("상세 종목과 대상 조건은 마커와 같은 분류를 사용하고 다중 선택한다", () => {
+test("상세 종목은 하나만 선택하고 대상 조건은 다중 선택한다", () => {
   assert.match(webProgramFiltersSource, /programIconName\(program\)/);
   assert.match(webProgramFiltersSource, /detailLabels\.some/);
   assert.match(webProgramFiltersSource, /personaLabels\.some/);
   assert.match(webProgramFiltersSource, /label: "컴퓨터·스마트폰·AI"/);
   assert.match(webProgramFiltersSource, /label: "1인가구"/);
-  assert.match(webMapSource, /setSubjectFilters\(subjectFilters\.includes\(label\)/);
+  assert.match(webProgramFiltersSource, /toggleSingleWebDetailFilter[\s\S]*?current\.includes\(label\) \? \[\] : \[label\]/);
+  assert.match(webMapSource, /setSubjectFilters\(\(current\) => toggleSingleWebDetailFilter\(current, label\)\)/);
   assert.match(webMapSource, /setPersonaFilters\(personaFilters\.includes\(label\)/);
+  assert.match(webMapSource, /한 번에 한 종목만 선택할 수 있어요/);
   assert.match(webMapSource, /\/markers\/\$\{detail\.iconName\}\.png/);
   assert.doesNotMatch(webMapSource, /어떤 분야인가요\? \(대분류\)/);
 });
@@ -238,19 +240,21 @@ test("조건 화면을 내리면 오른쪽 아래 맨 위로 버튼을 제공한
   assert.match(webMapStyle, /\.dg-filter-scroll-top[^}]*position:\s*fixed;[^}]*right:/);
 });
 
-test("조건 적용과 지도 상단 키워드는 결과 범위로 이동하고 개별 마커 모드를 유지한다", () => {
+test("조건 적용과 지도 상단 키워드는 사용자 주변을 우선 표시하고 개별 마커 모드를 유지한다", () => {
   assert.match(webMapSource, /filterFitRequestId/);
-  assert.match(webMapSource, /filterFitProgramSignature/);
   assert.match(webMapSource, /filterFitAppliedSignature/);
   assert.match(webMapSource, /setMapMode\("individual"\)/);
-  assert.match(webMapSource, /map\.setBounds\(bounds/);
-  assert.match(webMapSource, /fetchMapFilterCatalog\(mapFilterRequestRef\.current/);
+  assert.match(webMapSource, /map\.setCenter\(new maps\.LatLng\(location\.latitude, location\.longitude\)\)/);
+  assert.match(webMapSource, /map\.setLevel\(4\)/);
+  assert.doesNotMatch(webMapSource, /filterFitProgramSignature/);
   assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?fetchMapFilterCatalog\(\{[\s\S]*?south: sw\.getLat\(\)/);
   assert.match(webMapSource, /setMapClusters\(hasActiveProgramFilter \? \[\] : payload\.clusters\)/);
   assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?setMapClusters\(\[\]\)/);
-  assert.match(webMapSource, /programFilterActiveRef\.current \? 90 : 420/);
+  assert.match(webMapSource, /programFilterActiveRef\.current \? 0 : 420/);
+  assert.match(webMapSource, /unfilteredViewportProgramsRef/);
+  assert.match(webMapSource, /uniquePrograms\(\[\.\.\.unfilteredViewportProgramsRef\.current, \.\.\.programs\]\)/);
   assert.match(webMapSource, /onApply=\{\(\) => \{ setShowFilter\(false\); setFilterFitRequestId/);
-  assert.match(webMapSource, /setSubjectFilters\(subjectFilters\.includes\(label\)/);
+  assert.match(webMapSource, /setSubjectFilters\(\(current\) => toggleSingleWebDetailFilter\(current, label\)\)/);
 });
 
 test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 표시한다", () => {

@@ -8,7 +8,7 @@ import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlac
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
-import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, webProgramMatchesFilters } from "@/lib/web-program-filters";
+import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, toggleSingleWebDetailFilter, webProgramMatchesFilters } from "@/lib/web-program-filters";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
 import {
   hasAmbiguousAdministrativeSuggestions,
@@ -194,14 +194,6 @@ export function webMapFilterSelectionSignature({
     seniorOnly ? "senior" : "",
     radiusKm?.toString() ?? "",
   ].join("|");
-}
-
-export function webProgramFitCoordinateSignature(programs: WebProgram[]) {
-  return programs
-    .filter((program) => Number.isFinite(program.latitude) && Number.isFinite(program.longitude))
-    .map((program) => `${program.id}:${program.latitude.toFixed(6)}:${program.longitude.toFixed(6)}`)
-    .sort()
-    .join("|");
 }
 
 function uniquePrograms(programs: WebProgram[]) {
@@ -521,6 +513,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const filterCatalogPendingRef = useRef(false);
   const mapFilterSignatureRef = useRef("");
   const completeFilterCatalogRef = useRef<{ signature: string; programs: WebProgram[] } | null>(null);
+  const unfilteredViewportProgramsRef = useRef<WebProgram[]>([]);
   const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
@@ -1008,6 +1001,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         nextPrograms = await fetchPrograms(nearbyParams);
       }
       if (mapRequestIDRef.current !== requestID) return;
+      unfilteredViewportProgramsRef.current = nextPrograms;
       setPrograms(nextPrograms);
       setMapClusters(hasActiveProgramFilter ? [] : payload.clusters);
       setProgramCounts(payload.programCounts ?? {});
@@ -1106,7 +1100,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         if (idleTimerRef.current) window.clearTimeout(idleTimerRef.current);
         idleTimerRef.current = window.setTimeout(
           () => loadBounds(map),
-          programFilterActiveRef.current ? 90 : 420,
+          programFilterActiveRef.current ? 0 : 420,
         );
       });
       loadBounds(map);
@@ -1135,9 +1129,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       if (filterFitRequestId > 0 && mapRef.current) void loadBounds(mapRef.current);
       return;
     }
-    const controller = new AbortController();
-    const requestedSignature = mapFilterSignatureRef.current;
-    filterCatalogPendingRef.current = true;
+    // 조건 적용 시 전국 결과를 먼저 내려받아 전체 범위로 축소하지 않는다.
+    // 선택 상태를 먼저 그리고 현재 위치(미허용 시 현재 지도)의 viewport만 조회한다.
+    completeFilterCatalogRef.current = null;
+    filterCatalogPendingRef.current = false;
     setFilterCatalogReadyRequestId(0);
     setMapClusters([]);
     setProgramCounts({});
@@ -1146,31 +1141,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     setMapScope("individual");
     mapScopeRef.current = "individual";
     const frame = window.requestAnimationFrame(() => {
-      setLoading(true);
-      void fetchMapFilterCatalog(mapFilterRequestRef.current, controller.signal)
-        .then((payload) => {
-          if (controller.signal.aborted) return;
-          completeFilterCatalogRef.current = payload.isComplete
-            ? { signature: requestedSignature, programs: payload.programs }
-            : null;
-          setPrograms(payload.programs);
-          setFilterCatalogReadyRequestId(filterFitRequestId);
-          setError("");
-        })
-        .catch((reason: unknown) => {
-          if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "조건 프로그램을 불러오지 못했습니다.");
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) {
-            filterCatalogPendingRef.current = false;
-            setLoading(false);
-          }
-        });
+      setFilterCatalogReadyRequestId(filterFitRequestId);
     });
     return () => {
       window.cancelAnimationFrame(frame);
-      controller.abort();
-      filterCatalogPendingRef.current = false;
     };
   }, [filterFitRequestId, loadBounds]);
 
@@ -1202,7 +1176,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         return distanceMeters(searchOrigin, a) - distanceMeters(searchOrigin, b);
       });
     }
-    const items = programs.filter((program) => {
+    const localFirstPrograms = activeConditionCount > 0 && unfilteredViewportProgramsRef.current.length > 0
+      ? uniquePrograms([...unfilteredViewportProgramsRef.current, ...programs])
+      : programs;
+    const items = localFirstPrograms.filter((program) => {
       if (!fieldMatches(program, fieldFilter)) return false;
       if (freeOnly && !program.isFree) return false;
       if (paidOnly && program.isFree) return false;
@@ -1220,12 +1197,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       if (sort === "available" && isAvailable(a) !== isAvailable(b)) return isAvailable(a) ? -1 : 1;
       return distanceMeters(center, a) - distanceMeters(center, b);
     });
-  }, [programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, tab, favorites, sort, center]);
-
-  const filterFitProgramSignature = useMemo(
-    () => webProgramFitCoordinateSignature(visiblePrograms),
-    [visiblePrograms],
-  );
+  }, [activeConditionCount, programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, tab, favorites, sort, center]);
 
   useEffect(() => {
     if (filterFitRequestId === 0 || activeConditionCount === 0
@@ -1235,24 +1207,18 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     const map = mapRef.current;
     const maps = window.kakao?.maps;
     if (!map || !maps) return;
-    const matches = visiblePrograms.filter((program) => Number.isFinite(program.latitude) && Number.isFinite(program.longitude));
     setMapClusters([]);
     setMapMode("individual");
     mapModeRef.current = "individual";
     setMapScope("individual");
     mapScopeRef.current = "individual";
-    if (!matches.length) return;
     setFilterCatalogReadyRequestId(0);
-    if (matches.length === 1) {
-      map.panTo(new maps.LatLng(matches[0].latitude, matches[0].longitude));
+    if (!usesFallbackLocation) {
+      map.setCenter(new maps.LatLng(location.latitude, location.longitude));
       map.setLevel(4);
-      return;
     }
-    const bounds = new maps.LatLngBounds();
-    matches.forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
-    const compactMap = window.innerWidth < 900;
-    map.setBounds(bounds, compactMap ? 160 : 80, compactMap ? 44 : 80, compactMap ? 120 : 80, compactMap ? 44 : 420);
-  }, [activeConditionCount, currentFilterSelectionSignature, filterCatalogReadyRequestId, filterFitAppliedSignature, filterFitProgramSignature, filterFitRequestId, heatShelterMode, routePanelActive, tab, visiblePrograms]);
+    window.setTimeout(() => void loadBounds(map), 0);
+  }, [activeConditionCount, currentFilterSelectionSignature, filterCatalogReadyRequestId, filterFitAppliedSignature, filterFitRequestId, heatShelterMode, loadBounds, location.latitude, location.longitude, routePanelActive, tab, usesFallbackLocation]);
 
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
@@ -2110,7 +2076,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setHeatShelters([]);
     }
     setFieldFilter("전체");
-    setSubjectFilters(subjectFilters.includes(label) ? subjectFilters.filter((item) => item !== label) : [...subjectFilters, label]);
+    setSubjectFilters((current) => toggleSingleWebDetailFilter(current, label));
     setFilterFitRequestId((current) => current + 1);
   };
 
@@ -3740,7 +3706,7 @@ function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radi
   onPersonas: (value: string[]) => void; onSubjects: (value: string[]) => void; onStatus: (value: StatusFilter) => void;
   onFree: (value: boolean) => void; onPaid: (value: boolean) => void; onRadius: (value: number | null) => void; onReset: () => void; onApply: () => void; onClose: () => void;
 }) {
-  const toggleSubject = (subject: string) => onSubjects(subjects.includes(subject) ? subjects.filter((item) => item !== subject) : [...subjects, subject]);
+  const toggleSubject = (subject: string) => onSubjects(toggleSingleWebDetailFilter(subjects, subject));
   const togglePersona = (persona: string) => onPersonas(personas.includes(persona) ? personas.filter((item) => item !== persona) : [...personas, persona]);
   const dialogRef = useRef<HTMLElement | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -3809,7 +3775,7 @@ function PersonaFilterSection({ active, onClick }: { active: string[]; onClick: 
 }
 
 function DetailFilterSection({ active, onClick }: { active: string[]; onClick: (value: string) => void }) {
-  return <section className="dg-filter-section dg-detail-filter-section"><div className="dg-detail-filter-heading"><h3>어떤 종목을 찾으세요?</h3><p>분야를 따라가며 골라보세요</p></div><div className="dg-detail-filter-groups">{WEB_DETAIL_FILTER_GROUPS.map((group) => <article className="dg-detail-filter-card" key={group.title}><header><strong><span aria-hidden="true">{group.emoji}</span>{group.title}</strong><small>{group.items.length}개</small></header><div>{group.items.map((detail) => <button type="button" className={active.includes(detail.label) ? "active" : ""} aria-pressed={active.includes(detail.label)} key={detail.label} onClick={() => onClick(detail.label)}><img src={`/markers/${detail.iconName}.png`} alt="" />{detail.label}</button>)}</div></article>)}</div></section>;
+  return <section className="dg-filter-section dg-detail-filter-section"><div className="dg-detail-filter-heading"><h3>어떤 종목을 찾으세요?</h3><p>한 번에 한 종목만 선택할 수 있어요</p></div><div className="dg-detail-filter-groups">{WEB_DETAIL_FILTER_GROUPS.map((group) => <article className="dg-detail-filter-card" key={group.title}><header><strong><span aria-hidden="true">{group.emoji}</span>{group.title}</strong><small>{group.items.length}개</small></header><div>{group.items.map((detail) => <button type="button" className={active.includes(detail.label) ? "active" : ""} aria-pressed={active.includes(detail.label)} key={detail.label} onClick={() => onClick(detail.label)}><img src={`/markers/${detail.iconName}.png`} alt="" />{detail.label}</button>)}</div></article>)}</div></section>;
 }
 
 function HeatShelterDetail({ shelter, current, onBack }: { shelter: WebHeatShelter; current: Coordinate; onBack: () => void }) {
