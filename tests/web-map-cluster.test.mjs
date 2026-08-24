@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clusterDisplayAreaName,
+  clusterFilteredWebPrograms,
   resolvedClusterAreaName,
   WEB_MAP_CLUSTER_DISPLAY_LIMIT,
   webMapScopeForRadius,
@@ -15,6 +16,20 @@ test("iOS와 같은 반경에서 개별→동→구→시 군집으로 전환한
   assert.equal(webMapScopeForRadius(16, "neighborhood"), "district");
   assert.equal(webMapScopeForRadius(60, "district"), "city");
   assert.equal(webMapScopeForRadius(210, "city"), "province");
+});
+
+test("조건 프로그램만 현재 행정구역 단계로 군집하고 키워드와 실제 건수를 보존한다", () => {
+  const programs = [
+    { id: "a", latitude: 37.60, longitude: 127.01, address: "서울특별시 성북구 정릉2동", area: "성북구" },
+    { id: "b", latitude: 37.61, longitude: 127.02, address: "서울특별시 성북구 정릉2동", area: "성북구" },
+    { id: "c", latitude: 35.16, longitude: 129.16, address: "부산광역시 해운대구 우2동", area: "해운대구" },
+  ];
+  const local = clusterFilteredWebPrograms(programs, "localArea", "수영");
+  assert.equal(local.length, 2);
+  assert.equal(local.find((cluster) => cluster.areaName === "정릉2동")?.programCount, 2);
+  assert.equal(local[0].categoryName, "수영");
+  const district = clusterFilteredWebPrograms(programs, "district", "수영");
+  assert.deepEqual(new Set(district.map((cluster) => cluster.areaName)), new Set(["성북구", "해운대구"]));
 });
 
 test("확대·축소 경계에는 iOS와 같은 히스테리시스를 적용한다", () => {

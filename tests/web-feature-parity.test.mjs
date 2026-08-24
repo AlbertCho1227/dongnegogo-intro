@@ -240,7 +240,7 @@ test("조건 화면을 내리면 오른쪽 아래 맨 위로 버튼을 제공한
   assert.match(webMapStyle, /\.dg-filter-scroll-top[^}]*position:\s*fixed;[^}]*right:/);
 });
 
-test("조건 적용과 지도 상단 키워드는 사용자 주변을 우선 표시하고 개별 마커 모드를 유지한다", () => {
+test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시 조건 행만 군집한다", () => {
   assert.match(webMapSource, /filterFitRequestId/);
   assert.match(webMapSource, /filterFitAppliedSignature/);
   assert.match(webMapSource, /setMapMode\("individual"\)/);
@@ -248,7 +248,8 @@ test("조건 적용과 지도 상단 키워드는 사용자 주변을 우선 표
   assert.match(webMapSource, /map\.setLevel\(4\)/);
   assert.doesNotMatch(webMapSource, /filterFitProgramSignature/);
   assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?fetchMapFilterCatalog\(\{[\s\S]*?south: sw\.getLat\(\)/);
-  assert.match(webMapSource, /setMapClusters\(hasActiveProgramFilter \? \[\] : payload\.clusters\)/);
+  assert.match(webMapSource, /clusterFilteredWebPrograms\(nextPrograms, requestedScope, keyword\)/);
+  assert.match(webMapSource, /setMapMode\("cluster"\)/);
   assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?setMapClusters\(\[\]\)/);
   assert.match(webMapSource, /programFilterActiveRef\.current \? 0 : 420/);
   assert.match(webMapSource, /unfilteredViewportProgramsRef/);
@@ -265,11 +266,13 @@ test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 
   assert.match(webMapStyle, /\.dg-filter-count-badge[^}]*top:\s*-5px;[^}]*right:\s*-5px/);
 });
 
-test("군집 마커는 지역명과 강좌 수를 말줄임 없이 표시한다", () => {
+test("기본 군집은 기존 디자인을 유지하고 조건 군집만 지역명과 키워드를 두 줄로 표시한다", () => {
   assert.match(webMapStyle, /\.dg-cluster-marker \{[^}]*width:\s*max-content;[^}]*min-width:\s*132px;[^}]*grid-template-columns:\s*max-content max-content;/);
   assert.match(webMapStyle, /\.dg-cluster-marker strong \{[^}]*overflow:\s*visible;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*nowrap;/);
   assert.match(webMapStyle, /\.dg-cluster-marker span \{[^}]*white-space:\s*nowrap;/);
   assert.doesNotMatch(webMapStyle, /\.dg-cluster-marker strong \{[^}]*text-overflow:\s*ellipsis/);
+  assert.match(webMapStyle, /\.dg-cluster-marker\.is-filtered \{[^}]*grid-template-columns:\s*max-content/);
+  assert.match(webMapSource, /`활동 \$\{cluster\.programCount\}`/);
 });
 
 test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에서 사용한다", () => {

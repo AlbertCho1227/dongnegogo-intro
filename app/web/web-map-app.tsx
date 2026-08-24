@@ -5,7 +5,7 @@ import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, Rea
 import Link from "next/link";
 import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, SlidersHorizontal, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
-import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
+import { clusterDisplayAreaName, clusterFilteredWebPrograms, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, toggleSingleWebDetailFilter, webProgramMatchesFilters } from "@/lib/web-program-filters";
@@ -97,6 +97,18 @@ type MapFilterResponse = {
   south: number | null; west: number | null; north: number | null; east: number | null;
   message?: string;
 };
+
+function mapFilterClusterKeyword(request: MapFilterRequest) {
+  return request.details[0]
+    ?? request.fields[0]
+    ?? request.personas[0]
+    ?? request.audiences[0]
+    ?? request.fee
+    ?? request.statuses[0]
+    ?? (request.todayOnly ? "오늘 진행" : null)
+    ?? (request.radiusMeters ? `${request.radiusMeters < 1_000 ? `${request.radiusMeters}m` : `${request.radiusMeters / 1_000}km`} 이내` : null)
+    ?? "선택 조건";
+}
 type AuxiliaryPanel = "calendar" | "family" | "history" | "nearby" | "programs" | null;
 type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: number; loading: boolean };
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
@@ -944,27 +956,41 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         // 조건 검색 중에는 adaptive 군집 응답을 먼저 요청하지 않는다.
         // 사용자가 옮긴 현재 지도 경계의 실제 프로그램 행을 바로 읽어
         // 서울 밖에서도 같은 조건의 개별 마커만 표시한다.
-        setMapClusters([]);
         setProgramCounts({});
-        setMapMode("individual");
-        mapModeRef.current = "individual";
-        setMapScope("individual");
-        mapScopeRef.current = "individual";
         const completeCatalog = completeFilterCatalogRef.current;
+        let nextPrograms: WebProgram[];
         if (completeCatalog?.signature === mapFilterSignatureRef.current) {
-          setPrograms(completeCatalog.programs.filter((program) =>
+          nextPrograms = completeCatalog.programs.filter((program) =>
             program.latitude >= sw.getLat() && program.latitude <= ne.getLat()
-            && program.longitude >= sw.getLng() && program.longitude <= ne.getLng()));
-          setError("");
-          return;
+            && program.longitude >= sw.getLng() && program.longitude <= ne.getLng());
+        } else {
+          const payload = await fetchMapFilterCatalog({
+            ...mapFilterRequestRef.current,
+            south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng(),
+          });
+          if (mapRequestIDRef.current !== requestID) return;
+          nextPrograms = payload.programs;
         }
-        const payload = await fetchMapFilterCatalog({
-          ...mapFilterRequestRef.current,
-          south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng(),
-        });
-        if (mapRequestIDRef.current !== requestID) return;
-        setPrograms(payload.programs);
-        setMapClusters([]);
+        setPrograms(nextPrograms);
+        if (requestedScope === "individual") {
+          setMapClusters([]);
+          setMapMode("individual");
+          mapModeRef.current = "individual";
+          setMapScope("individual");
+          mapScopeRef.current = "individual";
+        } else {
+          const keyword = mapFilterClusterKeyword(mapFilterRequestRef.current);
+          const clusters = await resolveMapClusterAreas(
+            clusterFilteredWebPrograms(nextPrograms, requestedScope, keyword)
+              .slice(0, WEB_MAP_CLUSTER_DISPLAY_LIMIT[requestedScope] * 2),
+          );
+          if (mapRequestIDRef.current !== requestID) return;
+          setMapClusters(clusters);
+          setMapMode("cluster");
+          mapModeRef.current = "cluster";
+          setMapScope(requestedScope);
+          mapScopeRef.current = requestedScope;
+        }
         setError("");
         return;
       }
@@ -1312,19 +1338,26 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if ((selected && routePanelActive) || (auxiliaryPanel === "nearby" && nearbyDestination && nearbySummary)) {
       return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
     }
-    if (mapMode === "cluster" && tab === "map" && fieldFilter === "전체" && !freeOnly && !paidOnly && !seniorOnly && personaFilters.length === 0 && subjectFilters.length === 0 && statusFilter === "전체" && !todayOnly && radiusKm === null) {
+    if (mapMode === "cluster" && tab === "map") {
+      const clusterKeyword = activeConditionCount > 0 ? mapFilterClusterKeyword(mapFilterRequestRef.current) : "활동";
       visibleClusters.forEach((cluster) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `dg-cluster-marker dg-cluster-${cluster.scope}`;
+        button.className = `dg-cluster-marker dg-cluster-${cluster.scope}${activeConditionCount > 0 ? " is-filtered" : ""}`;
         button.setAttribute("aria-label", `${cluster.areaName} ${cluster.programCount}개 프로그램`);
         const area = document.createElement("strong");
         area.textContent = clusterDisplayAreaName(cluster.areaName);
         const count = document.createElement("span");
-        count.textContent = cluster.scope === "localArea" ? String(cluster.programCount) : `강좌 ${cluster.programCount}`;
-        const insight = document.createElement("small");
-        insight.textContent = cluster.categoryName || "신청 가능한 프로그램";
-        button.append(area, count, insight);
+        count.textContent = activeConditionCount > 0
+          ? `${clusterKeyword} ${cluster.programCount.toLocaleString("ko-KR")}`
+          : cluster.scope === "localArea" ? String(cluster.programCount) : `활동 ${cluster.programCount}`;
+        if (activeConditionCount > 0) {
+          button.append(area, count);
+        } else {
+          const insight = document.createElement("small");
+          insight.textContent = cluster.categoryName || "신청 가능한 프로그램";
+          button.append(area, count, insight);
+        }
         button.addEventListener("click", () => {
           map.panTo(new window.kakao!.maps.LatLng(cluster.latitude, cluster.longitude));
           map.setLevel(Math.max(1, map.getLevel() - 2));

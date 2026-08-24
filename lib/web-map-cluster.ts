@@ -68,3 +68,61 @@ export const WEB_MAP_CLUSTER_DISPLAY_LIMIT: Record<Exclude<WebMapAggregationScop
   city: 16,
   province: 18,
 };
+
+export type WebClusterableProgram = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  area: string;
+};
+
+export type WebLocalMapCluster = {
+  id: string;
+  scope: Exclude<WebMapAggregationScope, "individual">;
+  regionName: string;
+  areaName: string;
+  categoryName: string;
+  latitude: number;
+  longitude: number;
+  programCount: number;
+  programIds: string[];
+};
+
+function administrativeArea(program: WebClusterableProgram, scope: Exclude<WebMapAggregationScope, "individual">) {
+  const raw = `${program.address ?? ""} ${program.area ?? ""}`.trim();
+  const tokens = raw.split(/\s+/).filter(Boolean);
+  const province = tokens.find((token) => /(?:특별자치시|특별자치도|특별시|광역시|도)$/.test(token));
+  const district = tokens.find((token) => /(?:시|구|군)$/.test(token) && !/(?:특별시|광역시|특별자치시)$/.test(token));
+  const locality = [...tokens].reverse().find((token) => /(?:동|읍|면|리)$/.test(token));
+  if (scope === "localArea") return locality || program.area || district || province;
+  if (scope === "neighborhood" || scope === "district") return district || program.area || province;
+  if (scope === "city") return /도$/.test(province ?? "") ? (district || province) : (province || district || program.area);
+  return province || program.area || district;
+}
+
+/** 조건에 맞는 프로그램 행만 기존 동·구·시 행정구역 단계로 묶는다. */
+export function clusterFilteredWebPrograms(
+  programs: readonly WebClusterableProgram[],
+  scope: Exclude<WebMapAggregationScope, "individual">,
+  keyword: string,
+): WebLocalMapCluster[] {
+  const groups = new Map<string, WebClusterableProgram[]>();
+  programs.forEach((program) => {
+    if (!Number.isFinite(program.latitude) || !Number.isFinite(program.longitude)) return;
+    const fallback = `좌표 ${(program.latitude * 100).toFixed(0)}:${(program.longitude * 100).toFixed(0)}`;
+    const areaName = administrativeArea(program, scope)?.trim() || fallback;
+    groups.set(areaName, [...(groups.get(areaName) ?? []), program]);
+  });
+  return [...groups.entries()].map(([areaName, members]) => ({
+    id: `filtered:${scope}:${areaName}`,
+    scope,
+    regionName: areaName,
+    areaName,
+    categoryName: keyword,
+    latitude: members.reduce((sum, program) => sum + program.latitude, 0) / members.length,
+    longitude: members.reduce((sum, program) => sum + program.longitude, 0) / members.length,
+    programCount: members.length,
+    programIds: members.map((program) => program.id),
+  })).sort((left, right) => right.programCount - left.programCount || left.areaName.localeCompare(right.areaName, "ko"));
+}

@@ -195,6 +195,8 @@
 .dg-cluster-marker strong { overflow: visible; font-size: 13px; font-weight: 900; text-overflow: clip; white-space: nowrap; }
 .dg-cluster-marker span { min-width: 26px; padding: 4px 6px; border-radius: 999px; color: #fff; background: #2fa84f; font-size: 10px; font-weight: 900; text-align: center; white-space: nowrap; }
 .dg-cluster-marker small { grid-column: 1 / -1; overflow: hidden; color: #718076; font-size: 9.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.dg-cluster-marker.is-filtered { min-width: 112px; padding: 7px 13px; grid-template-columns: max-content; gap: 3px; }
+.dg-cluster-marker.is-filtered span { min-width: 0; padding: 0; color: #2fa84f; background: transparent; text-align: left; }
 .dg-cluster-neighborhood, .dg-cluster-district, .dg-cluster-city, .dg-cluster-province { min-height: 42px; border-radius: 13px; }
 .dg-cluster-neighborhood small, .dg-cluster-district small, .dg-cluster-city small, .dg-cluster-province small { display: none; }
 
