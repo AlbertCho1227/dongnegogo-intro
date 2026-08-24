@@ -74,6 +74,11 @@ type PersonaDefinition = {
   aliases: readonly string[];
 };
 
+export type WebProgramPersonaGroup = {
+  title: string;
+  items: readonly PersonaDefinition[];
+};
+
 export const WEB_PROGRAM_PERSONAS: readonly PersonaDefinition[] = [
   { label: "누구나", emoji: "👥", aliases: ["누구나", "제한없음", "제한 없음", "전체", "모든 시민", "일반"] },
   { label: "영유아", emoji: "👶", aliases: ["영유아", "유아", "미취학", "아기", "베이비"] },
@@ -93,6 +98,12 @@ export const WEB_PROGRAM_PERSONAS: readonly PersonaDefinition[] = [
   { label: "외국인", emoji: "🌏", aliases: ["외국인", "다문화", "이주민", "결혼이민"] },
   { label: "1인가구", emoji: "🏠", aliases: ["1인가구", "1인 가구", "일인가구", "싱글"] },
   { label: "지역주민", emoji: "📍", aliases: ["지역주민", "지역 주민", "구민", "동 주민", "시민"] },
+] as const;
+
+export const WEB_PROGRAM_PERSONA_GROUPS: readonly WebProgramPersonaGroup[] = [
+  { title: "연령·세대", items: WEB_PROGRAM_PERSONAS.slice(1, 9) },
+  { title: "가족·생활", items: WEB_PROGRAM_PERSONAS.filter((item) => ["누구나", "가족", "부모·보호자", "1인가구"].includes(item.label)) },
+  { title: "상황·대상", items: WEB_PROGRAM_PERSONAS.filter((item) => ["직장인", "여성", "남성", "장애인", "외국인", "지역주민"].includes(item.label)) },
 ] as const;
 
 const DETAIL_ICON_BY_LABEL = new Map(WEB_DETAIL_FILTERS.map((item) => [item.label, item.iconName]));

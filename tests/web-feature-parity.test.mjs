@@ -206,14 +206,26 @@ test("세부 종목은 네 개의 흰색 카드로 빠짐없이 그룹화한다"
   assert.match(webMapStyle, /\.dg-detail-filter-card[^}]*background:\s*#fff;[^}]*box-shadow:/);
 });
 
-test("프로그램 거리 조건은 맨 위 공통 슬라이더와 실제 위치 기준으로 동작한다", () => {
+test("대상 키워드는 성격별 세 구역의 한 카드로 빠짐없이 그룹화한다", () => {
+  assert.match(webProgramFiltersSource, /WEB_PROGRAM_PERSONA_GROUPS/);
+  assert.match(webProgramFiltersSource, /title: "연령·세대"/);
+  assert.match(webProgramFiltersSource, /title: "가족·생활"/);
+  assert.match(webProgramFiltersSource, /title: "상황·대상"/);
+  assert.match(webProgramFiltersSource, /slice\(1, 9\)/);
+  assert.match(webMapSource, /WEB_PROGRAM_PERSONA_GROUPS\.map/);
+  assert.match(webMapStyle, /\.dg-persona-filter-card[^}]*margin-top:\s*0/);
+});
+
+test("요금 상태 다음 거리 조건이 공통 슬라이더와 실제 위치 기준으로 동작한다", () => {
   assert.match(webMapSource, /PROGRAM_DISTANCE_RADII_KM[^=]*= \[\s*null, 0\.1, 0\.3, 0\.5, 1, 3, 5, 10, 20/);
   assert.match(webMapSource, /function ProgramDistanceSelector/);
   assert.match(webMapSource, /집에서 얼마나 가까운 곳을 찾으세요\?/);
   assert.match(webMapSource, /aria-label="집에서 프로그램까지 검색 반경"/);
   assert.match(webMapSource, /radiusKm !== null && !usesFallbackLocation && distanceMeters/);
+  assert.ok(webMapSource.indexOf("<FeeStatusFilterSection") < webMapSource.indexOf("<ProgramDistanceSelector"));
   assert.ok(webMapSource.indexOf("<ProgramDistanceSelector") < webMapSource.indexOf("<PersonaFilterSection"));
   assert.match(webMapStyle, /\.dg-program-radius-card/);
+  assert.match(webMapStyle, /\.dg-fee-status-filter-section/);
 });
 
 test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 표시한다", () => {

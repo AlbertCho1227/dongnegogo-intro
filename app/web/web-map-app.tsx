@@ -8,7 +8,7 @@ import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlac
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
-import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONAS, webProgramMatchesFilters } from "@/lib/web-program-filters";
+import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, webProgramMatchesFilters } from "@/lib/web-program-filters";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
 import {
   hasAmbiguousAdministrativeSuggestions,
@@ -3490,10 +3490,10 @@ function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radi
   return <div className="dg-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="dg-filter-dialog" role="dialog" aria-modal="true" aria-labelledby="dg-filter-title">
       <header><h2 id="dg-filter-title">조건 고르기</h2><button type="button" onClick={onReset}>초기화</button><button type="button" className="dg-modal-x" onClick={onClose} aria-label="닫기">×</button></header>
+      <FeeStatusFilterSection status={status} freeOnly={freeOnly} paidOnly={paidOnly} onStatus={onStatus} onFree={onFree} onPaid={onPaid} />
       <ProgramDistanceSelector radiusKm={radiusKm} onRadius={onRadius} />
       <PersonaFilterSection active={personas} onClick={togglePersona} />
       <DetailFilterSection active={subjects} onClick={toggleSubject} />
-      <FilterSection title="요금 · 신청 상태" values={["무료", "유료", "접수중", "곧 시작", "마감임박"]} active={(value) => value === "무료" ? freeOnly : value === "유료" ? paidOnly : status === (value === "곧 시작" ? "접수예정" : value)} onClick={(value) => { if (value === "무료") onFree(!freeOnly); else if (value === "유료") onPaid(!paidOnly); else onStatus(status === (value === "곧 시작" ? "접수예정" : value as StatusFilter) ? "전체" : (value === "곧 시작" ? "접수예정" : value as StatusFilter)); }} />
       <button className="dg-filter-apply" type="button" onClick={onClose}>선택한 조건으로 {count.toLocaleString("ko-KR")}곳 보기</button>
     </section>
   </div>;
@@ -3511,7 +3511,7 @@ function ProgramDistanceSelector({ radiusKm, onRadius }: { radiusKm: number | nu
   const selectedIndex = Math.max(0, PROGRAM_DISTANCE_RADII_KM.indexOf(radiusKm));
   const selectedLabel = programDistanceRadiusLabel(radiusKm);
   return <section className="dg-nearby-radius-card dg-program-radius-card" aria-label="집에서 프로그램까지 검색 반경">
-    <header><span><Crosshair aria-hidden="true" />집에서 얼마나 가까운 곳을 찾으세요?</span><strong>{selectedLabel}</strong></header>
+    <header><span><Crosshair aria-hidden="true" /><span><b>집에서 얼마나 가까운 곳을 찾으세요?</b><small>현재 위치를 기준으로 가까운 프로그램만 보여드려요</small></span></span><strong>{selectedLabel}</strong></header>
     <div className="dg-nearby-radius-control" style={{ "--dg-radius-progress": `${selectedIndex / (PROGRAM_DISTANCE_RADII_KM.length - 1) * 100}%` } as CSSProperties}>
       <div className="dg-nearby-radius-track" aria-hidden="true"><i /><span>{PROGRAM_DISTANCE_RADII_KM.map((value, index) => <b key={value ?? "all"} className={index === selectedIndex ? "active" : ""} />)}</span></div>
       <input type="range" min="0" max={PROGRAM_DISTANCE_RADII_KM.length - 1} step="1" value={selectedIndex} aria-label="집에서 프로그램까지 검색 반경" aria-valuetext={selectedLabel} onChange={(event) => onRadius(PROGRAM_DISTANCE_RADII_KM[Number(event.target.value)] ?? null)} />
@@ -3532,12 +3532,18 @@ function AlertScheduleDialog({ state, saved, onChange, onSave, onRemove, onClose
   </div>;
 }
 
-function FilterSection({ title, values, active, onClick }: { title: string; values: string[]; active: (value: string) => boolean; onClick: (value: string) => void }) {
-  return <section className="dg-filter-section"><h3>{title}</h3><div>{values.map((value) => <button type="button" className={active(value) ? "active" : ""} key={value} onClick={() => onClick(value)}>{value}</button>)}</div></section>;
+function FeeStatusFilterSection({ status, freeOnly, paidOnly, onStatus, onFree, onPaid }: { status: StatusFilter; freeOnly: boolean; paidOnly: boolean; onStatus: (value: StatusFilter) => void; onFree: (value: boolean) => void; onPaid: (value: boolean) => void }) {
+  const statusOptions: Array<{ label: string; value: StatusFilter }> = [{ label: "접수중", value: "접수중" }, { label: "곧 시작", value: "접수예정" }, { label: "마감임박", value: "마감임박" }];
+  return <section className="dg-filter-choice-card dg-fee-status-filter-section">
+    <div className="dg-filter-section-heading"><h3>요금·신청 상태</h3><p>지금 확인하고 싶은 조건부터 빠르게 골라보세요</p></div>
+    <div className="dg-filter-choice-group"><strong>요금</strong><div><button type="button" className={freeOnly ? "active" : ""} onClick={() => { onFree(!freeOnly); if (!freeOnly) onPaid(false); }}>무료{freeOnly ? " ✓" : ""}</button><button type="button" className={paidOnly ? "active" : ""} onClick={() => { onPaid(!paidOnly); if (!paidOnly) onFree(false); }}>유료{paidOnly ? " ✓" : ""}</button></div></div>
+    <hr />
+    <div className="dg-filter-choice-group"><strong>신청 상태</strong><div>{statusOptions.map((option) => <button type="button" className={status === option.value ? "active" : ""} key={option.label} onClick={() => onStatus(status === option.value ? "전체" : option.value)}>{option.label}{status === option.value ? " ✓" : ""}</button>)}</div></div>
+  </section>;
 }
 
 function PersonaFilterSection({ active, onClick }: { active: string[]; onClick: (value: string) => void }) {
-  return <section className="dg-filter-section dg-persona-filter-section"><h3>누구를 위한 프로그램인가요?</h3><div>{WEB_PROGRAM_PERSONAS.map((persona) => <button type="button" className={active.includes(persona.label) ? "active" : ""} key={persona.label} onClick={() => onClick(persona.label)}><span aria-hidden="true">{persona.emoji}</span>{persona.label}</button>)}</div></section>;
+  return <section className="dg-filter-section dg-persona-filter-section"><div className="dg-filter-section-heading"><h3>누구를 위한 프로그램인가요?</h3><p>여러 대상을 함께 선택할 수 있어요</p></div><div className="dg-filter-choice-card dg-persona-filter-card">{WEB_PROGRAM_PERSONA_GROUPS.map((group, index) => <div className="dg-filter-choice-group" key={group.title}>{index > 0 && <hr />}<strong>{group.title}</strong><div>{group.items.map((persona) => <button type="button" className={active.includes(persona.label) ? "active" : ""} aria-pressed={active.includes(persona.label)} key={persona.label} onClick={() => onClick(persona.label)}><span aria-hidden="true">{persona.emoji}</span>{persona.label}{active.includes(persona.label) ? " ✓" : ""}</button>)}</div></div>)}</div></section>;
 }
 
 function DetailFilterSection({ active, onClick }: { active: string[]; onClick: (value: string) => void }) {

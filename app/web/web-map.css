@@ -477,6 +477,27 @@
 .dg-detail-filter-card > header strong span { font-size: 18px; }
 .dg-detail-filter-card > header small { color: #909891; font-size: 11px; font-weight: 800; }
 .dg-detail-filter-card > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.dg-filter-choice-card { margin-top: 16px; padding: 16px; border: 1px solid #edf0ed; border-radius: 20px; background: #fff; box-shadow: 0 6px 18px rgba(31,61,39,.1); }
+.dg-filter-section-heading h3, .dg-filter-section .dg-filter-section-heading h3 { margin: 0; color: #252d27; font-size: 19px; font-weight: 950; letter-spacing: -.35px; }
+.dg-filter-section-heading p { margin: 3px 0 0; color: #909891; font-size: 13px; font-weight: 650; }
+.dg-filter-choice-group { display: flex; flex-direction: column; gap: 9px; }
+.dg-filter-choice-group > strong { color: #687169; font-size: 13px; font-weight: 900; }
+.dg-filter-choice-group > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.dg-filter-choice-card hr { width: 100%; height: 1px; margin: 13px 0; border: 0; background: #edf0ed; }
+.dg-filter-choice-card button { min-height: 40px; padding: 9px 15px; border: 1px solid #e1e6e1; border-radius: 999px; color: #465047; background: #f7f9f7; font-size: 13px; font-weight: 800; cursor: pointer; }
+.dg-filter-choice-card button.active { border-color: transparent; color: #fff; background: linear-gradient(135deg,var(--dg-lime),var(--dg-green)); }
+.dg-fee-status-filter-section .dg-filter-section-heading { margin-bottom: 15px; }
+.dg-fee-status-filter-section .dg-filter-choice-group > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
+.dg-fee-status-filter-section .dg-filter-choice-group:first-of-type > div { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.dg-persona-filter-section > .dg-filter-section-heading, .dg-persona-filter-section > .dg-persona-filter-card { display: block; }
+.dg-persona-filter-card { margin-top: 0; }
+.dg-persona-filter-card .dg-filter-choice-group > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.dg-persona-filter-card .dg-filter-choice-group > hr { margin-top: 0; }
+.dg-program-radius-card header > span { display: flex; align-items: flex-start; gap: 8px; font-size: inherit; }
+.dg-program-radius-card header > span > svg { flex: none; margin-top: 2px; color: var(--dg-green); }
+.dg-program-radius-card header > span > span { display: flex; flex-direction: column; gap: 2px; }
+.dg-program-radius-card header > span b { color: #252d27; font-size: 17px; font-weight: 950; letter-spacing: -.4px; }
+.dg-program-radius-card header > span small { color: #909891; font-size: 12px; font-weight: 650; line-height: 1.35; }
 .dg-filter-apply { position: sticky; bottom: 0; width: 100%; height: 54px; margin-top: 24px; border: 0; border-radius: 16px; color: #fff; background: linear-gradient(100deg,var(--dg-lime),var(--dg-green)); font-size: 16px; font-weight: 900; box-shadow: 0 8px 22px rgba(34,177,76,.25); cursor: pointer; }
 
 .dg-aux-panel, .dg-openrun-panel { min-height: 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
