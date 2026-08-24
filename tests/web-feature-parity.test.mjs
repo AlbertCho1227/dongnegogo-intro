@@ -238,6 +238,8 @@ test("조건 화면을 내리면 오른쪽 아래 맨 위로 버튼을 제공한
 
 test("조건 적용과 지도 상단 키워드는 결과 범위로 이동하고 개별 마커 모드를 유지한다", () => {
   assert.match(webMapSource, /filterFitRequestId/);
+  assert.match(webMapSource, /filterFitProgramSignature/);
+  assert.match(webMapSource, /filterFitAppliedSignature/);
   assert.match(webMapSource, /setMapMode\("individual"\)/);
   assert.match(webMapSource, /map\.setBounds\(bounds/);
   assert.match(webMapSource, /setMapClusters\(hasActiveProgramFilter \? \[\] : payload\.clusters\)/);

@@ -158,6 +158,41 @@ function programDistanceRadiusLabel(radiusKm: number | null) {
   return radiusKm < 1 ? `${Math.round(radiusKm * 1_000)}m` : `${radiusKm}km`;
 }
 
+export function webMapFilterSelectionSignature({
+  fieldFilter,
+  personaFilters,
+  subjectFilters,
+  statusFilter,
+  todayOnly,
+  freeOnly,
+  paidOnly,
+  seniorOnly,
+  radiusKm,
+}: {
+  fieldFilter: string; personaFilters: string[]; subjectFilters: string[]; statusFilter: StatusFilter;
+  todayOnly: boolean; freeOnly: boolean; paidOnly: boolean; seniorOnly: boolean; radiusKm: number | null;
+}) {
+  return [
+    fieldFilter,
+    [...personaFilters].sort().join(","),
+    [...subjectFilters].sort().join(","),
+    statusFilter,
+    todayOnly ? "today" : "",
+    freeOnly ? "free" : "",
+    paidOnly ? "paid" : "",
+    seniorOnly ? "senior" : "",
+    radiusKm?.toString() ?? "",
+  ].join("|");
+}
+
+export function webProgramFitCoordinateSignature(programs: WebProgram[]) {
+  return programs
+    .filter((program) => Number.isFinite(program.latitude) && Number.isFinite(program.longitude))
+    .map((program) => `${program.id}:${program.latitude.toFixed(6)}:${program.longitude.toFixed(6)}`)
+    .sort()
+    .join("|");
+}
+
 function uniquePrograms(programs: WebProgram[]) {
   const seen = new Set<string>();
   return programs.filter((program) => !seen.has(program.id) && Boolean(seen.add(program.id)));
@@ -474,6 +509,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [auxiliaryPanel, setAuxiliaryPanel] = useState<AuxiliaryPanel>(null);
   const [showFilter, setShowFilter] = useState(false);
   const [filterFitRequestId, setFilterFitRequestId] = useState(0);
+  const [filterFitAppliedSignature, setFilterFitAppliedSignature] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchIntent, setSearchIntent] = useState<SearchIntent | null>(null);
   const [searchCandidates, setSearchCandidates] = useState<WebProgram[]>([]);
@@ -556,7 +592,17 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     if (seniorOnly && !personaFilters.includes("시니어")) count += 1;
     return count;
   }, [fieldFilter, freeOnly, paidOnly, personaFilters, radiusKm, seniorOnly, statusFilter, subjectFilters, todayOnly]);
+  const currentFilterSelectionSignature = webMapFilterSelectionSignature({
+    fieldFilter, personaFilters, subjectFilters, statusFilter, todayOnly,
+    freeOnly, paidOnly, seniorOnly, radiusKm,
+  });
   programFilterActiveRef.current = activeConditionCount > 0;
+
+  useEffect(() => {
+    if (filterFitRequestId > 0) setFilterFitAppliedSignature(currentFilterSelectionSignature);
+    // request id changes only for a quick keyword or the explicit Apply button.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterFitRequestId]);
 
   useEffect(() => {
     const read = (key: string) => {
@@ -1020,8 +1066,15 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     });
   }, [programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, tab, favorites, sort, center]);
 
+  const filterFitProgramSignature = useMemo(
+    () => webProgramFitCoordinateSignature(visiblePrograms),
+    [visiblePrograms],
+  );
+
   useEffect(() => {
-    if (filterFitRequestId === 0 || tab !== "map" || heatShelterMode || routePanelActive) return;
+    if (filterFitRequestId === 0 || activeConditionCount === 0
+      || filterFitAppliedSignature !== currentFilterSelectionSignature
+      || tab !== "map" || heatShelterMode || routePanelActive) return;
     const map = mapRef.current;
     const maps = window.kakao?.maps;
     if (!map || !maps) return;
@@ -1041,7 +1094,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     matches.forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
     const compactMap = window.innerWidth < 900;
     map.setBounds(bounds, compactMap ? 160 : 80, compactMap ? 44 : 80, compactMap ? 120 : 80, compactMap ? 44 : 420);
-  }, [filterFitRequestId]);
+  }, [activeConditionCount, currentFilterSelectionSignature, filterFitAppliedSignature, filterFitProgramSignature, filterFitRequestId, heatShelterMode, routePanelActive, tab]);
 
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
