@@ -11,9 +11,12 @@ import styles from "./program-share.module.css";
 type PageProps = { params: Promise<{ id: string }> };
 
 function cleanID(value: string): string {
-  // Next already decodes dynamic path parameters. Decoding a second time can
-  // turn a literal percent sequence in a public-data ID into another value.
-  return value.trim();
+  const trimmed = value.trim();
+  // Next decodes this segment in Node, while the production worker can provide
+  // its encoded form. A decoded public-data ID already contains its namespace
+  // colon, so avoid decoding it twice when the ID itself contains a `%xx` token.
+  if (trimmed.includes(":")) return trimmed;
+  try { return decodeURIComponent(trimmed).trim(); } catch { return trimmed; }
 }
 
 function categoryEmoji(program: SharedProgram): string {

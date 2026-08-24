@@ -232,6 +232,8 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   const webMap = await readFile(new URL("app/web/web-map-app.tsx", projectRoot), "utf8");
 
   assert.match(page, /동네고고에서 찾았어요/);
+  assert.match(page, /if \(trimmed\.includes\(":"\)\) return trimmed/);
+  assert.match(page, /decodeURIComponent\(trimmed\)/);
   assert.match(page, /이 프로그램은요/);
   assert.match(page, /알림을 켜두면 놓치지 않아요/);
   assert.match(page, /지도에서 더 자세히 보기/);
