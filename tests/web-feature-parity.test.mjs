@@ -269,7 +269,16 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapStyle, /grid-template-columns:\s*88px 430px minmax\(0,\s*1fr\)/);
   assert.match(webMapStyle, /\.dg-side-panel-map:not\(\.dg-side-panel-overlay\)\s*\{\s*display:\s*none/);
   assert.match(webMapStyle, /\.dg-mobile-map-header/);
-  assert.match(webMapStyle, /\.dg-place-sheet::before/);
+  assert.match(webMapSource, /type PlaceSheetSnap = "hidden" \| "collapsed" \| "expanded"/);
+  assert.match(webMapSource, /function placeSheetHeights\(viewportHeight/);
+  assert.match(webMapSource, /ref=\{grabberRef\} className="dg-place-sheet-grabber"/);
+  assert.match(webMapSource, /dg-place-sheet-\$\{snap\}/);
+  assert.match(webMapSource, /setDragHeight\(Math\.max\(heights\.hidden, Math\.min\(heights\.expanded/);
+  assert.match(webMapSource, /if \(nextSnap === "hidden"\) dismiss\(\)/);
+  assert.match(webMapStyle, /\.dg-place-sheet-expanded \{[^}]*--dg-place-sheet-height:\s*calc\(100dvh - 82px\)/);
+  assert.match(webMapStyle, /\.dg-place-sheet-hidden \{[^}]*--dg-place-sheet-height:\s*0px;[^}]*opacity:\s*0/);
+  assert.match(webMapStyle, /\.dg-place-sheet-dragging \{\s*transition:\s*none/);
+  assert.match(webMapStyle, /\.dg-place-sheet-grabber \{[^}]*touch-action:\s*none/);
   assert.match(webMapStyle, /\.dg-side-panel-overlay\s*\{\s*z-index:\s*80;\s*bottom:\s*0/);
   assert.match(webMapSource, /type MobileSheetSnap = "hidden" \| "collapsed" \| "medium" \| "expanded"/);
   assert.match(webMapSource, /window\.addEventListener\("pointermove", onPointerMove/);

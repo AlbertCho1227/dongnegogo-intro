@@ -90,6 +90,7 @@ type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: n
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
 type AlertDialogState = { program: WebProgram; scheduledAt: string };
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
+type PlaceSheetSnap = "hidden" | "collapsed" | "expanded";
 type RoutePanelMode = "route" | "nearby";
 type RoutePanelSnap = "hidden" | "collapsed" | "expanded";
 type LocationRequestState = "idle" | "checking" | "granted" | "denied" | "unavailable" | "timeout";
@@ -191,6 +192,15 @@ function mobileSheetHeights(viewportHeight: number) {
     medium: Math.min(520, Math.max(330, Math.round(available * 0.56))),
     expanded: Math.max(320, available - 8),
   } satisfies Record<MobileSheetSnap, number>;
+}
+
+function placeSheetHeights(viewportHeight: number) {
+  const available = Math.max(380, viewportHeight - 82);
+  return {
+    hidden: 0,
+    collapsed: Math.min(500, Math.max(330, Math.round(available * 0.5))),
+    expanded: available,
+  } satisfies Record<PlaceSheetSnap, number>;
 }
 
 function routePanelHeights(viewportHeight: number, mode: RoutePanelMode = "route", hasNearbySelection = false) {
@@ -3252,12 +3262,134 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   state: PlaceSheetState; current: Coordinate; accountFeaturesVisible: boolean; reminderIDs: string[];
   onClose: () => void; onIndex: (index: number) => void; onDetail: (program: WebProgram) => void; onReminder: (program: WebProgram) => void;
 }) {
+  const sheetRef = useRef<HTMLElement>(null);
+  const grabberRef = useRef<HTMLButtonElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+  const dragRef = useRef({ pointerID: -1, startY: 0, startHeight: 0, moved: false });
+  const onCloseRef = useRef(onClose);
+  const [snap, setSnap] = useState<PlaceSheetSnap>("collapsed");
+  const [dragHeight, setDragHeight] = useState<number | null>(null);
   const program = state.programs[state.index];
   const total = Math.max(state.expectedCount, state.programs.length);
   const previous = () => onIndex(state.index <= 0 ? Math.max(0, state.programs.length - 1) : state.index - 1);
   const next = () => onIndex(state.index + 1 >= state.programs.length ? 0 : state.index + 1);
-  return <section className="dg-place-sheet" role="dialog" aria-label="같은 장소 프로그램">
-    <button className="dg-sheet-close" type="button" onClick={onClose} aria-label="닫기">×</button>
+
+  const dismiss = useCallback(() => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    setDragHeight(null);
+    setSnap("hidden");
+    closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 240);
+  }, []);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    const grabber = grabberRef.current;
+    if (!sheet || !grabber || !window.matchMedia("(max-width: 900px)").matches || snap === "hidden") return;
+
+    const begin = (pointerID: number, clientY: number) => {
+      const heights = placeSheetHeights(window.innerHeight);
+      const height = sheet.getBoundingClientRect().height || heights[snap];
+      dragRef.current = { pointerID, startY: clientY, startHeight: height, moved: false };
+      setDragHeight(height);
+    };
+    const move = (pointerID: number, clientY: number) => {
+      const drag = dragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const heights = placeSheetHeights(window.innerHeight);
+      const delta = drag.startY - clientY;
+      if (Math.abs(delta) > 6) drag.moved = true;
+      setDragHeight(Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight + delta)));
+    };
+    const finish = (pointerID: number, clientY: number) => {
+      const drag = dragRef.current;
+      if (drag.pointerID !== pointerID) return;
+      const heights = placeSheetHeights(window.innerHeight);
+      const delta = clientY - drag.startY;
+      const finalHeight = Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight - delta));
+      let nextSnap: PlaceSheetSnap = snap;
+      if (finalHeight < heights.collapsed * 0.55) nextSnap = "hidden";
+      else if (delta < -50) nextSnap = "expanded";
+      else if (delta > 50) nextSnap = snap === "expanded" ? "collapsed" : "hidden";
+      else nextSnap = Math.abs(finalHeight - heights.expanded) < Math.abs(finalHeight - heights.collapsed) ? "expanded" : "collapsed";
+      dragRef.current.pointerID = -1;
+      setDragHeight(null);
+      if (nextSnap === "hidden") dismiss();
+      else setSnap(nextSnap);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      begin(event.pointerId, event.clientY);
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (dragRef.current.pointerID !== event.pointerId) return;
+      event.preventDefault();
+      move(event.pointerId, event.clientY);
+    };
+    const onPointerEnd = (event: PointerEvent) => finish(event.pointerId, event.clientY);
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      event.preventDefault();
+      begin(touch.identifier, touch.clientY);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === dragRef.current.pointerID);
+      if (!touch) return;
+      event.preventDefault();
+      move(touch.identifier, touch.clientY);
+    };
+    const onTouchEnd = (event: TouchEvent) => {
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === dragRef.current.pointerID);
+      if (touch) finish(touch.identifier, touch.clientY);
+    };
+
+    if ("PointerEvent" in window) {
+      grabber.addEventListener("pointerdown", onPointerDown, { passive: false });
+      window.addEventListener("pointermove", onPointerMove, { passive: false });
+      window.addEventListener("pointerup", onPointerEnd);
+      window.addEventListener("pointercancel", onPointerEnd);
+      return () => {
+        grabber.removeEventListener("pointerdown", onPointerDown);
+        window.removeEventListener("pointermove", onPointerMove);
+        window.removeEventListener("pointerup", onPointerEnd);
+        window.removeEventListener("pointercancel", onPointerEnd);
+      };
+    }
+
+    grabber.addEventListener("touchstart", onTouchStart, { passive: false });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      grabber.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [dismiss, snap]);
+
+  const toggleSnap = () => {
+    if (dragRef.current.moved) {
+      dragRef.current.moved = false;
+      return;
+    }
+    setSnap((currentSnap) => currentSnap === "expanded" ? "collapsed" : "expanded");
+    setDragHeight(null);
+  };
+  const sheetStyle = (dragHeight === null ? {} : { "--dg-place-sheet-height": `${dragHeight}px` }) as CSSProperties;
+
+  return <section ref={sheetRef} className={`dg-place-sheet dg-place-sheet-${snap}${dragHeight !== null ? " dg-place-sheet-dragging" : ""}`} style={sheetStyle} role="dialog" aria-label="같은 장소 프로그램">
+    <button ref={grabberRef} className="dg-place-sheet-grabber" type="button" onClick={toggleSnap} aria-label={snap === "expanded" ? "프로그램 패널 축소하기" : "프로그램 패널 전체로 펼치기"}><span aria-hidden="true" /><em>{snap === "expanded" ? "아래로 내려 축소하거나 닫기" : "위로 올려 전체 보기 · 아래로 내려 닫기"}</em></button>
+    <button className="dg-sheet-close" type="button" onClick={dismiss} aria-label="닫기">×</button>
     {total > 1 && <header><button type="button" onClick={previous} disabled={state.programs.length < 2} aria-label="왼쪽으로 이동">‹</button><div><small>같은 장소 프로그램</small><strong>{Math.min(state.index + 1, total)} / {total}</strong></div><button type="button" onClick={next} disabled={state.programs.length < 2} aria-label="오른쪽으로 이동">›</button></header>}
     {program ? <div className="dg-sheet-body">
       <div className="dg-sheet-badges"><span>{program.status}</span><span>집 근처 {distanceLabel(distanceMeters(current, program))}</span></div>
