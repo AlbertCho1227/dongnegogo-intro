@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
@@ -2809,7 +2809,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
           <button type="button" onClick={onBack} aria-label="목록으로 돌아가기"><span className="dg-ios-back-icon" aria-hidden="true">‹</span></button>
           <span />
           {accountFeaturesVisible && <button type="button" className={`dg-ios-action-button favorite${favorite ? " active" : ""}`} onClick={onFavorite} aria-label={favorite ? "찜 해제" : "찜하기"}><span className="dg-ios-heart-icon" aria-hidden="true">{favorite ? "♥" : "♡"}</span></button>}
-          <button type="button" className="dg-ios-action-button share" onClick={onShare} aria-label="공유하기"><span className="dg-ios-share-icon" aria-hidden="true" /></button>
+          <button type="button" className="dg-ios-action-button share" onClick={onShare} aria-label="공유하기"><Share className="dg-ios-share-icon" aria-hidden="true" strokeWidth={2.4} /></button>
           <a className="dg-ios-action-button map" href={mapLink(program)} target="_blank" rel="noreferrer" aria-label="Kakao 지도에서 보기"><span className="dg-ios-map-icon" aria-hidden="true"><i /><i /><i /></span></a>
         </div>
         <div className="dg-detail-badges"><span>{program.status}</span>{program.applyUrl && <span>✓ 신청 링크 확인됨</span>}</div>

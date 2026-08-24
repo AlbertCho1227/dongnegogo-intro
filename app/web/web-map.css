@@ -202,9 +202,7 @@
 .dg-detail-actions .dg-ios-action-button { color: var(--dg-green); }
 .dg-ios-heart-icon { font-size: 27px; font-weight: 500; line-height: 1; }
 .dg-ios-action-button.favorite.active .dg-ios-heart-icon { font-size: 23px; }
-.dg-ios-share-icon { position: relative; width: 22px; height: 23px; display: block; color: #242925; }
-.dg-ios-share-icon::before { position: absolute; left: 4px; right: 4px; bottom: 1px; height: 13px; border: 2px solid currentColor; border-top: 0; border-radius: 2px 2px 4px 4px; content: ""; }
-.dg-ios-share-icon::after { position: absolute; top: -7px; left: 50%; color: currentColor; content: "↑"; font-size: 23px; font-weight: 500; line-height: 1; transform: translateX(-50%); }
+.dg-ios-share-icon { width: 18px; height: 20px; display: block; color: #20241f; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
 .dg-ios-map-icon { width: 24px; height: 22px; display: flex; align-items: stretch; color: var(--dg-green); }
 .dg-ios-map-icon i { width: 8px; border: 2px solid currentColor; border-right: 0; display: block; transform: skewY(-12deg); }
 .dg-ios-map-icon i:nth-child(2) { transform: skewY(12deg); }
@@ -831,7 +829,7 @@
   .dg-ios-back-icon { font-size: 28px; }
   .dg-ios-heart-icon { font-size: 24px; }
   .dg-ios-action-button.favorite.active .dg-ios-heart-icon { font-size: 21px; }
-  .dg-ios-share-icon { width: 19px; height: 20px; transform: scale(.88); }
+  .dg-ios-share-icon { width: 18px; height: 20px; }
   .dg-ios-map-icon { width: 21px; height: 20px; }
   .dg-ios-map-icon i { width: 7px; }
   .dg-detail-badges { margin-top: 7px; gap: 5px; }
