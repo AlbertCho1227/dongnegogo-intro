@@ -69,6 +69,19 @@ test("상단 최신 이야기에는 Supabase 업데이트 순서의 3개만 표�
   assert.match(data, /order: "updated_at\.desc\.nullslast,id\.asc"/);
 });
 
+test("편집 추천과 최신 이야기 카드가 실제 프로그램 이미지를 우선 표시한다", async () => {
+  const page = await readFile(new URL("app/blog/page.tsx", projectRoot), "utf8");
+  const explorer = await readFile(new URL("components/blog-explorer.tsx", projectRoot), "utf8");
+  const styles = await readFile(new URL("app/blog/blog.css", projectRoot), "utf8");
+
+  assert.match(page, /featured\.imageUrl[\s\S]*?<ProgramMediaImage className="blog-featured__image"/);
+  assert.match(explorer, /program\.imageUrl[\s\S]*?<ProgramMediaImage className="blog-card__image"/);
+  assert.match(styles, /> img\.blog-featured__image \{[^}]*width: 100%;[^}]*height: 100%;[^}]*object-fit: cover;/);
+  assert.match(styles, /> img\.blog-card__image \{[^}]*width: 100%;[^}]*height: 100%;[^}]*object-fit: cover;/);
+  assert.match(styles, /img\.blog-featured__image\.is-media-fallback/);
+  assert.match(styles, /img\.blog-card__image\.is-media-fallback/);
+});
+
 test("각 글은 고유 메타데이터·출처·구조화 데이터·내부 링크를 갖는다", async () => {
   const slugs = [
     "bupyeong-free-kids-ai-coding-class",

@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 
+import { ProgramMediaImage } from "@/components/program-media-image";
 import { blogProgramAccent, blogProgramIcon, blogProgramKind, koreanDateOnly } from "@/lib/blog-program";
 import type { BlogProgramSummary } from "@/lib/blog-program-data";
 
@@ -41,7 +42,9 @@ export function BlogExplorer({ programs }: { programs: BlogProgramSummary[] }) {
               <article className={`blog-card blog-accent--${accent}`} key={program.id}>
                 <Link className="blog-card__visual" href={href} tabIndex={-1} aria-hidden="true">
                   <span className="blog-card__orb" />
-                  <img src={icon} alt="" width="88" height="88" />
+                  {program.imageUrl
+                    ? <ProgramMediaImage className="blog-card__image" src={program.imageUrl} fallbackSrc={icon} alt={`${name} 대표 이미지`} loading="lazy" />
+                    : <img src={icon} alt="" width="88" height="88" />}
                   <span className="blog-card__region">{program.area || "전국"}</span>
                 </Link>
                 <div className="blog-card__body">

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { BlogExplorer } from "@/components/blog-explorer";
 import { BlogHeader } from "@/components/blog-header";
+import { ProgramMediaImage } from "@/components/program-media-image";
 import { ProgramStoryExplorer } from "@/components/program-story-explorer";
 import { BLOG_POSTS, blogPostUrl } from "@/lib/blog-posts";
 import { getBlogProgramArchivePage, getLatestBlogPrograms } from "@/lib/blog-program-data";
@@ -75,8 +76,10 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
               <span className="blog-featured__label">EDITOR&apos;S PICK</span>
               <span className="blog-featured__shape blog-featured__shape--one" />
               <span className="blog-featured__shape blog-featured__shape--two" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={featured.iconPath} alt={featured.imageAlt} width="146" height="146" />
+              {featured.imageUrl
+                ? <ProgramMediaImage className="blog-featured__image" src={featured.imageUrl} fallbackSrc={featured.iconPath} alt={featured.imageAlt} />
+                // eslint-disable-next-line @next/next/no-img-element
+                : <img src={featured.iconPath} alt={featured.imageAlt} width="146" height="146" />}
             </div>
             <div className="blog-featured__copy">
               <span>{featured.category} · {featured.region}</span>
