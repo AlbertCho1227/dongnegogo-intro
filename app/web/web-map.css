@@ -249,7 +249,6 @@
 .dg-route-preview-open { position: absolute; z-index: 4; inset: 0; width: 100%; border: 0; background: transparent; cursor: pointer; }
 .dg-route-preview-pin { min-width: 58px; display: flex; flex-direction: column; align-items: center; color: #fff; filter: drop-shadow(0 4px 7px rgba(20,40,25,.25)); }
 .dg-route-preview-pin > .dg-route-marker-visual { transform: scale(.82); }
-.dg-route-preview-pin.fallback .dg-route-marker-core { filter: grayscale(.74); }
 .dg-route-preview-pin > em { max-width: 115px; margin-top: 3px; padding: 3px 6px; overflow: hidden; border-radius: 999px; color: #344039; background: rgba(255,255,255,.95); font-size: 9px; font-style: normal; font-weight: 850; text-overflow: ellipsis; white-space: nowrap; }
 .dg-transport-tabs { margin-top: 2px; display: grid !important; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
 .dg-transport-tabs button { min-width: 0; min-height: 48px; padding: 10px 3px; border: 1px solid #e6ece4; border-radius: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; color: #606860; background: #f6f8f5; font-size: 12px; font-weight: 800; cursor: pointer; }
@@ -521,7 +520,6 @@
 .dg-route-marker-visual.origin .dg-route-marker-core b { position: absolute; top: 10px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 .dg-route-marker-visual.origin .dg-route-marker-core em { position: absolute; top: 22px; width: 21px; height: 11px; border-radius: 6px; background: #fff; }
 .dg-route-marker-visual.destination .dg-route-marker-core { width: 38px; height: 38px; border: 4px solid #fff; outline: 2.2px solid rgba(47,168,79,.95); background: rgba(47,168,79,.14); box-shadow: 0 2px 4px rgba(0,0,0,.22); font-size: 20px; line-height: 1; }
-.dg-route-origin.fallback .dg-route-marker-core { border-color: #707a72; background: linear-gradient(145deg,#a0a8a1,#707a72); box-shadow: 0 3px 6px rgba(0,0,0,.22), 0 0 0 5px rgba(112,122,114,.14); }
 @keyframes dg-route-marker-ripple { 0% { opacity: .5; transform: scale(.72); } 100% { opacity: 0; transform: scale(1.55); } }
 .dg-nearby-map-marker { width: 30px; height: 30px; padding: 0; border: 2px solid rgba(255,255,255,.94); border-radius: 50%; color: #fff; background: linear-gradient(145deg,#55cf53,#16a744); font-size: 14px; line-height: 1; transition: width .16s ease, height .16s ease, color .16s ease, background .16s ease, border-color .16s ease; }
 .dg-nearby-map-marker.selected { z-index: 2; width: 38px; height: 38px; border: 3px solid var(--dg-green); color: var(--dg-green); background: #fff; animation: dg-nearby-marker-pulse 1s ease-in-out infinite alternate; }

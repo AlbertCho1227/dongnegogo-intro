@@ -136,6 +136,9 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /className\.includes\("dg-route-endpoint"\) \? 28 : 20/);
   assert.match(webMapStyle, /\.dg-route-marker-visual\.origin \.dg-route-marker-core/);
   assert.match(webMapStyle, /\.dg-route-marker-visual\.destination \.dg-route-marker-core/);
+  assert.match(webMapStyle, /\.dg-route-marker-visual\.origin \.dg-route-marker-core \{[^}]*border:\s*1\.8px solid rgba\(8,133,64,\.95\);[^}]*background:\s*linear-gradient\(145deg,#59d157,#0d9b4c\)/);
+  assert.doesNotMatch(webMapStyle, /\.dg-route-origin\.fallback \.dg-route-marker-core/);
+  assert.doesNotMatch(webMapStyle, /\.dg-route-preview-pin\.fallback \.dg-route-marker-core[^}]*grayscale/);
   assert.match(webMapStyle, /@keyframes dg-route-marker-ripple/);
   assert.match(webMapStyle, /\.dg-nearby-map-marker/);
   assert.match(webMapSource, /function KakaoRoutePreview/);
