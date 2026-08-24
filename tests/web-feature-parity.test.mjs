@@ -174,6 +174,13 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });
 
+test("군집 마커는 지역명과 강좌 수를 말줄임 없이 표시한다", () => {
+  assert.match(webMapStyle, /\.dg-cluster-marker \{[^}]*width:\s*max-content;[^}]*min-width:\s*132px;[^}]*grid-template-columns:\s*max-content max-content;/);
+  assert.match(webMapStyle, /\.dg-cluster-marker strong \{[^}]*overflow:\s*visible;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*nowrap;/);
+  assert.match(webMapStyle, /\.dg-cluster-marker span \{[^}]*white-space:\s*nowrap;/);
+  assert.doesNotMatch(webMapStyle, /\.dg-cluster-marker strong \{[^}]*text-overflow:\s*ellipsis/);
+});
+
 test("웹 실제 경로는 iOS와 같은 동네고고 경로 계약을 서버에서 사용한다", () => {
   assert.match(webRouteSource, /android-route-directions/);
   assert.match(webRouteSource, /facility-transit-info/);
