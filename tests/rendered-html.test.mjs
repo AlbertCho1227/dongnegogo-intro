@@ -229,6 +229,7 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   const data = await readFile(new URL("lib/program-share-data.ts", projectRoot), "utf8");
   const mapIcons = await readFile(new URL("lib/official-map-icons.ts", projectRoot), "utf8");
   const openApp = await readFile(new URL("app/program/[id]/OpenAppButton.tsx", projectRoot), "utf8");
+  const webMap = await readFile(new URL("app/web/web-map-app.tsx", projectRoot), "utf8");
 
   assert.match(page, /동네고고에서 찾았어요/);
   assert.match(page, /이 프로그램은요/);
@@ -274,8 +275,11 @@ test("프로그램 공유 페이지는 서버 전용 공개 데이터와 스크�
   assert.match(data, /DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY/);
   assert.match(data, /startsWith\("sb_publishable_"\)/);
   assert.doesNotMatch(data, /service_role|sb_secret_|NEXT_PUBLIC_/i);
-  assert.match(openApp, /dongnegogo:\/\/program\?id=/);
-  assert.match(openApp, /window\.setTimeout/);
+  assert.match(openApp, /href=\{`\/web\?program=\$\{encodeURIComponent\(programID\)\}`\}/);
+  assert.doesNotMatch(openApp, /dongnegogo:\/\/|window\.setTimeout/);
+  assert.match(webMap, /new URLSearchParams\(window\.location\.search\)\.get\("program"\)/);
+  assert.match(webMap, /fetchPrograms\(new URLSearchParams\(\{ id: programID \}\)/);
+  assert.match(webMap, /void selectProgram\(program\)/);
 });
 
 test("웹 버전은 Kakao SDK와 공개키 기반 Supabase 계정 동기화만 브라우저에 포함한다", async () => {

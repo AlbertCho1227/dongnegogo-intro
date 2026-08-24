@@ -47,8 +47,9 @@ function normalize(value: string | null | undefined) { return (value ?? "").norm
 function compact(value: string | null | undefined) { return normalize(value).replace(/[^가-힣A-Za-z0-9]/g, "").toLowerCase(); }
 function matches(keyword: string, text: string) {
   if (keyword === "AI") return /(^|[^A-Za-z0-9])AI([^A-Za-z0-9]|$)/i.test(text);
-  if (keyword === "요가" && /토요가무|토요가곡|토요가족/.test(text)) return false;
-  if (keyword === "수영" && /수영구|수영동|수영로/.test(text)) return false;
+  if (keyword === "요가") return text.replace(/토요가(?:무|곡|족)/g, "").includes("요가");
+  if (keyword === "수영") return text.replace(/수영(?:구|동|로)/g, "").includes("수영");
+  if (keyword === "물놀이") return text.replace(/(?:사물놀이|풍물놀이)/g, "").includes("물놀이");
   return text.toLocaleLowerCase("ko").includes(keyword.toLocaleLowerCase("ko"));
 }
 function isGeneral(text: string) { return text.replace(/\s/g, "").includes("일반체육활동"); }

@@ -45,6 +45,7 @@ test("수영·요가 지명 오탐과 사물놀이의 물놀이 오탐을 제외
   const matches = searchPrograms([
     program({ id: "swim", name: "성인 수영 교실" }),
     program({ id: "samul", name: "사물놀이동아리" }),
+    program({ id: "pungmul", name: "우리동네 풍물놀이" }),
     program({ id: "district", name: "수영구 주민 강좌", address: "부산광역시 수영구" }),
   ], intent, { latitude: 37.6027, longitude: 127.0128 });
   assert.deepEqual(matches.map((item) => item.program.id), ["swim"]);
@@ -60,6 +61,18 @@ test("iOS 마커 우선순위와 동일 좌표 대표 아이콘을 재현한다"
     program({ id: "swim-a", name: "성인 수영", status: "접수중" }),
   ], (item) => item.status === "접수중" ? 0 : 1);
   assert.equal(representative.id, "swim-a");
+});
+
+test("조건 수영은 사물놀이를 제외하고 실제 물놀이만 포함한다", () => {
+  const samul = program({ id: "samul-filter", name: "신나는 사물놀이 한마당", rawCategory: "국악", rawField: "국악" });
+  const pungmul = program({ id: "pungmul-filter", name: "신명나는 풍물놀이", rawCategory: "국악", rawField: "국악" });
+  const waterPlay = program({ id: "water-filter", name: "여름 물놀이 안전교실", rawCategory: "체육" });
+  assert.equal(programIconName(samul), "icon_traditional_music");
+  assert.notEqual(programIconName(samul), "icon_swimming");
+  assert.equal(programIconName(pungmul), "icon_traditional_music");
+  assert.notEqual(programIconName(pungmul), "icon_swimming");
+  assert.equal(programIconName(waterPlay), "icon_swimming");
+  assert.match(webProgramFiltersSource, /programIconName\(program\)/);
 });
 
 test("iOS 찾기의 입력·도시·장소·대안 상태를 웹에 유지한다", () => {
@@ -247,15 +260,23 @@ test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시
   assert.match(webMapSource, /map\.setCenter\(new maps\.LatLng\(location\.latitude, location\.longitude\)\)/);
   assert.match(webMapSource, /map\.setLevel\(4\)/);
   assert.doesNotMatch(webMapSource, /filterFitProgramSignature/);
-  assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?fetchMapFilterCatalog\(\{[\s\S]*?south: sw\.getLat\(\)/);
+  assert.match(webMapSource, /if \(hasActiveProgramFilter\) \{[\s\S]*?paddedMapFilterBounds\(exactBounds\)[\s\S]*?fetchMapFilterCatalog/);
+  assert.match(webMapSource, /mapFilterBoundsContain\(cached, exactBounds\)/);
+  assert.match(webMapSource, /mapBoundsAbortRef\.current\?\.abort\(\)/);
   assert.match(webMapSource, /clusterFilteredWebPrograms\(nextPrograms, requestedScope, keyword\)/);
   assert.match(webMapSource, /setMapMode\("cluster"\)/);
   assert.match(webMapSource, /addListener\(map, "dragstart"[\s\S]*?programFilterActiveRef\.current[\s\S]*?setMapClusters\(\[\]\)/);
   assert.match(webMapSource, /programFilterActiveRef\.current \? 0 : 420/);
-  assert.match(webMapSource, /unfilteredViewportProgramsRef/);
-  assert.match(webMapSource, /uniquePrograms\(\[\.\.\.unfilteredViewportProgramsRef\.current, \.\.\.programs\]\)/);
+  assert.doesNotMatch(webMapSource, /unfilteredViewportProgramsRef/);
+  assert.match(webMapSource, /const items = programs\.filter\(\(program\) =>/);
   assert.match(webMapSource, /onApply=\{\(\) => \{ setShowFilter\(false\); setFilterFitRequestId/);
   assert.match(webMapSource, /setSubjectFilters\(\(current\) => toggleSingleWebDetailFilter\(current, label\)\)/);
+});
+
+test("알림을 저장하지 않아도 알림 하단 패널을 아래로 밀어 닫을 수 있다", () => {
+  assert.match(webMapSource, /className="dg-alert-sheet-grabber"/);
+  assert.match(webMapSource, /if \(next > 64\) onClose\(\)/);
+  assert.match(webMapStyle, /\.dg-alert-sheet-grabber[^}]*touch-action:\s*none/);
 });
 
 test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 표시한다", () => {
@@ -266,14 +287,17 @@ test("조건 버튼은 키워드 왼쪽에 고정되고 선택 개수 배지를 
   assert.match(webMapStyle, /\.dg-filter-count-badge[^}]*top:\s*-5px;[^}]*right:\s*-5px/);
 });
 
-test("기본 군집은 기존 디자인을 유지하고 조건 군집만 지역명과 키워드를 두 줄로 표시한다", () => {
-  assert.match(webMapStyle, /\.dg-cluster-marker \{[^}]*width:\s*max-content;[^}]*min-width:\s*132px;[^}]*grid-template-columns:\s*max-content max-content;/);
+test("군집은 콘텐츠 너비에 맞추고 조건 키워드와 9+ 수를 한 줄 배지로 표시한다", () => {
+  assert.match(webMapStyle, /\.dg-cluster-marker \{[^}]*width:\s*max-content;[^}]*min-width:\s*0;[^}]*padding:\s*7px 9px;[^}]*grid-template-columns:\s*max-content max-content;/);
   assert.match(webMapStyle, /\.dg-cluster-marker strong \{[^}]*overflow:\s*visible;[^}]*text-overflow:\s*clip;[^}]*white-space:\s*nowrap;/);
   assert.match(webMapStyle, /\.dg-cluster-marker span \{[^}]*white-space:\s*nowrap;/);
   assert.doesNotMatch(webMapStyle, /\.dg-cluster-marker strong \{[^}]*text-overflow:\s*ellipsis/);
-  assert.match(webMapStyle, /\.dg-cluster-marker\.is-filtered \{[^}]*grid-template-columns:\s*max-content/);
+  assert.match(webMapStyle, /\.dg-cluster-marker\.is-filtered \{[^}]*grid-template-columns:\s*max-content max-content;[^}]*gap:\s*5px/);
+  assert.doesNotMatch(webMapStyle, /\.dg-cluster-marker\.is-filtered span[^}]*background:\s*transparent/);
   assert.match(webMapStyle, /\.dg-cluster-marker\.is-compact-admin \{[^}]*min-width:\s*0;[^}]*column-gap:\s*5px/);
   assert.match(webMapSource, /\["이용가능", "이용가능프로그램", "신청가능한강좌", "신청가능한프로그램"\]/);
+  assert.match(webMapSource, /return value >= 9 \? "9\+"/);
+  assert.match(webMapSource, /`\$\{clusterKeyword\} \$\{filteredClusterCountLabel\(cluster\.programCount\)\}`/);
   assert.match(webMapSource, /`활동 \$\{cluster\.programCount\}`/);
 });
 

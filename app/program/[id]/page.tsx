@@ -145,7 +145,7 @@ export default async function ProgramSharePage({ params }: PageProps) {
         </section>
 
         <OpenAppButton programID={program.id} />
-        <p className={styles.appFallback}>앱이 설치되어 있지 않으면 동네고고 안내 페이지로 이동해요.</p>
+        <p className={styles.appFallback}>동네고고 웹 지도에서 이 프로그램의 상세 정보를 바로 열어요.</p>
 
         {program.images.length > 1 && (
           <section className={styles.morePhotos} aria-labelledby="shared-program-photos">

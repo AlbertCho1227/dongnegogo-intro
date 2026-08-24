@@ -189,14 +189,13 @@
 .dg-map-marker > span { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 3px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #ff7a3c; font-size: 8.5px; font-weight: 900; }
 .dg-map-marker > small { position: absolute; top: 55px; left: 50%; max-width: 120px; padding: 3px 6px; overflow: hidden; transform: translateX(-50%); border-radius: 5px; color: #3c443d; background: rgba(255,255,255,.9); font-size: 10px; font-weight: 800; line-height: 1.2; text-overflow: ellipsis; text-shadow: 0 1px 2px #fff; white-space: nowrap; }
 .dg-heat-marker { border-color: #2b8bd6; }
-.dg-cluster-marker { position: relative; width: max-content; min-width: 132px; max-width: min(240px, calc(100vw - 24px)); min-height: 51px; padding: 7px 10px 7px 13px; overflow: hidden; border: 1px solid rgba(215,224,216,.95); border-radius: 14px; display: grid; grid-template-columns: max-content max-content; gap: 2px 7px; align-items: center; color: #263229; background: rgba(255,255,255,.97); box-shadow: 0 5px 15px rgba(20,40,25,.2); cursor: pointer; text-align: left; }
+.dg-cluster-marker { position: relative; width: max-content; min-width: 0; max-width: min(240px, calc(100vw - 24px)); min-height: 51px; padding: 7px 9px; overflow: hidden; border: 1px solid rgba(215,224,216,.95); border-radius: 14px; display: grid; grid-template-columns: max-content max-content; gap: 2px 5px; align-items: center; color: #263229; background: rgba(255,255,255,.97); box-shadow: 0 5px 15px rgba(20,40,25,.2); cursor: pointer; text-align: left; }
 .dg-cluster-marker::before { position: absolute; left: 0; top: 50%; width: 4px; height: 18px; border-radius: 0 4px 4px 0; background: var(--dg-green); content: ""; transform: translateY(-50%); }
 .dg-cluster-marker:hover { transform: translateY(-2px); }
 .dg-cluster-marker strong { overflow: visible; font-size: 13px; font-weight: 900; text-overflow: clip; white-space: nowrap; }
 .dg-cluster-marker span { min-width: 26px; padding: 4px 6px; border-radius: 999px; color: #fff; background: #2fa84f; font-size: 10px; font-weight: 900; text-align: center; white-space: nowrap; }
 .dg-cluster-marker small { grid-column: 1 / -1; overflow: hidden; color: #718076; font-size: 9.5px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
-.dg-cluster-marker.is-filtered { min-width: 112px; padding: 7px 13px; grid-template-columns: max-content; gap: 3px; }
-.dg-cluster-marker.is-filtered span { min-width: 0; padding: 0; color: #2fa84f; background: transparent; text-align: left; }
+.dg-cluster-marker.is-filtered { min-width: 0; padding: 7px 9px; grid-template-columns: max-content max-content; gap: 5px; }
 .dg-cluster-marker.is-compact-admin { min-width: 0; column-gap: 5px; }
 .dg-cluster-neighborhood, .dg-cluster-district, .dg-cluster-city, .dg-cluster-province { min-height: 42px; border-radius: 13px; }
 .dg-cluster-neighborhood small, .dg-cluster-district small, .dg-cluster-city small, .dg-cluster-province small { display: none; }
@@ -667,7 +666,11 @@
 .dg-nearby-brand.kakao { background-image: url('/brand/map-icons/kakao-map-ios.jpg'); }
 .dg-nearby-limit { padding: 11px 13px; border-radius: 12px; color: #6f786f; background: #f2f5f2; font-size: 10.5px; line-height: 1.5; }
 
-.dg-alert-dialog { width: min(520px, 100%); padding: 22px; border-radius: 25px; background: #fff; box-shadow: 0 25px 80px rgba(0,0,0,.25); }
+.dg-alert-dialog { width: min(520px, 100%); padding: 14px 22px 22px; transform: translateY(var(--dg-alert-sheet-drag-y,0px)); border-radius: 25px; background: #fff; box-shadow: 0 25px 80px rgba(0,0,0,.25); transition: transform .2s cubic-bezier(.22,.8,.28,1); }
+.dg-alert-dialog.is-dragging { transition: none; }
+.dg-alert-sheet-grabber { width: 100%; height: 24px; margin: -4px 0 4px; padding: 0; border: 0; display: grid; place-items: center; background: transparent; touch-action: none; cursor: grab; }
+.dg-alert-sheet-grabber:active { cursor: grabbing; }
+.dg-alert-sheet-grabber span { width: 42px; height: 5px; border-radius: 999px; background: #d6dbd6; pointer-events: none; }
 .dg-alert-dialog > header { display: flex; align-items: flex-start; gap: 12px; }
 .dg-alert-dialog > header > div { flex: 1; }
 .dg-alert-dialog > header small { color: var(--dg-green); font-weight: 900; }

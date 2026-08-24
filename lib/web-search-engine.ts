@@ -66,9 +66,9 @@ function unique(values: string[]) { return [...new Set(values.map((item) => item
 function semanticIncludes(text: string, term: string) {
   const lower = text.toLowerCase();
   const needle = term.toLowerCase();
-  if (needle === "물놀이" && lower.includes("사물놀이")) return false;
-  if (needle === "수영" && /수영구|수영동|수영로/.test(text)) return false;
-  if (needle === "요가" && /토요가무|토요가곡|토요가족/.test(text)) return false;
+  if (needle === "물놀이") return lower.replace(/(?:사물놀이|풍물놀이)/g, "").includes(needle);
+  if (needle === "수영") return lower.replace(/수영(?:구|동|로)/g, "").includes(needle);
+  if (needle === "요가") return lower.replace(/토요(?:가무|가곡|가족)/g, "").includes(needle);
   return lower.includes(needle);
 }
 function normalizedQuery(raw: string) {

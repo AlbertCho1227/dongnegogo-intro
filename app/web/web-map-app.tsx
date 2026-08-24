@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
 import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, SlidersHorizontal, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
@@ -97,6 +97,39 @@ type MapFilterResponse = {
   south: number | null; west: number | null; north: number | null; east: number | null;
   message?: string;
 };
+type MapFilterViewportCache = {
+  signature: string;
+  south: number; west: number; north: number; east: number;
+  programs: WebProgram[];
+  storedAt: number;
+};
+
+function paddedMapFilterBounds(
+  bounds: { south: number; west: number; north: number; east: number },
+  padding = .5,
+) {
+  const latitudePadding = Math.max(.0015, (bounds.north - bounds.south) * padding);
+  const longitudePadding = Math.max(.0015, (bounds.east - bounds.west) * padding);
+  return {
+    south: bounds.south - latitudePadding,
+    west: bounds.west - longitudePadding,
+    north: bounds.north + latitudePadding,
+    east: bounds.east + longitudePadding,
+  };
+}
+
+function mapFilterBoundsContain(
+  outer: { south: number; west: number; north: number; east: number },
+  inner: { south: number; west: number; north: number; east: number },
+) {
+  return inner.south >= outer.south && inner.west >= outer.west
+    && inner.north <= outer.north && inner.east <= outer.east;
+}
+
+function programsInsideMapFilterBounds(programs: readonly WebProgram[], bounds: { south: number; west: number; north: number; east: number }) {
+  return programs.filter((program) => program.latitude >= bounds.south && program.latitude <= bounds.north
+    && program.longitude >= bounds.west && program.longitude <= bounds.east);
+}
 
 function mapFilterClusterKeyword(request: MapFilterRequest) {
   return request.details[0]
@@ -108,6 +141,11 @@ function mapFilterClusterKeyword(request: MapFilterRequest) {
     ?? (request.todayOnly ? "오늘 진행" : null)
     ?? (request.radiusMeters ? `${request.radiusMeters < 1_000 ? `${request.radiusMeters}m` : `${request.radiusMeters / 1_000}km`} 이내` : null)
     ?? "선택 조건";
+}
+
+function filteredClusterCountLabel(count: number) {
+  const value = Math.max(0, Math.round(count));
+  return value >= 9 ? "9+" : value.toLocaleString("ko-KR");
 }
 
 function visibleClusterInsightLabel(value: string | null | undefined) {
@@ -508,10 +546,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const queryRef = useRef("");
   const mapRef = useRef<KakaoMap | null>(null);
+  const sharedProgramIDRef = useRef<string | null>(null);
+  const sharedProgramCenteredRef = useRef<string | null>(null);
   const overlaysRef = useRef<KakaoOverlay[]>([]);
   const routeOverlaysRef = useRef<KakaoOverlay[]>([]);
   const mapItemsRef = useRef<KakaoMapItem[]>([]);
   const mapRequestIDRef = useRef(0);
+  const mapBoundsAbortRef = useRef<AbortController | null>(null);
   const searchRequestIDRef = useRef(0);
   const searchSuggestionRequestIDRef = useRef(0);
   const idleTimerRef = useRef<number | null>(null);
@@ -533,7 +574,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const filterCatalogPendingRef = useRef(false);
   const mapFilterSignatureRef = useRef("");
   const completeFilterCatalogRef = useRef<{ signature: string; programs: WebProgram[] } | null>(null);
-  const unfilteredViewportProgramsRef = useRef<WebProgram[]>([]);
+  const filterViewportCacheRef = useRef<MapFilterViewportCache | null>(null);
   const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
@@ -940,6 +981,9 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       forceCluster: String(requestedScope !== "individual" && !hasActiveProgramFilter),
     });
     const requestID = ++mapRequestIDRef.current;
+    mapBoundsAbortRef.current?.abort();
+    const requestController = new AbortController();
+    mapBoundsAbortRef.current = requestController;
     setLoading(true);
     try {
       if (heatShelterModeRef.current) {
@@ -965,19 +1009,32 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         // 사용자가 옮긴 현재 지도 경계의 실제 프로그램 행을 바로 읽어
         // 서울 밖에서도 같은 조건의 개별 마커만 표시한다.
         setProgramCounts({});
+        const exactBounds = { south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng() };
         const completeCatalog = completeFilterCatalogRef.current;
         let nextPrograms: WebProgram[];
         if (completeCatalog?.signature === mapFilterSignatureRef.current) {
-          nextPrograms = completeCatalog.programs.filter((program) =>
-            program.latitude >= sw.getLat() && program.latitude <= ne.getLat()
-            && program.longitude >= sw.getLng() && program.longitude <= ne.getLng());
+          nextPrograms = programsInsideMapFilterBounds(completeCatalog.programs, exactBounds);
         } else {
-          const payload = await fetchMapFilterCatalog({
-            ...mapFilterRequestRef.current,
-            south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng(),
-          });
-          if (mapRequestIDRef.current !== requestID) return;
-          nextPrograms = payload.programs;
+          const cached = filterViewportCacheRef.current;
+          if (cached?.signature === mapFilterSignatureRef.current
+              && Date.now() - cached.storedAt < 120_000
+              && mapFilterBoundsContain(cached, exactBounds)) {
+            nextPrograms = programsInsideMapFilterBounds(cached.programs, exactBounds);
+          } else {
+            const queryBounds = paddedMapFilterBounds(exactBounds);
+            const payload = await fetchMapFilterCatalog({
+              ...mapFilterRequestRef.current,
+              ...queryBounds,
+            }, requestController.signal);
+            if (mapRequestIDRef.current !== requestID) return;
+            filterViewportCacheRef.current = {
+              signature: mapFilterSignatureRef.current,
+              ...queryBounds,
+              programs: payload.programs,
+              storedAt: Date.now(),
+            };
+            nextPrograms = programsInsideMapFilterBounds(payload.programs, exactBounds);
+          }
         }
         setPrograms(nextPrograms);
         if (requestedScope === "individual") {
@@ -988,10 +1045,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           mapScopeRef.current = "individual";
         } else {
           const keyword = mapFilterClusterKeyword(mapFilterRequestRef.current);
-          const clusters = await resolveMapClusterAreas(
-            clusterFilteredWebPrograms(nextPrograms, requestedScope, keyword)
-              .slice(0, WEB_MAP_CLUSTER_DISPLAY_LIMIT[requestedScope] * 2),
-          );
+          // 필터 행은 DB의 행정구역 이름으로 이미 같은 알고리즘에서 묶였다.
+          // 각 군집을 다시 역지오코딩하면 최대 900ms가 추가되므로 즉시 사용한다.
+          const clusters = clusterFilteredWebPrograms(nextPrograms, requestedScope, keyword)
+            .slice(0, WEB_MAP_CLUSTER_DISPLAY_LIMIT[requestedScope] * 2);
           if (mapRequestIDRef.current !== requestID) return;
           setMapClusters(clusters);
           setMapMode("cluster");
@@ -1002,7 +1059,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         setError("");
         return;
       }
-      const response = await fetch(`/api/web-map?${params}`, { cache: "no-store" });
+      const response = await fetch(`/api/web-map?${params}`, { cache: "no-store", signal: requestController.signal });
       const payload = await response.json() as WebMapViewportResult & { message?: string };
       if (!response.ok) throw new Error(payload.message ?? "지도 프로그램을 불러오지 못했습니다.");
       if (mapRequestIDRef.current !== requestID) return;
@@ -1035,7 +1092,6 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         nextPrograms = await fetchPrograms(nearbyParams);
       }
       if (mapRequestIDRef.current !== requestID) return;
-      unfilteredViewportProgramsRef.current = nextPrograms;
       setPrograms(nextPrograms);
       setMapClusters(hasActiveProgramFilter ? [] : payload.clusters);
       setProgramCounts(payload.programCounts ?? {});
@@ -1045,7 +1101,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       mapScopeRef.current = hasActiveProgramFilter ? "individual" : payload.scope;
       setError("");
     } catch (fetchError) {
-      if (mapRequestIDRef.current === requestID) setError((fetchError as Error).message);
+      if (!requestController.signal.aborted && mapRequestIDRef.current === requestID) setError((fetchError as Error).message);
     } finally {
       if (mapRequestIDRef.current === requestID) setLoading(false);
     }
@@ -1122,6 +1178,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           // 이전 지역의 군집 응답/장면을 즉시 무효화한다. idle 이후에는
           // loadBounds가 새 화면의 조건별 개별 행만 다시 읽는다.
           mapRequestIDRef.current += 1;
+          mapBoundsAbortRef.current?.abort();
           setMapClusters([]);
           setProgramCounts({});
           setMapMode("individual");
@@ -1153,7 +1210,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         document.head.appendChild(script);
       }
     }
-    return () => { disposed = true; };
+    return () => { disposed = true; mapBoundsAbortRef.current?.abort(); };
   }, [kakaoMapKey, loadBounds]);
 
   useEffect(() => {
@@ -1210,10 +1267,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         return distanceMeters(searchOrigin, a) - distanceMeters(searchOrigin, b);
       });
     }
-    const localFirstPrograms = activeConditionCount > 0 && unfilteredViewportProgramsRef.current.length > 0
-      ? uniquePrograms([...unfilteredViewportProgramsRef.current, ...programs])
-      : programs;
-    const items = localFirstPrograms.filter((program) => {
+    // `programs` is already replaced with the current viewport's filtered rows.
+    // Merging a previously saved unfiltered viewport here could keep markers from
+    // the old region (most visibly Seoul) after the user moved the map.
+    const items = programs.filter((program) => {
       if (!fieldMatches(program, fieldFilter)) return false;
       if (freeOnly && !program.isFree) return false;
       if (paidOnly && program.isFree) return false;
@@ -1292,6 +1349,45 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
   }, [recordHistory]);
 
+  useEffect(() => {
+    const programID = new URLSearchParams(window.location.search).get("program")?.trim();
+    if (!programID) return;
+    sharedProgramIDRef.current = programID;
+    const controller = new AbortController();
+    void fetchPrograms(new URLSearchParams({ id: programID }), controller.signal)
+      .then((matches) => {
+        const program = matches.find((candidate) => candidate.id === programID) ?? matches[0];
+        if (!program) {
+          setError("공유한 프로그램을 찾을 수 없어요.");
+          return;
+        }
+        // 지도 경계 데이터가 도착하기 전에도 대상 마커와 상세 패널을 즉시 연다.
+        setPrograms((previous) => previous.some((candidate) => candidate.id === program.id)
+          ? previous
+          : [...previous, program]);
+        void selectProgram(program);
+      })
+      .catch((fetchError) => {
+        if (!controller.signal.aborted) {
+          setError(fetchError instanceof Error ? fetchError.message : "공유한 프로그램을 불러오지 못했어요.");
+        }
+      });
+    return () => controller.abort();
+  }, [selectProgram]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = window.kakao?.maps;
+    if (!mapReady || !map || !maps || !selected || selected.id !== sharedProgramIDRef.current) return;
+    if (sharedProgramCenteredRef.current === selected.id) return;
+    sharedProgramCenteredRef.current = selected.id;
+    const coordinate = new maps.LatLng(selected.latitude, selected.longitude);
+    map.setCenter(coordinate);
+    if (map.getLevel() > 4) map.setLevel(4);
+    setCenter({ latitude: selected.latitude, longitude: selected.longitude });
+    void loadBounds(map);
+  }, [loadBounds, mapReady, selected]);
+
   const openProgramSheet = useCallback(async (group: WebProgram[], expectedCount: number) => {
     const initial = [...group].sort((a, b) => statusRank(a) - statusRank(b) || a.id.localeCompare(b.id));
     setSelected(null);
@@ -1361,7 +1457,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         area.textContent = clusterDisplayAreaName(cluster.areaName);
         const count = document.createElement("span");
         count.textContent = activeConditionCount > 0
-          ? `${clusterKeyword} ${cluster.programCount.toLocaleString("ko-KR")}`
+          ? `${clusterKeyword} ${filteredClusterCountLabel(cluster.programCount)}`
           : cluster.scope === "localArea" ? String(cluster.programCount) : `활동 ${cluster.programCount}`;
         if (activeConditionCount > 0) {
           button.append(area, count);
@@ -3797,8 +3893,28 @@ function ProgramDistanceSelector({ radiusKm, onRadius }: { radiusKm: number | nu
 }
 
 function AlertScheduleDialog({ state, saved, onChange, onSave, onRemove, onClose }: { state: AlertDialogState; saved: boolean; onChange: (value: string) => void; onSave: () => void; onRemove: () => void; onClose: () => void }) {
+  const dragRef = useRef({ pointerID: -1, startY: 0 });
+  const [dragY, setDragY] = useState(0);
+  const beginDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    dragRef.current = { pointerID: event.pointerId, startY: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current.pointerID !== event.pointerId) return;
+    const next = Math.max(0, event.clientY - dragRef.current.startY);
+    setDragY(next);
+  };
+  const finishDrag = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (dragRef.current.pointerID !== event.pointerId) return;
+    const next = Math.max(0, event.clientY - dragRef.current.startY);
+    dragRef.current.pointerID = -1;
+    setDragY(0);
+    if (next > 64) onClose();
+  };
   return <div className="dg-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="dg-alert-dialog" role="dialog" aria-modal="true" aria-labelledby="dg-alert-title">
+    <section className={`dg-alert-dialog${dragY > 0 ? " is-dragging" : ""}`} style={{ "--dg-alert-sheet-drag-y": `${dragY}px` } as CSSProperties} role="dialog" aria-modal="true" aria-labelledby="dg-alert-title">
+      <button type="button" className="dg-alert-sheet-grabber" aria-label="알림 설정 패널 아래로 닫기" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={finishDrag} onPointerCancel={() => { dragRef.current.pointerID = -1; setDragY(0); }}><span /></button>
       <header><div><small>오픈런 알림</small><h2 id="dg-alert-title">날짜와 시간을 골라주세요</h2></div><button type="button" onClick={onClose} aria-label="닫기">×</button></header>
       <p><strong>{state.program.name}</strong><span>{state.program.facility}</span></p>
       <label>알림 받을 시간<input type="datetime-local" value={state.scheduledAt} onChange={(event) => onChange(event.target.value)} /></label>
