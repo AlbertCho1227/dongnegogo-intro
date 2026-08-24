@@ -589,6 +589,13 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [tab, setTab] = useState<Tab>("map");
   const [selected, setSelected] = useState<WebProgram | null>(null);
   const [placeSheet, setPlaceSheet] = useState<PlaceSheetState | null>(null);
+  const filteredClusterCarouselAnchorRef = useRef<Coordinate | null>(null);
+  const filteredClusterCarouselSignatureRef = useRef<string | null>(null);
+  const filteredClusterCarouselProgramsRef = useRef<WebProgram[]>([]);
+  const [filteredClusterCarouselSignature, setFilteredClusterCarouselSignature] = useState<string | null>(null);
+  const [filteredClusterCarouselPrograms, setFilteredClusterCarouselPrograms] = useState<WebProgram[]>([]);
+  const [filteredClusterFocusedProgramID, setFilteredClusterFocusedProgramID] = useState<string | null>(null);
+  const [mapProgramCarouselSource, setMapProgramCarouselSource] = useState<"condition" | "nearby" | null>(null);
   const [mobileSheetSnap, setMobileSheetSnap] = useState<MobileSheetSnap>("medium");
   const [mobileSheetDragHeight, setMobileSheetDragHeight] = useState<number | null>(null);
   const [routeSheetCollapsed, setRouteSheetCollapsed] = useState(false);
@@ -709,7 +716,20 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     }
   }, [activeConditionCount, currentFilterSelectionSignature, mapFilterRequest, radiusKm, usesFallbackLocation]);
 
+  const focusFilteredClusterProgram = useCallback((program: WebProgram) => {
+    const map = mapRef.current;
+    const maps = window.kakao?.maps;
+    if (!map || !maps) return;
+    const coordinate = new maps.LatLng(program.latitude, program.longitude);
+    setFilteredClusterFocusedProgramID(program.id);
+    setCenter({ latitude: program.latitude, longitude: program.longitude });
+    map.panTo(coordinate);
+    if (map.getLevel() > 4) map.setLevel(4);
+  }, []);
+
   useEffect(() => {
+    // This state snapshots the exact condition signature associated with a user-triggered fit.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (filterFitRequestId > 0) setFilterFitAppliedSignature(currentFilterSelectionSignature);
     // request id changes only for a quick keyword or the explicit Apply button.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1047,6 +1067,20 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             payload = { ...payload, programs: programsInsideMapFilterBounds(payload.programs, exactBounds) };
           }
         }
+        const carouselAnchor = filteredClusterCarouselAnchorRef.current;
+        if (payload.mode === "individual" && carouselAnchor
+          && filteredClusterCarouselSignatureRef.current === mapFilterSignatureRef.current
+          && filteredClusterCarouselProgramsRef.current.length === 0) {
+          const carouselPrograms = [...new Map(payload.programs.map((program) => [program.id, program])).values()]
+            .sort((left, right) => distanceMeters(carouselAnchor, left) - distanceMeters(carouselAnchor, right))
+            .slice(0, 120);
+          const first = carouselPrograms[0];
+          if (first) {
+            filteredClusterCarouselProgramsRef.current = carouselPrograms;
+            setFilteredClusterCarouselPrograms(carouselPrograms);
+            setFilteredClusterFocusedProgramID(first.id);
+          }
+        }
         setPrograms(payload.mode === "individual" ? payload.programs : []);
         if (payload.mode === "individual") {
           setMapClusters([]);
@@ -1132,6 +1166,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       limit: "4000",
     });
     const requestID = ++mapRequestIDRef.current;
+    // The location-radius effect owns this asynchronous request lifecycle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const request = programFilterActiveRef.current
       ? fetchMapFilterCatalog({ ...mapFilterRequestRef.current, ...boundsRequest, clusterScope: "individual" }, controller.signal)
@@ -1226,12 +1262,6 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     completeFilterCatalogRef.current = null;
     filterCatalogPendingRef.current = false;
     setFilterCatalogReadyRequestId(0);
-    setMapClusters([]);
-    setProgramCounts({});
-    setMapMode("individual");
-    mapModeRef.current = "individual";
-    setMapScope("individual");
-    mapScopeRef.current = "individual";
     const frame = window.requestAnimationFrame(() => {
       setFilterCatalogReadyRequestId(filterFitRequestId);
     });
@@ -1299,11 +1329,6 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     const map = mapRef.current;
     const maps = window.kakao?.maps;
     if (!map || !maps) return;
-    setMapClusters([]);
-    setMapMode("individual");
-    mapModeRef.current = "individual";
-    setMapScope("individual");
-    mapScopeRef.current = "individual";
     setFilterCatalogReadyRequestId(0);
     if (!usesFallbackLocation) {
       map.setCenter(new maps.LatLng(location.latitude, location.longitude));
@@ -1475,23 +1500,18 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           map.panTo(coordinate);
           if (activeConditionCount > 0) {
             // 필터 군집의 좌표와 첫 ID는 DB가 선택한 실제 대표 프로그램이다.
-            // 중간 군집 단계를 반복하지 않고 즉시 개별 축척으로 이동하며,
-            // 전체 viewport 응답을 기다리는 동안에도 대표 마커부터 표시한다.
+            // 중간 군집 단계를 반복하지 않고 즉시 개별 축척으로 이동한다.
+            // 현재 군집은 idle의 단일 viewport 응답이 도착할 때까지 유지하고,
+            // 프로그램·모드·군집을 한 번에 교체해 중간 빈 장면을 만들지 않는다.
+            const carouselAnchor = { latitude: cluster.latitude, longitude: cluster.longitude };
+            setMapProgramCarouselSource("condition");
+            filteredClusterCarouselAnchorRef.current = carouselAnchor;
+            filteredClusterCarouselSignatureRef.current = mapFilterSignatureRef.current;
+            filteredClusterCarouselProgramsRef.current = [];
+            setFilteredClusterCarouselSignature(mapFilterSignatureRef.current);
+            setFilteredClusterCarouselPrograms([]);
+            setFilteredClusterFocusedProgramID(null);
             map.setLevel(4);
-            setMapClusters([]);
-            setMapMode("individual");
-            mapModeRef.current = "individual";
-            setMapScope("individual");
-            mapScopeRef.current = "individual";
-            const representativeID = cluster.programIds[0];
-            if (representativeID) {
-              void fetchPrograms(new URLSearchParams({ id: representativeID }))
-                .then((matches) => {
-                  if (matches[0] && programFilterActiveRef.current) setPrograms([matches[0]]);
-                })
-                .catch(() => { /* the individual viewport request remains authoritative */ });
-            }
-            window.setTimeout(() => mapRef.current && void loadBounds(mapRef.current), 0);
           } else {
             map.setLevel(Math.max(1, map.getLevel() - 2));
           }
@@ -1507,9 +1527,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     Array.from(grouped.values()).slice(0, 1_200).forEach((group) => {
       const representative = dominantProgram(group, statusRank);
       const count = Math.max(group.length, programCounts[representative.id] ?? 1);
+      const isFocused = selected?.id === representative.id
+        || group.some((program) => program.id === filteredClusterFocusedProgramID);
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `dg-map-marker${selected?.id === representative.id ? " is-selected" : ""}`;
+      button.className = `dg-map-marker${isFocused ? " is-selected" : ""}`;
       button.setAttribute("aria-label", count > 1 ? `같은 장소 ${count}개 프로그램` : representative.name);
       const image = document.createElement("img");
       image.src = `/markers/${programIconName(representative)}.png`;
@@ -1526,7 +1548,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       button.addEventListener("click", () => { void openProgramSheet(group, count); });
       const overlay = new maps.CustomOverlay({
         map, position: new maps.LatLng(representative.latitude, representative.longitude),
-        content: button, yAnchor: 1.15, zIndex: selected?.id === representative.id ? 10 : 2,
+        content: button, yAnchor: 1.15, zIndex: isFocused ? 10 : 2,
       });
       overlaysRef.current.push(overlay);
     });
@@ -1534,7 +1556,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, loadBounds]);
+  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, loadBounds]);
 
   const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
     if (!nearbyDestination) return;
@@ -2236,34 +2258,56 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     setAuxiliaryPanel(panel);
   };
 
+  const openNearbyProgramCarousel = () => {
+    const source = [...new Map(visiblePrograms.map((program) => [program.id, program])).values()]
+      .sort((left, right) => distanceMeters(center, left) - distanceMeters(center, right))
+      .slice(0, 120);
+    filteredClusterCarouselAnchorRef.current = center;
+    filteredClusterCarouselSignatureRef.current = null;
+    filteredClusterCarouselProgramsRef.current = source;
+    setFilteredClusterCarouselSignature(null);
+    setFilteredClusterCarouselPrograms(source);
+    setMapProgramCarouselSource("nearby");
+    setSelected(null);
+    setPlaceSheet(null);
+    setAuxiliaryPanel(null);
+    const first = source[0];
+    if (first) focusFilteredClusterProgram(first);
+  };
+
   const toggleMapDetail = (label: string) => {
     if (heatShelterMode) {
       heatShelterModeRef.current = false;
       setHeatShelterMode(false);
       setHeatShelters([]);
     }
+    setLoading(true);
     setFieldFilter("전체");
     setSubjectFilters((current) => toggleSingleWebDetailFilter(current, label));
     setFilterFitRequestId((current) => current + 1);
   };
 
   const toggleMapPersona = (label: string) => {
+    setLoading(true);
     setPersonaFilters(personaFilters.includes(label) ? personaFilters.filter((item) => item !== label) : [...personaFilters, label]);
     setFilterFitRequestId((current) => current + 1);
   };
 
   const toggleQuickFree = () => {
+    setLoading(true);
     setFreeOnly(!freeOnly);
     if (!freeOnly) setPaidOnly(false);
     setFilterFitRequestId((current) => current + 1);
   };
 
   const toggleQuickToday = () => {
+    setLoading(true);
     setTodayOnly(!todayOnly);
     setFilterFitRequestId((current) => current + 1);
   };
 
   const toggleQuickOpenStatus = () => {
+    setLoading(true);
     setStatusFilter(statusFilter === "접수중" ? "전체" : "접수중");
     setFilterFitRequestId((current) => current + 1);
   };
@@ -2864,13 +2908,32 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         </div>
         <div className="dg-map-tools" aria-label="지도 도구">
           <button type="button" onClick={moveToCurrentLocation}><span className="dg-map-tool-current"><UserRound aria-hidden="true" /></span>내 위치</button>
-          <button type="button" onClick={() => window.matchMedia("(max-width: 820px)").matches ? openMapTool("programs") : changeTab("map")}><span><MapIcon aria-hidden="true" /></span>주변</button>
+          <button type="button" onClick={openNearbyProgramCarousel}><span><MapIcon aria-hidden="true" /></span>주변</button>
           <button type="button" onClick={() => openMapTool("calendar")}><span><CalendarDays aria-hidden="true" /></span>일정</button>
           {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>}
           <button type="button" onClick={() => openMapTool("history")}><span><Archive aria-hidden="true" /></span>보관함</button>
         </div>
         <div className="dg-zoom-tools"><button type="button" aria-label="지도 확대" onClick={() => mapRef.current?.setLevel(Math.max(1, mapRef.current.getLevel() - 1))}>＋</button><button type="button" aria-label="지도 축소" onClick={() => mapRef.current?.setLevel(Math.min(14, mapRef.current.getLevel() + 1))}>−</button></div>
         <div className="dg-map-caption"><strong>{centeredArea} 주변</strong><span>지도를 움직이면 자동으로 다시 찾아요</span></div>
+        {!selected && !placeSheet && (mapProgramCarouselSource === "nearby"
+          || (activeConditionCount > 0 && filteredClusterCarouselSignature === currentFilterSelectionSignature))
+          && filteredClusterCarouselPrograms.length > 0 && <FilteredClusterProgramCarousel
+          title={mapProgramCarouselSource === "nearby" ? "주변 프로그램" : "조건 프로그램"}
+          programs={filteredClusterCarouselPrograms}
+          origin={location}
+          focusedProgramID={filteredClusterFocusedProgramID}
+          onFocus={focusFilteredClusterProgram}
+          onOpen={(program) => { void selectProgram(program); }}
+          onClose={() => {
+            filteredClusterCarouselAnchorRef.current = null;
+            filteredClusterCarouselSignatureRef.current = null;
+            filteredClusterCarouselProgramsRef.current = [];
+            setFilteredClusterCarouselSignature(null);
+            setFilteredClusterCarouselPrograms([]);
+            setFilteredClusterFocusedProgramID(null);
+            setMapProgramCarouselSource(null);
+          }}
+        />}
         {placeSheet && <ProgramPlaceSheet
           state={placeSheet}
           current={location}
@@ -2900,7 +2963,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         onPersonas={setPersonaFilters} onSubjects={setSubjectFilters}
         onStatus={setStatusFilter} onFree={(value) => { setFreeOnly(value); if (value) setPaidOnly(false); }}
         onPaid={(value) => { setPaidOnly(value); if (value) setFreeOnly(false); }} onRadius={(value) => { setRadiusKm(value); if (value !== null && usesFallbackLocation) moveToCurrentLocation(); }}
-        onReset={resetFilters} onApply={() => { setShowFilter(false); setFilterFitRequestId((current) => current + 1); }} onClose={() => setShowFilter(false)}
+        onReset={resetFilters} onApply={() => { setLoading(true); setShowFilter(false); setFilterFitRequestId((current) => current + 1); }} onClose={() => setShowFilter(false)}
       />}
       {WEB_ACCOUNT_FEATURES_VISIBLE && alertDialog && <AlertScheduleDialog
         state={alertDialog}
@@ -3704,6 +3767,83 @@ function KakaoRoadviewPreview({ coordinate, facilityName }: { coordinate: Coordi
     <div ref={elementRef} className="dg-roadview-canvas" />
     {status !== "ready" && <div className="dg-roadview-status">{status === "loading" ? "가까운 거리뷰를 찾고 있어요" : "이 시설 가까이에서 제공되는 거리뷰가 없어요"}</div>}
   </div>;
+}
+
+function FilteredClusterProgramCarousel({ title, programs, origin, focusedProgramID, onFocus, onOpen, onClose }: {
+  title: string;
+  programs: WebProgram[];
+  origin: Coordinate;
+  focusedProgramID: string | null;
+  onFocus: (program: WebProgram) => void;
+  onOpen: (program: WebProgram) => void;
+  onClose: () => void;
+}) {
+  const pagesRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const dragStartRef = useRef<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [category, setCategory] = useState<string | null>(null);
+  const [sort, setSort] = useState<SearchSort>("distance");
+  const [dragOffset, setDragOffset] = useState(0);
+  const categories = useMemo(() => searchResultCategories(programs), [programs]);
+  const visiblePrograms = useMemo(() => {
+    const filtered = category ? programs.filter((program) => searchResultCategoryIDs(program).includes(category)) : programs;
+    if (sort === "relevance") return filtered;
+    return [...filtered].sort((left, right) => {
+      if (sort === "free" && left.isFree !== right.isFree) return left.isFree ? -1 : 1;
+      if (sort === "available" && isAvailable(left) !== isAvailable(right)) return isAvailable(left) ? -1 : 1;
+      return distanceMeters(origin, left) - distanceMeters(origin, right);
+    });
+  }, [category, origin, programs, sort]);
+  const programSignature = visiblePrograms.map((program) => program.id).join("|");
+  const selectedIndex = Math.max(0, visiblePrograms.findIndex((program) => program.id === focusedProgramID));
+
+  useEffect(() => {
+    pagesRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    if (visiblePrograms[0]) onFocus(visiblePrograms[0]);
+  // The ID signature changes only when a new cluster drill-down is ready.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [programSignature]);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+  }, []);
+
+  const updateFocusedCard = () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const container = pagesRef.current;
+      if (!container || container.clientHeight <= 0) return;
+      const index = Math.max(0, Math.min(visiblePrograms.length - 1, Math.round(container.scrollTop / container.clientHeight)));
+      const program = visiblePrograms[index];
+      if (program && program.id !== focusedProgramID) onFocus(program);
+    });
+  };
+
+  return <section className={`dg-filtered-cluster-carousel${expanded ? " is-expanded" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
+    <header onPointerDown={(event) => { dragStartRef.current = event.clientY; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (dragStartRef.current !== null) setDragOffset(Math.max(0, event.clientY - dragStartRef.current)); }} onPointerUp={() => { dragStartRef.current = null; if (dragOffset > 84) onClose(); else setDragOffset(0); }}>
+      <span><strong>{title}</strong><small>위아래로 넘기면 선택한 위치로 이동해요</small></span>
+      <b>{Math.min(selectedIndex + 1, visiblePrograms.length)} / {visiblePrograms.length.toLocaleString("ko-KR")}</b>
+      <button className="dg-carousel-filter-toggle" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "프로그램 분류 접기" : "프로그램 분류 펼치기"}><SlidersHorizontal aria-hidden="true" size={16} /></button>
+      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} aria-label={`${title} 카드 닫기`}><X aria-hidden="true" size={17} /></button>
+    </header>
+    {expanded && <section className="dg-carousel-program-controls"><small>프로그램 분류</small><div className="dg-carousel-category-row"><button type="button" className={category === null ? "active" : ""} onClick={() => setCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => setCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div><div className="dg-carousel-sort-row">{([['relevance','관련도 순'],['distance','가까운 순'],['available','신청 가능한 순'],['free','무료 먼저']] as Array<[SearchSort,string]>).map(([value,label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => setSort(value)}>{label}</button>)}</div></section>}
+    <div ref={pagesRef} className="dg-filtered-cluster-card-pages" onScroll={updateFocusedCard}>
+      {visiblePrograms.map((program) => <div className="dg-filtered-cluster-card-page" key={program.id}>
+        <button className="dg-program-card" type="button" onClick={() => onOpen(program)}>
+          <img src={`/markers/${programIconName(program)}.png`} alt="" />
+          <span className="dg-card-copy">
+            <span className={`dg-status ${statusClass(program)}`}>{program.status}</span>
+            <strong>{program.name}</strong>
+            <small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small>
+            <em>{program.isFree ? "무료" : program.feeText}</em>
+          </span>
+          <span className="dg-card-arrow" aria-hidden="true">›</span>
+        </button>
+      </div>)}
+    </div>
+  </section>;
 }
 
 function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs, onClose, onIndex, onDetail, onReminder }: {

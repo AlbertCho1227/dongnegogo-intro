@@ -270,8 +270,22 @@ test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시
   assert.match(webMapSource, /programFilterActiveRef\.current \? 0 : 420/);
   assert.doesNotMatch(webMapSource, /unfilteredViewportProgramsRef/);
   assert.match(webMapSource, /const items = programs\.filter\(\(program\) =>/);
-  assert.match(webMapSource, /onApply=\{\(\) => \{ setShowFilter\(false\); setFilterFitRequestId/);
+  assert.match(webMapSource, /onApply=\{\(\) => \{ setLoading\(true\); setShowFilter\(false\); setFilterFitRequestId/);
   assert.match(webMapSource, /setSubjectFilters\(\(current\) => toggleSingleWebDetailFilter\(current, label\)\)/);
+  assert.doesNotMatch(webMapSource, /fetchPrograms\(new URLSearchParams\(\{ id: representativeID \}\)\)/);
+  assert.doesNotMatch(webMapSource, /map\.setLevel\(4\);\s*setMapClusters\(\[\]\)/);
+});
+
+test("조건 군집을 열면 기존 프로그램 카드를 세로로 넘기며 해당 마커로 이동한다", () => {
+  assert.match(webMapSource, /function FilteredClusterProgramCarousel/);
+  assert.match(webMapSource, /filteredClusterCarouselAnchorRef\.current = carouselAnchor/);
+  assert.match(webMapSource, /payload\.mode === "individual"[\s\S]*?filteredClusterCarouselProgramsRef\.current = carouselPrograms/);
+  assert.match(webMapSource, /className="dg-filtered-cluster-card-pages" onScroll=\{updateFocusedCard\}/);
+  assert.match(webMapSource, /className="dg-program-card" type="button" onClick=\{\(\) => onOpen\(program\)\}/);
+  assert.match(webMapSource, /map\.panTo\(coordinate\)/);
+  assert.match(webMapSource, /group\.some\(\(program\) => program\.id === filteredClusterFocusedProgramID\)/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-card-pages \{[^}]*scroll-snap-type:\s*y mandatory/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*scroll-snap-align:\s*start/);
 });
 
 test("알림을 저장하지 않아도 알림 하단 패널을 아래로 밀어 닫을 수 있다", () => {
@@ -378,7 +392,7 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapSource, /dg-mobile-map-chrome/);
   assert.match(webMapSource, /dg-tab-\$\{tab\}/);
   assert.match(webMapSource, /dg-side-panel-overlay/);
-  assert.match(webMapSource, /openMapTool\("programs"\)/);
+  assert.match(webMapSource, /openNearbyProgramCarousel/);
   assert.match(webMapSource, /이렇게 검색해보세요/);
   assert.match(webMapSource, /나의 프로그램/);
   assert.match(webMapSource, /가족을 위한 프로그램/);
@@ -417,4 +431,16 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapStyle, /\.dg-detail-hero h1\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
   assert.match(compactMobileStyle, /\.dg-route-detail-sheet\s*\{[^}]*top:\s*max\(8px,[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*0/);
   assert.ok(compactMobileStyle.indexOf(".dg-route-detail-sheet") > compactMobileStyle.indexOf(".dg-side-panel { inset: 0 0 74px;"), "520px 상세 패널 여백 규칙은 공통 inset 뒤에 있어야 합니다.");
+});
+
+test("조건·주변 프로그램은 같은 지도 하단 카드와 분류 확장·포커스 효과를 사용한다", () => {
+  assert.match(webMapSource, /mapProgramCarouselSource/);
+  assert.match(webMapSource, /openNearbyProgramCarousel/);
+  assert.match(webMapSource, /title=\{mapProgramCarouselSource === "nearby" \? "주변 프로그램" : "조건 프로그램"\}/);
+  assert.match(webMapSource, /dg-carousel-filter-toggle/);
+  assert.match(webMapSource, /프로그램 분류 접기/);
+  assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
+  assert.match(webMapSource, /if \(dragOffset > 84\) onClose\(\)/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*align-items:\s*center/);
+  assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-shimmer/);
 });
