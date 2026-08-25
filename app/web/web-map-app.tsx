@@ -2945,6 +2945,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           || (activeConditionCount > 0 && filteredClusterCarouselSignature === currentFilterSelectionSignature))
           && filteredClusterCarouselPrograms.length > 0 && <FilteredClusterProgramCarousel
           title={mapProgramCarouselSource === "nearby" ? "주변 프로그램" : "조건 프로그램"}
+          singleCardMode={mapProgramCarouselSource === "nearby"}
           programs={filteredClusterCarouselPrograms}
           origin={location}
           focusedProgramID={filteredClusterFocusedProgramID}
@@ -3795,8 +3796,9 @@ function KakaoRoadviewPreview({ coordinate, facilityName }: { coordinate: Coordi
   </div>;
 }
 
-function FilteredClusterProgramCarousel({ title, programs, origin, focusedProgramID, onFocus, onOpen, onClose }: {
+function FilteredClusterProgramCarousel({ title, singleCardMode = false, programs, origin, focusedProgramID, onFocus, onOpen, onClose }: {
   title: string;
+  singleCardMode?: boolean;
   programs: WebProgram[];
   origin: Coordinate;
   focusedProgramID: string | null;
@@ -3835,6 +3837,10 @@ function FilteredClusterProgramCarousel({ title, programs, origin, focusedProgra
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
   }, []);
 
+  useEffect(() => {
+    if (singleCardMode) setExpanded(false);
+  }, [singleCardMode]);
+
   const updateFocusedCard = () => {
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
     scrollFrameRef.current = window.requestAnimationFrame(() => {
@@ -3847,9 +3853,9 @@ function FilteredClusterProgramCarousel({ title, programs, origin, focusedProgra
     });
   };
 
-  return <section className={`dg-filtered-cluster-carousel${expanded ? " is-expanded" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
+  return <section className={`dg-filtered-cluster-carousel${singleCardMode ? " is-single-card" : ""}${expanded && singleCardMode ? " has-controls" : ""}${expanded && !singleCardMode ? " is-expanded" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
     <header onPointerDown={(event) => { dragStartRef.current = event.clientY; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (dragStartRef.current !== null) setDragOffset(Math.max(0, event.clientY - dragStartRef.current)); }} onPointerUp={() => { dragStartRef.current = null; if (dragOffset > 84) onClose(); else setDragOffset(0); }}>
-      <span><strong>{title}</strong><small>위아래로 넘기면 선택한 위치로 이동해요</small></span>
+      <span><strong>{title}</strong><small>{singleCardMode ? "카드를 위아래로 넘겨 하나씩 확인해요" : "위아래로 넘기면 선택한 위치로 이동해요"}</small></span>
       <b>{Math.min(selectedIndex + 1, visiblePrograms.length)} / {visiblePrograms.length.toLocaleString("ko-KR")}</b>
       <button className="dg-carousel-filter-toggle" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "프로그램 분류 접기" : "프로그램 분류 펼치기"}><SlidersHorizontal aria-hidden="true" size={16} /></button>
       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} aria-label={`${title} 카드 닫기`}><X aria-hidden="true" size={17} /></button>

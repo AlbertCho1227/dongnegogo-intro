@@ -433,10 +433,13 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.ok(compactMobileStyle.indexOf(".dg-route-detail-sheet") > compactMobileStyle.indexOf(".dg-side-panel { inset: 0 0 74px;"), "520px 상세 패널 여백 규칙은 공통 inset 뒤에 있어야 합니다.");
 });
 
-test("조건·주변 프로그램은 같은 지도 하단 카드와 분류 확장·포커스 효과를 사용한다", () => {
+test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 카드와 분류 모드만 사용한다", () => {
   assert.match(webMapSource, /mapProgramCarouselSource/);
   assert.match(webMapSource, /openNearbyProgramCarousel/);
   assert.match(webMapSource, /title=\{mapProgramCarouselSource === "nearby" \? "주변 프로그램" : "조건 프로그램"\}/);
+  assert.match(webMapSource, /singleCardMode=\{mapProgramCarouselSource === "nearby"\}/);
+  assert.match(webMapSource, /singleCardMode \? " is-single-card" : ""/);
+  assert.match(webMapSource, /expanded && singleCardMode \? " has-controls" : ""/);
   assert.match(webMapSource, /dg-carousel-filter-toggle/);
   assert.match(webMapSource, /프로그램 분류 접기/);
   assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
@@ -444,6 +447,7 @@ test("조건·주변 프로그램은 같은 지도 하단 카드와 분류 확�
   assert.match(webMapSource, /focusedCarouselProgram[\s\S]*?dg-map-marker is-selected/);
   assert.match(webMapSource, /className="dg-carousel-map-action"[\s\S]*?onClick=\{\(\) => onFocus\(program\)\}/);
   assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*align-items:\s*center/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-single-card \.dg-filtered-cluster-card-pages \{[^}]*height:\s*155px;[^}]*scroll-snap-type:\s*y mandatory/);
   assert.match(webMapStyle, /\.dg-carousel-map-action \{[^}]*border-radius:50%/);
   assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-border-blink/);
   assert.doesNotMatch(webMapStyle, /dg-selected-marker-shimmer/);
