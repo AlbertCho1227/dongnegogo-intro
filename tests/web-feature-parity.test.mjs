@@ -425,6 +425,11 @@ test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두
   assert.match(webMapSource, /className=\{!WEB_ACCOUNT_FEATURES_VISIBLE \? "dg-public-nav" : undefined\}/);
 });
 
+test("모바일 지도 상단은 검색창 다음에 홈과 알림 버튼을 나란히 표시한다", () => {
+  assert.match(webMapSource, /className="dg-mobile-search-pill"[\s\S]*?<Link href="\/" aria-label="지도 홈">⌂<\/Link>[\s\S]*?className="dg-mobile-bell"/);
+  assert.match(webMapStyle, /\.dg-mobile-map-header\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) 44px 44px/);
+});
+
 test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다", () => {
   assert.match(webMapSource, /로그인하고 안전하게 저장/);
   assert.match(webMapSource, /로그인 이용 확인/);

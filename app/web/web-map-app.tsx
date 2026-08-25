@@ -3160,8 +3160,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         {!mapReady && <div className="dg-map-skeleton"><img src="/brand/app-icon.png" alt="" /><strong>지도를 준비하고 있어요</strong></div>}
         <div className="dg-mobile-map-chrome">
           <div className="dg-mobile-map-header">
-            <Link href="/" aria-label="지도 홈">⌂</Link>
             <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em>●</em></button>
+            <Link href="/" aria-label="지도 홈">⌂</Link>
             {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림"><Bell aria-hidden="true" /><i /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
