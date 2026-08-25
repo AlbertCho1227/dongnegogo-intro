@@ -94,7 +94,7 @@ test("행정지역과 기억한 제목을 함께 입력하면 반경 없이 도�
   const intent = parseSearchIntent("부산 공존의 세계");
   const results = fuzzyAdministrativeTitlePrograms("부산 공존의 세계", intent, [
     program({ id: "target", name: "공존의 경계에 흐르다: 파괴와 생성", address: "부산광역시 금정구", area: "금정구" }),
-    program({ id: "noise", name: "우장춘기념관", address: "부산광역시 동래구", area: "동래구" }),
+    program({ id: "noise", name: "공원의 풍경 : Parkscape", address: "부산광역시 금정구", area: "금정구" }),
   ]);
   assert.deepEqual(results.map((item) => item.id), ["target"]);
   assert.equal(isAdministrativeTitleQuery("부산 공존의 세계", intent), true);

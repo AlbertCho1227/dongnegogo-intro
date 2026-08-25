@@ -1991,7 +1991,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           setSearchWarning("지역·장소 자동완성 연결이 잠시 불안정하지만 프로그램 검색은 계속 진행해요.");
         }
       }
-      if (hasAmbiguousAdministrativeSuggestions(term, suggestions)) {
+      if (!isAdministrativeTitleQuery(term, intent) && hasAmbiguousAdministrativeSuggestions(term, suggestions)) {
         setSubmittedQuery(term);
         setSearchIntent(null);
         setSearchResults([]);
@@ -2004,7 +2004,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       setSearchCityScope(cityScope);
       const localPool = uniquePrograms([...programs, ...searchCandidates])
         .filter((program) => programMatchesAreaTerms(program, cityScope.candidateAreaTerms));
-      const localMatches = searchPrograms(localPool, intent, location).map((item) => item.program);
+      const localMatches = isAdministrativeTitleQuery(term, intent)
+        ? fuzzyAdministrativeTitlePrograms(term, intent, localPool)
+        : searchPrograms(localPool, intent, location).map((item) => item.program);
       hadLocalResults = localMatches.length > 0;
       setSearchResults(localMatches);
       setSearchProgress(35);
@@ -2024,8 +2026,11 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       const candidates = uniquePrograms([...fetchedCandidates, ...preferredPrograms])
         .filter((program) => programMatchesAreaTerms(program, cityScope.candidateAreaTerms));
       setSearchCandidates(candidates);
-      let matches = searchPrograms(candidates, intent, location).map((item) => item.program);
-      if (!matches.length) {
+      const administrativeTitleQuery = isAdministrativeTitleQuery(term, intent);
+      let matches = administrativeTitleQuery
+        ? fuzzyAdministrativeTitlePrograms(term, intent, candidates)
+        : searchPrograms(candidates, intent, location).map((item) => item.program);
+      if (!administrativeTitleQuery && !matches.length) {
         matches = fuzzyAdministrativeTitlePrograms(term, intent, candidates);
       }
       setSearchResults(matches);
