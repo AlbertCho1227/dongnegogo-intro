@@ -179,7 +179,7 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-route-detail-sheet\s*\{[^}]*border-radius:\s*30px 30px 0 0/);
   assert.match(webMapStyle, /\.dg-route-detail-sheet\s*\{[^}]*left:\s*8px;[^}]*right:\s*8px/);
   assert.match(webMapStyle, /\.dg-route-detail-sheet \.dg-detail-footer\s*\{[^}]*left:\s*8px;[^}]*width:\s*calc\(100% - 16px\)/);
-  assert.match(webMapStyle, /\.dg-place-sheet\s*\{[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*74px/);
+  assert.match(webMapStyle, /\.dg-place-sheet\s*\{[^}]*left:\s*8px;[^}]*right:\s*8px;[^}]*bottom:\s*0/);
   assert.match(webMapSource, /dg-ios-heart-icon/);
   assert.match(webMapSource, /<Share className="dg-ios-share-icon" aria-hidden="true" strokeWidth=\{2\.4\} \/>/);
   assert.match(webMapStyle, /\.dg-ios-share-icon \{[^}]*width:\s*18px;[^}]*height:\s*20px;[^}]*color:\s*#20241f;[^}]*stroke:\s*currentColor;/);
@@ -369,6 +369,9 @@ test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두
   assert.match(webMapSource, /\.\.\.\(WEB_ACCOUNT_FEATURES_VISIBLE \? ACCOUNT_TABS : \[\]\)/);
   assert.match(webMapSource, /if \(!WEB_ACCOUNT_FEATURES_VISIBLE \|\| !webAuthConfigured\(\)\) return/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell"/);
+  assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("openrun"\)\}/);
+  assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("saved"\)\}/);
+  assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("me"\)\}/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick=\{\(\) => openMapTool\("family"\)\}/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && showAuthDialog && !session && <WebAuthDialog/);
   assert.match(webMapSource, /accountFeaturesVisible && <button type="button" className=\{`dg-ios-action-button favorite/);
@@ -387,7 +390,7 @@ test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다
   assert.match(webMapStyle, /\.dg-auth-dialog/);
 });
 
-test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고 PC 분할 구조는 유지한다", () => {
+test("모바일 웹은 하단 탭 없이 iOS형 지도 도구와 시트를 사용하고 PC 분할 구조는 유지한다", () => {
   const compactMobileStyle = webMapStyle.slice(webMapStyle.indexOf("@media (max-width: 520px)"));
   assert.match(webMapSource, /dg-mobile-map-chrome/);
   assert.match(webMapSource, /dg-tab-\$\{tab\}/);
@@ -397,6 +400,11 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapSource, /나의 프로그램/);
   assert.match(webMapSource, /가족을 위한 프로그램/);
   assert.match(webMapStyle, /grid-template-columns:\s*88px 430px minmax\(0,\s*1fr\)/);
+  assert.match(webMapStyle, /@media \(max-width: 820px\)[\s\S]*?\.dg-nav-rail\s*\{\s*display:\s*none;/);
+  assert.match(webMapStyle, /\.dg-map-tools \.dg-mobile-map-account-tool\s*\{\s*display:\s*flex;/);
+  assert.match(webMapSource, /<Bell aria-hidden="true" \/>/);
+  assert.match(webMapSource, /<Heart aria-hidden="true" \/>/);
+  assert.match(webMapSource, /<User aria-hidden="true" \/>/);
   assert.match(webMapStyle, /\.dg-side-panel-map:not\(\.dg-side-panel-overlay\)\s*\{\s*display:\s*none/);
   assert.match(webMapStyle, /\.dg-mobile-map-header/);
   assert.match(webMapSource, /type PlaceSheetSnap = "hidden" \| "collapsed" \| "expanded"/);
@@ -405,7 +413,7 @@ test("모바일 웹은 iOS형 전체 화면 탭과 지도 시트를 사용하고
   assert.match(webMapSource, /dg-place-sheet-\$\{snap\}/);
   assert.match(webMapSource, /setDragHeight\(Math\.max\(heights\.hidden, Math\.min\(heights\.expanded/);
   assert.match(webMapSource, /if \(nextSnap === "hidden"\) dismiss\(\)/);
-  assert.match(webMapStyle, /\.dg-place-sheet-expanded \{[^}]*--dg-place-sheet-height:\s*calc\(100dvh - 82px\)/);
+  assert.match(webMapStyle, /\.dg-place-sheet-expanded \{[^}]*--dg-place-sheet-height:\s*calc\(100dvh - 8px\)/);
   assert.match(webMapStyle, /\.dg-place-sheet-hidden \{[^}]*--dg-place-sheet-height:\s*0px;[^}]*opacity:\s*0/);
   assert.match(webMapStyle, /\.dg-place-sheet-dragging \{\s*transition:\s*none/);
   assert.match(webMapStyle, /\.dg-place-sheet-grabber \{[^}]*touch-action:\s*none/);

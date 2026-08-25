@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, SlidersHorizontal, Store, TrainFront, TramFront, Undo2, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, Bell, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, SlidersHorizontal, Store, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
@@ -2782,7 +2782,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <HistoryPanel history={viewHistory} onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }} />
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "me" ? (
           <section className="dg-profile-panel">
-            <div className="dg-panel-title"><Link href="/">‹ 지도</Link><h1>내정보</h1></div>
+            <div className="dg-panel-title"><button type="button" className="dg-mobile-panel-back" onClick={() => changeTab("map")}>‹ 지도</button><Link className="dg-desktop-panel-back" href="/">‹ 지도</Link><h1>내정보</h1></div>
             <div className="dg-profile-card dg-account-card">
               <small>계정</small>
               {authLoading ? <strong>로그인 상태 확인 중…</strong> : session ? <>
@@ -2836,11 +2836,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             <p className="dg-readonly-note">로그인 전에는 이 브라우저에만 저장되고, 로그인 후에는 본인에게만 보이는 Supabase 행으로 동기화됩니다.</p>
           </section>
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "openrun" ? (
-          <OpenRunPanel programs={programs} reminders={reminders} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
+          <OpenRunPanel programs={programs} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
         ) : (
           <>
             <header className="dg-panel-header">
-              <div className="dg-panel-title">{tab === "search" || auxiliaryPanel === "programs" ? <button type="button" onClick={() => auxiliaryPanel === "programs" ? setAuxiliaryPanel(null) : changeTab("map")}>‹ 지도</button> : <Link href="/">‹ 소개</Link>}<h1>{tab === "saved" ? "찜한 프로그램" : tab === "search" ? "찾기" : "지도 주변"}</h1></div>
+              <div className="dg-panel-title">{tab === "search" || auxiliaryPanel === "programs" ? <button type="button" onClick={() => auxiliaryPanel === "programs" ? setAuxiliaryPanel(null) : changeTab("map")}>‹ 지도</button> : <><button type="button" className="dg-mobile-panel-back" onClick={() => changeTab("map")}>‹ 지도</button><Link className="dg-desktop-panel-back" href="/">‹ 소개</Link></>}<h1>{tab === "saved" ? "찜한 프로그램" : tab === "search" ? "찾기" : "지도 주변"}</h1></div>
               <form className="dg-search" onSubmit={submitSearch}>
                 <span aria-hidden="true">⌕</span><input ref={searchInputRef} value={query} onChange={(event) => updateSearchQuery(event.target.value)} onKeyDown={submitSearchFromKeyboard} placeholder="시설명·강좌명 또는 자연어로 검색" aria-label="프로그램 검색" />
                 {query && <button type="button" className="dg-clear" onClick={clearSearch} aria-label="검색어 지우기">×</button>}
@@ -2921,7 +2921,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <div className="dg-mobile-map-header">
             <Link href="/" aria-label="지도 홈">⌂</Link>
             <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em>●</em></button>
-            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림">♧<i /></button>}
+            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림"><Bell aria-hidden="true" /><i /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
             <ConditionFilterButton count={activeConditionCount} onClick={() => setShowFilter(true)} />
@@ -2938,6 +2938,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           <button type="button" onClick={() => openMapTool("calendar")}><span><CalendarDays aria-hidden="true" /></span>일정</button>
           {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>}
           <button type="button" onClick={() => openMapTool("history")}><span><Archive aria-hidden="true" /></span>보관함</button>
+          {WEB_ACCOUNT_FEATURES_VISIBLE && <>
+            <button type="button" className="dg-mobile-map-account-tool" onClick={() => changeTab("openrun")}><span className="dg-map-tool-account-icon"><Bell aria-hidden="true" />{openRunBadge > 0 && <em className="dg-map-tool-badge">{openRunBadge > 9 ? "9+" : openRunBadge}</em>}</span>오픈런</button>
+            <button type="button" className="dg-mobile-map-account-tool" onClick={() => changeTab("saved")}><span className="dg-map-tool-account-icon"><Heart aria-hidden="true" /></span>찜</button>
+            <button type="button" className="dg-mobile-map-account-tool" onClick={() => changeTab("me")}><span className="dg-map-tool-account-icon"><User aria-hidden="true" /></span>내정보</button>
+          </>}
         </div>
         <div className="dg-zoom-tools"><button type="button" aria-label="지도 확대" onClick={() => mapRef.current?.setLevel(Math.max(1, mapRef.current.getLevel() - 1))}>＋</button><button type="button" aria-label="지도 축소" onClick={() => mapRef.current?.setLevel(Math.min(14, mapRef.current.getLevel() + 1))}>−</button></div>
         <div className="dg-map-caption"><strong>{centeredArea} 주변</strong><span>지도를 움직이면 자동으로 다시 찾아요</span></div>
@@ -4023,7 +4028,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   </section>;
 }
 
-function OpenRunPanel({ programs, reminders, onToggleReminder, onOpen }: { programs: WebProgram[]; reminders: string[]; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
+function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }: { programs: WebProgram[]; reminders: string[]; onBack: () => void; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
   const [keywords, setKeywords] = useState<string[]>([]);
   const suggestions = ["수영", "요가", "필라테스", "미술", "음악", "서예", "공예", "사진", "무료", "시니어"];
   const todayStart = new Date();
@@ -4039,7 +4044,7 @@ function OpenRunPanel({ programs, reminders, onToggleReminder, onOpen }: { progr
     const date = new Date(program.receiptStart);
     return `${date.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} ${date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })} 접수 시작`;
   };
-  return <section className="dg-openrun-panel"><header><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong><small>자세히 보기 ›</small></div><p>관심 키워드를 선택하면 해당 프로그램만 알려드려요</p><div>{suggestions.map((keyword) => <button type="button" key={keyword} className={keywords.includes(keyword) ? "active" : ""} onClick={() => setKeywords((current) => current.includes(keyword) ? current.filter((item) => item !== keyword) : [...current, keyword])}>{keywords.includes(keyword) ? `${keyword} ✓` : keyword}</button>)}</div></section>{upcoming.length ? upcoming.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{keywords.length ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{keywords.length > 0 && <button type="button" onClick={() => setKeywords([])}>키워드 해제하기</button>}</div>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
+  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong><small>자세히 보기 ›</small></div><p>관심 키워드를 선택하면 해당 프로그램만 알려드려요</p><div>{suggestions.map((keyword) => <button type="button" key={keyword} className={keywords.includes(keyword) ? "active" : ""} onClick={() => setKeywords((current) => current.includes(keyword) ? current.filter((item) => item !== keyword) : [...current, keyword])}>{keywords.includes(keyword) ? `${keyword} ✓` : keyword}</button>)}</div></section>{upcoming.length ? upcoming.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{keywords.length ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{keywords.length > 0 && <button type="button" onClick={() => setKeywords([])}>키워드 해제하기</button>}</div>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
 }
 
 function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {
