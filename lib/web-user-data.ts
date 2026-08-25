@@ -15,6 +15,7 @@ export type WebUserAlert = {
   minutes_before: number;
   enabled_at: string;
   scheduled_at: string | null;
+  scheduled_times: string[];
 };
 
 export type WebUserHistory = {
@@ -162,7 +163,7 @@ export async function fetchWebUserSnapshot(session: Session): Promise<WebUserSna
   const oldest = new Date(Date.now() - 4 * 86_400_000).toISOString();
   const [favorites, alerts, family, history] = await Promise.all([
     current.from("user_favorites").select("program_id,favorite_targets").eq("user_id", id),
-    current.from("open_run_alerts").select("program_id,minutes_before,enabled_at,scheduled_at").eq("user_id", id),
+    current.from("open_run_alerts").select("program_id,minutes_before,enabled_at,scheduled_at,scheduled_times").eq("user_id", id),
     current.from("family_members").select("id,role,name,age_group,region").eq("user_id", id).order("created_at"),
     current.from("user_program_history").select("program_id,viewed_at").eq("user_id", id).gte("viewed_at", oldest).order("viewed_at", { ascending: false }).limit(200),
   ]);
@@ -180,6 +181,9 @@ export async function fetchWebUserSnapshot(session: Session): Promise<WebUserSna
       minutes_before: Number(row.minutes_before ?? 60),
       enabled_at: String(row.enabled_at ?? new Date().toISOString()),
       scheduled_at: typeof row.scheduled_at === "string" ? row.scheduled_at : null,
+      scheduled_times: Array.isArray(row.scheduled_times)
+        ? row.scheduled_times.filter((value): value is string => typeof value === "string").slice(0, 3)
+        : typeof row.scheduled_at === "string" ? [row.scheduled_at] : [],
     })),
     family: (family.data ?? []).flatMap((row) => {
       const role = String(row.role);
@@ -224,6 +228,7 @@ export async function upsertWebAlert(session: Session, programID: string, schedu
     program_id: programID,
     minutes_before: 60,
     scheduled_at: scheduledAt,
+    scheduled_times: scheduledAt ? [scheduledAt] : [],
   }, { onConflict: "user_id,program_id" });
   if (error) throw error;
 }

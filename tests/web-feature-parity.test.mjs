@@ -148,6 +148,9 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapStyle, /\.dg-nearby-brand\.kakao \{ background-image: url\('\/brand\/map-icons\/kakao-map-ios\.jpg'\); \}/);
   assert.doesNotMatch(webMapStyle, /\.dg-nearby-map-actions[^}]*transform:\s*scale/);
   assert.match(webMapStyle, /\.dg-calendar-grid/);
+  assert.match(webMapStyle, /\.dg-calendar-grid span\.has-alert::after/);
+  assert.match(webMapSource, /alert\.scheduled_times/);
+  assert.match(webUserSource, /scheduled_at,scheduled_times/);
   assert.match(webMapStyle, /\.dg-route-endpoint/);
   assert.match(webMapSource, /routeEndpointElement\("origin"\)/);
   assert.match(webMapSource, /routeEndpointElement\("destination"\)/);

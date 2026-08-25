@@ -810,7 +810,12 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         setReminders(read("dongnegogo.web.reminders"));
         try {
           const alerts = JSON.parse(localStorage.getItem("dongnegogo.web.alerts") ?? "[]") as WebUserAlert[];
-          setUserAlerts(alerts.filter((alert) => alert?.program_id));
+          setUserAlerts(alerts.filter((alert) => alert?.program_id).map((alert) => ({
+            ...alert,
+            scheduled_times: Array.isArray(alert.scheduled_times)
+              ? alert.scheduled_times.filter((value): value is string => typeof value === "string").slice(0, 3)
+              : alert.scheduled_at ? [alert.scheduled_at] : [],
+          })));
         } catch { setUserAlerts([]); }
         try {
           const family = JSON.parse(localStorage.getItem("dongnegogo.web.family") ?? "[]") as WebFamilyMember[];
@@ -2349,6 +2354,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       minutes_before: 60,
       enabled_at: new Date().toISOString(),
       scheduled_at: parsed.toISOString(),
+      scheduled_times: [parsed.toISOString()],
     };
     const nextAlerts = [saved, ...userAlerts.filter((item) => item.program_id !== saved.program_id)];
     setUserAlerts(nextAlerts);
@@ -4578,10 +4584,16 @@ function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { program
   });
   const programsByID = new Map(programs.map((program) => [program.id, program]));
   const alertEvents = alerts.flatMap((alert) => {
-    if (!alert.scheduled_at) return [];
     const program = programsByID.get(alert.program_id);
-    const date = new Date(alert.scheduled_at);
-    return program && Number.isFinite(date.getTime()) ? [{ program, date, kind: "alert" as const }] : [];
+    if (!program) return [];
+    const scheduleTimes = [...new Set([
+      ...(Array.isArray(alert.scheduled_times) ? alert.scheduled_times : []),
+      ...(alert.scheduled_at ? [alert.scheduled_at] : []),
+    ])].slice(0, 3);
+    return scheduleTimes.flatMap((scheduledAt) => {
+      const date = new Date(scheduledAt);
+      return Number.isFinite(date.getTime()) ? [{ program, date, kind: "alert" as const }] : [];
+    });
   });
   const alertProgramIDs = new Set(alertEvents.map(({ program }) => program.id));
   const receiptEvents = programs.flatMap((program) => {
@@ -4590,13 +4602,15 @@ function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { program
     const date = new Date(program.receiptStart);
     return Number.isFinite(date.getTime()) ? [{ program, date, kind: "receipt" as const }] : [];
   });
-  const events = [...alertEvents, ...receiptEvents].filter(({ date }) => date.getFullYear() === monthCursor.getFullYear() && date.getMonth() === monthCursor.getMonth()).sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 80);
+  const monthEvents = [...alertEvents, ...receiptEvents].filter(({ date }) => date.getFullYear() === monthCursor.getFullYear() && date.getMonth() === monthCursor.getMonth()).sort((a, b) => a.date.getTime() - b.date.getTime());
+  const events = monthEvents.slice(0, 80);
   const firstWeekday = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1).getDay();
   const daysInMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
-  const eventDays = new Set(events.map(({ date }) => date.getDate()));
+  const eventDays = new Set(monthEvents.map(({ date }) => date.getDate()));
+  const alertDays = new Set(alertEvents.filter(({ date }) => date.getFullYear() === monthCursor.getFullYear() && date.getMonth() === monthCursor.getMonth()).map(({ date }) => date.getDate()));
   const cells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
   const moveMonth = (offset: number) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
-  return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={day && eventDays.has(day) ? "has-event" : ""}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list dg-calendar-event-list">{events.length ? events.map(({ program, date, kind }) => <article className="dg-calendar-event-group" key={`${kind}:${program.id}:${date.toISOString()}`}><button className="dg-calendar-program-card" type="button" onClick={() => onOpen(program)} aria-label={`${program.name} 자세히 보기`}><img src={`/markers/${programIconName(program)}.png`} alt=""/><span><small>{program.status}</small><strong>{program.name}</strong><em>{program.facility}</em></span><ChevronRight aria-hidden="true"/></button><div className="dg-calendar-schedule-card"><span className="dg-date-badge">{date.getDate()}</span><span><small>{kind === "alert" ? "알림 일정" : "접수 일정"}</small><strong>{date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</strong><em>{date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}</em></span>{kind === "alert" && <button type="button" onClick={() => { void onDelete(program.id); }} aria-label={`${program.name} 알림 일정 삭제`}><Trash2 aria-hidden="true"/>삭제</button>}</div></article>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
+  return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={[day && eventDays.has(day) ? "has-event" : "", day && alertDays.has(day) ? "has-alert" : ""].filter(Boolean).join(" ")}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list dg-calendar-event-list">{events.length ? events.map(({ program, date, kind }) => <article className="dg-calendar-event-group" key={`${kind}:${program.id}:${date.toISOString()}`}><button className="dg-calendar-program-card" type="button" onClick={() => onOpen(program)} aria-label={`${program.name} 자세히 보기`}><img src={`/markers/${programIconName(program)}.png`} alt=""/><span><small>{program.status}</small><strong>{program.name}</strong><em>{program.facility}</em></span><ChevronRight aria-hidden="true"/></button><div className="dg-calendar-schedule-card"><span className="dg-date-badge">{date.getDate()}</span><span><small>{kind === "alert" ? "알림 일정" : "접수 일정"}</small><strong>{date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</strong><em>{date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}</em></span>{kind === "alert" && <button type="button" onClick={() => { void onDelete(program.id); }} aria-label={`${program.name} 알림 일정 삭제`}><Trash2 aria-hidden="true"/>삭제</button>}</div></article>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
 }
 
 function FamilyPanel({ programs, members, signedIn, onBack, onOpen, onSave, onRemove }: { programs: WebProgram[]; members: WebFamilyMember[]; signedIn: boolean; onBack: () => void; onOpen: (program: WebProgram) => void; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {
