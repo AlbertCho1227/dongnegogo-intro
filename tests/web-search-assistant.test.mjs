@@ -10,6 +10,7 @@ import {
   searchResultCategories,
   searchSuggestionQuery,
   shouldRequestPlaceSuggestions,
+  strongOutOfAreaTitleSuggestion,
 } from "../lib/web-search-engine.ts";
 
 function program(overrides = {}) {
@@ -52,6 +53,20 @@ test("도시 검색 범위는 광역시 또는 도의 시·군 단위로 정한�
   });
   assert.deepEqual(resolveSearchCityScope(parseSearchIntent("무료 요가"), "경기도 성남시 분당구"), {
     displayName: "성남", regionPath: "경기 성남시", candidateAreaTerms: ["경기", "성남시"],
+  });
+  assert.deepEqual(resolveSearchCityScope(parseSearchIntent("부산 공존의 세계"), "서울특별시 종로구"), {
+    displayName: "부산", regionPath: "부산", candidateAreaTerms: ["부산"],
+  });
+});
+
+test("현재 도시 밖의 정확한 프로그램 제목은 지역 검색을 먼저 제안한다", () => {
+  const suggestion = strongOutOfAreaTitleSuggestion(
+    "공존의 세계",
+    { displayName: "서울", regionPath: "서울", candidateAreaTerms: ["서울"] },
+    [program({ name: "공존의 세계", address: "부산광역시 해운대구", area: "해운대구" })],
+  );
+  assert.deepEqual(suggestion, {
+    regionName: "부산", programName: "공존의 세계", suggestedQuery: "부산 공존의 세계",
   });
 });
 

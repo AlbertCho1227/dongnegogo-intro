@@ -12,6 +12,7 @@ export type WebProgram = {
   room: string | null;
   address: string | null;
   area: string;
+  region?: string;
   latitude: number;
   longitude: number;
   isFree: boolean;
@@ -232,6 +233,7 @@ function normalizedProgram(row: ProgramRow): WebProgram | null {
     room: textValue(row.room),
     address: textValue(row.address),
     area: textValue(row.area) ?? "",
+    region: textValue(row.region) ?? undefined,
     latitude,
     longitude,
     isFree: row.is_free === true,

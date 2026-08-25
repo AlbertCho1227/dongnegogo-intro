@@ -18,6 +18,7 @@ import {
   programMatchesAreaTerms,
   relaxedSuggestions,
   resolveSearchCityScope,
+  strongOutOfAreaTitleSuggestion,
   searchAroundPlacePrograms,
   searchPrograms,
   searchResultCategories,
@@ -233,7 +234,8 @@ type SearchAssistantState =
   | { kind: "placeSearching"; place: WebPlaceSuggestion; radiusKm: number }
   | { kind: "placeFound"; place: WebPlaceSuggestion; radiusKm: number; count: number }
   | { kind: "placeExpand"; place: WebPlaceSuggestion; currentRadiusKm: number; nextRadiusKm: number; remoteSucceeded: boolean }
-  | { kind: "alternativeFound"; message: string; count: number };
+  | { kind: "alternativeFound"; message: string; count: number }
+  | { kind: "titleSuggestion"; regionName: string; programName: string; suggestedQuery: string };
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
   walk: "WALKING",
@@ -2019,6 +2021,22 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       setError("");
       rememberSearch(term);
 
+      let titleSuggestion: ReturnType<typeof strongOutOfAreaTitleSuggestion> = null;
+      const canCheckNationwideTitle = intent.areaTerms.length === 0
+        && intent.subjectTerms.length === 0
+        && intent.generalTerms.length > 0
+        && !intent.audiences.length
+        && intent.free === null && intent.day === null && intent.time === null
+        && intent.status === null && intent.dateTarget === null && intent.radiusKm === null
+        && term.replace(/[^0-9A-Za-z가-힣]/g, "").length >= 4;
+      if (canCheckNationwideTitle) {
+        const nationwideParams = new URLSearchParams();
+        intent.generalTerms.forEach((value) => nationwideParams.append("general", value));
+        const nationwideCandidates = await fetchPrograms(nationwideParams);
+        if (requestID !== searchRequestIDRef.current) return;
+        titleSuggestion = strongOutOfAreaTitleSuggestion(term, cityScope, nationwideCandidates);
+      }
+
       const place = preferredPlaceSuggestion(term, intent, suggestions);
       if (place && place.placeKind !== "administrative") {
         const shouldAutomaticallySearch = place.confidence >= 90 || matches.length <= 10;
@@ -2028,6 +2046,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         }
         setSearchAssistant({ kind: "placeOffer", place, radiusKm: 1 });
       }
+      if (titleSuggestion && !place) setSearchAssistant({ kind: "titleSuggestion", ...titleSuggestion });
 
       const maps = window.kakao?.maps;
       if (mapRef.current && matches.length && maps) {
@@ -3284,6 +3303,9 @@ function SearchExperience({
     if (assistant.kind === "alternativeFound") return <section className="dg-search-assistant-card">
       <img src="/web-assets/beodeuli-search-success.png" alt="" /><small>원하시는 결과를 찾았어요</small><strong>{assistant.message} 관련 프로그램 {assistant.count.toLocaleString("ko-KR")}곳을 아래에 정리했어요.</strong>
     </section>;
+    if (assistant.kind === "titleSuggestion") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
+      <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>다른 지역의 정확한 제목을 찾았어요</small><strong>혹시 {assistant.regionName}에 위치한 ‘{assistant.programName}’ 프로그램을 찾고 계실까요?</strong>
+    </div><button type="button" className="dg-search-primary-action" onClick={() => onChoose(assistant.suggestedQuery)}>▥ 네, {assistant.regionName} 전역에서 찾아볼게요</button></section>;
     if (assistant.kind === "placeOffer") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
       <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>원하시는 장소를 이해했어요</small><strong>‘{submittedQuery}’는 {assistant.place.displayName} 주변을 찾으시는 뜻으로 이해했어요. 제목에 장소명이 없어도 실제 위치를 기준으로 찾아드릴게요.</strong>
     </div><button type="button" className="dg-search-primary-action" onClick={() => onPlaceRadius(assistant.place, assistant.radiusKm)}>⌖ {searchRadiusLabel(assistant.radiusKm)} 주변 프로그램 찾아보기</button><button type="button" className="dg-search-secondary-action" onClick={onDismissPlace}>일반 검색 결과만 볼게요</button></section>;

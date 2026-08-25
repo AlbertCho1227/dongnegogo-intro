@@ -31,6 +31,12 @@ export type SearchResultCategory = {
   count: number;
 };
 
+export type OutOfAreaTitleSuggestion = {
+  regionName: string;
+  programName: string;
+  suggestedQuery: string;
+};
+
 const REPLACEMENTS: Array<[RegExp, string]> = [
   [/공짜|돈\s*안\s*드는|무료로/g, "무료"], [/스맛폰|스마트 폰/g, "스마트폰"],
   [/키오스ㅋ|키오스크기/g, "키오스크"], [/베드민턴|배드민톤/g, "배드민턴"],
@@ -79,6 +85,30 @@ function normalizedQuery(raw: string) {
 
 function compactKey(value: string) {
   return value.normalize("NFC").toLocaleLowerCase("ko").replace(/[^가-힣a-z0-9]/g, "");
+}
+
+function programTopLevelRegion(program: WebProgram) {
+  const document = `${program.region ?? ""} ${program.address ?? ""} ${program.area}`;
+  return TOP_LEVEL_AREAS.find((area) => compactKey(document).includes(compactKey(area))) ?? "";
+}
+
+export function strongOutOfAreaTitleSuggestion(
+  query: string,
+  currentScope: SearchCityScope,
+  programs: WebProgram[],
+): OutOfAreaTitleSuggestion | null {
+  const intent = parseSearchIntent(query);
+  const queryKey = compactKey(query);
+  if (intent.areaTerms.length || intent.subjectTerms.length || queryKey.length < 4) return null;
+  const exact = programs.filter((program) => {
+    const titleKey = compactKey(program.name);
+    return titleKey === queryKey || titleKey.includes(queryKey);
+  });
+  if (!exact.length || exact.some((program) => programMatchesAreaTerms(program, currentScope.candidateAreaTerms))) return null;
+  const candidate = exact.find((program) => programTopLevelRegion(program) !== currentScope.displayName) ?? exact[0];
+  const regionName = programTopLevelRegion(candidate);
+  if (!regionName) return null;
+  return { regionName, programName: candidate.name, suggestedQuery: `${regionName} ${candidate.name}` };
 }
 
 function canonicalTopLevel(value: string) {
