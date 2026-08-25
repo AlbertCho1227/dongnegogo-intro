@@ -262,6 +262,10 @@ test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시
   assert.doesNotMatch(webMapSource, /filterFitProgramSignature/);
   assert.match(webMapSource, /clusterScope: requestedScope/);
   assert.match(webMapSource, /mapFilterBoundsContain\(cached, exactBounds\)/);
+  assert.match(webMapSource, /filterClusterViewportCacheRef/);
+  assert.match(webMapSource, /mapFilterBoundsContain\(entry, exactBounds\)/);
+  assert.match(webMapSource, /clustersInsideMapFilterBounds\(cachedCluster\.clusters, exactBounds\)/);
+  assert.match(webMapSource, /mapFilterRequestKeyRef\.current === filterRequestKey/);
   assert.match(webMapSource, /mapBoundsAbortRef\.current\?\.abort\(\)/);
   assert.match(webMapSource, /setMapClusters\(payload\.clusters\)/);
   assert.doesNotMatch(webMapSource, /clusterFilteredWebPrograms\(/);
@@ -278,6 +282,11 @@ test("조건 적용은 사용자 주변 개별 마커로 시작하고 축소 시
 
 test("조건 군집을 열면 기존 프로그램 카드를 세로로 넘기며 해당 마커로 이동한다", () => {
   assert.match(webMapSource, /function FilteredClusterProgramCarousel/);
+  assert.match(webMapSource, /const openFilteredMapCluster = useCallback/);
+  assert.match(webMapSource, /cluster\.programCount > 1 \? "nearby" : "condition"/);
+  assert.match(webMapSource, /new URLSearchParams\(\{ id: representativeID \}\)/);
+  assert.match(webMapSource, /setPrograms\(\[representative\]\)/);
+  assert.match(webMapSource, /openFilteredMapCluster\(cluster, map\)/);
   assert.match(webMapSource, /filteredClusterCarouselAnchorRef\.current = carouselAnchor/);
   assert.match(webMapSource, /payload\.mode === "individual"[\s\S]*?filteredClusterCarouselProgramsRef\.current = carouselPrograms/);
   assert.match(webMapSource, /className="dg-filtered-cluster-card-pages" onScroll=\{updateFocusedCard\}/);
@@ -286,6 +295,10 @@ test("조건 군집을 열면 기존 프로그램 카드를 세로로 넘기며 
   assert.match(webMapSource, /group\.some\(\(program\) => program\.id === filteredClusterFocusedProgramID\)/);
   assert.match(webMapStyle, /\.dg-filtered-cluster-card-pages \{[^}]*scroll-snap-type:\s*y mandatory/);
   assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*scroll-snap-align:\s*start/);
+});
+
+test("모바일 지도는 첫 접속 시 지도 주변 패널을 숨긴다", () => {
+  assert.match(webMapSource, /useState<MobileSheetSnap>\("hidden"\)/);
 });
 
 test("알림을 저장하지 않아도 알림 하단 패널을 아래로 밀어 닫을 수 있다", () => {

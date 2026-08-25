@@ -136,6 +136,11 @@ function programsInsideMapFilterBounds(programs: readonly WebProgram[], bounds: 
     && program.longitude >= bounds.west && program.longitude <= bounds.east);
 }
 
+function clustersInsideMapFilterBounds(clusters: readonly WebMapCluster[], bounds: { south: number; west: number; north: number; east: number }) {
+  return clusters.filter((cluster) => cluster.latitude >= bounds.south && cluster.latitude <= bounds.north
+    && cluster.longitude >= bounds.west && cluster.longitude <= bounds.east);
+}
+
 function mapFilterClusterKeyword(request: MapFilterRequest) {
   return request.details[0]
     ?? request.fields[0]
@@ -580,6 +585,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const mapFilterSignatureRef = useRef("");
   const completeFilterCatalogRef = useRef<{ signature: string; programs: WebProgram[] } | null>(null);
   const filterViewportCacheRef = useRef<MapFilterViewportCache | null>(null);
+  const filterClusterViewportCacheRef = useRef<MapFilterViewportCache[]>([]);
+  const mapFilterRequestKeyRef = useRef<string | null>(null);
   const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
@@ -596,7 +603,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const [filteredClusterCarouselPrograms, setFilteredClusterCarouselPrograms] = useState<WebProgram[]>([]);
   const [filteredClusterFocusedProgramID, setFilteredClusterFocusedProgramID] = useState<string | null>(null);
   const [mapProgramCarouselSource, setMapProgramCarouselSource] = useState<"condition" | "nearby" | null>(null);
-  const [mobileSheetSnap, setMobileSheetSnap] = useState<MobileSheetSnap>("medium");
+  const [mobileSheetSnap, setMobileSheetSnap] = useState<MobileSheetSnap>("hidden");
   const [mobileSheetDragHeight, setMobileSheetDragHeight] = useState<number | null>(null);
   const [routeSheetCollapsed, setRouteSheetCollapsed] = useState(false);
   const [routeSheetDragOffset, setRouteSheetDragOffset] = useState<number | null>(null);
@@ -998,6 +1005,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     const radiusKm = distanceMeters(nextCenter, { latitude: ne.getLat(), longitude: ne.getLng() }) / 1_000;
     const requestedScope = webMapScopeForRadius(radiusKm, mapScopeRef.current);
     const hasActiveProgramFilter = programFilterActiveRef.current;
+    const filterRequestKey = hasActiveProgramFilter
+      ? [mapFilterSignatureRef.current, requestedScope, sw.getLat(), sw.getLng(), ne.getLat(), ne.getLng()]
+        .map((value) => typeof value === "number" ? value.toFixed(5) : value).join(":")
+      : null;
+    if (filterRequestKey && mapFilterRequestKeyRef.current === filterRequestKey) return;
+    mapFilterRequestKeyRef.current = filterRequestKey;
     const params = new URLSearchParams({
       south: String(sw.getLat()), west: String(sw.getLng()),
       north: String(ne.getLat()), east: String(ne.getLng()),
@@ -1037,6 +1050,12 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         const exactBounds = { south: sw.getLat(), west: sw.getLng(), north: ne.getLat(), east: ne.getLng() };
         const completeCatalog = requestedScope === "individual" ? completeFilterCatalogRef.current : null;
         const cached = filterViewportCacheRef.current;
+        const cachedCluster = requestedScope === "individual" ? null : filterClusterViewportCacheRef.current.find((entry) => (
+          entry.signature === mapFilterSignatureRef.current
+          && entry.scope === requestedScope
+          && Date.now() - entry.storedAt < 120_000
+          && mapFilterBoundsContain(entry, exactBounds)
+        ));
         let payload: MapFilterResponse;
         if (completeCatalog?.signature === mapFilterSignatureRef.current) {
           const nextPrograms = programsInsideMapFilterBounds(completeCatalog.programs, exactBounds);
@@ -1047,8 +1066,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             && Date.now() - cached.storedAt < 120_000
             && mapFilterBoundsContain(cached, exactBounds)) {
           payload = { mode: "individual", scope: "individual", programs: programsInsideMapFilterBounds(cached.programs, exactBounds), clusters: [], matchCount: cached.programs.length, isComplete: true, revision: "filter-viewport-cache", south: exactBounds.south, west: exactBounds.west, north: exactBounds.north, east: exactBounds.east };
+        } else if (cachedCluster) {
+          const nextClusters = clustersInsideMapFilterBounds(cachedCluster.clusters, exactBounds);
+          payload = { mode: "cluster", scope: requestedScope, programs: [], clusters: nextClusters, matchCount: nextClusters.reduce((sum, cluster) => sum + cluster.programCount, 0), isComplete: true, revision: "filter-cluster-viewport-cache", south: exactBounds.south, west: exactBounds.west, north: exactBounds.north, east: exactBounds.east };
         } else {
-          const queryBounds = requestedScope === "individual" ? paddedMapFilterBounds(exactBounds) : exactBounds;
+          const queryBounds = paddedMapFilterBounds(exactBounds, requestedScope === "individual" ? .5 : .35);
           payload = await fetchMapFilterCatalog({
             ...mapFilterRequestRef.current,
             ...queryBounds,
@@ -1065,6 +1087,24 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
               storedAt: Date.now(),
             };
             payload = { ...payload, programs: programsInsideMapFilterBounds(payload.programs, exactBounds) };
+          } else {
+            const nextCache: MapFilterViewportCache = {
+              signature: mapFilterSignatureRef.current,
+              ...queryBounds,
+              programs: [],
+              clusters: payload.clusters,
+              scope: payload.scope,
+              storedAt: Date.now(),
+            };
+            filterClusterViewportCacheRef.current = [
+              nextCache,
+              ...filterClusterViewportCacheRef.current.filter((entry) => !(
+                entry.signature === nextCache.signature
+                && entry.scope === nextCache.scope
+                && mapFilterBoundsContain(entry, queryBounds)
+              )),
+            ].slice(0, 8);
+            payload = { ...payload, clusters: clustersInsideMapFilterBounds(payload.clusters, exactBounds) };
           }
         }
         const carouselAnchor = filteredClusterCarouselAnchorRef.current;
@@ -1143,9 +1183,53 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     } catch (fetchError) {
       if (!requestController.signal.aborted && mapRequestIDRef.current === requestID) setError((fetchError as Error).message);
     } finally {
+      if (mapFilterRequestKeyRef.current === filterRequestKey) mapFilterRequestKeyRef.current = null;
       if (mapRequestIDRef.current === requestID) setLoading(false);
     }
   }, [resolveCenteredArea]);
+
+  const openFilteredMapCluster = useCallback((cluster: WebMapCluster, map: KakaoMap) => {
+    const maps = window.kakao?.maps;
+    if (!maps) return;
+    const carouselAnchor = { latitude: cluster.latitude, longitude: cluster.longitude };
+    const filterSignature = mapFilterSignatureRef.current;
+    const representativeID = cluster.programIds[0];
+
+    map.panTo(new maps.LatLng(cluster.latitude, cluster.longitude));
+    setMapProgramCarouselSource(cluster.programCount > 1 ? "nearby" : "condition");
+    filteredClusterCarouselAnchorRef.current = carouselAnchor;
+    filteredClusterCarouselSignatureRef.current = filterSignature;
+    filteredClusterCarouselProgramsRef.current = [];
+    setFilteredClusterCarouselSignature(filterSignature);
+    setFilteredClusterCarouselPrograms([]);
+    setFilteredClusterFocusedProgramID(null);
+    map.setLevel(4);
+
+    if (!representativeID) return;
+    const params = new URLSearchParams({ id: representativeID });
+    void fetchPrograms(params).then((matches) => {
+      const representative = matches[0];
+      if (!representative
+        || mapFilterSignatureRef.current !== filterSignature
+        || filteredClusterCarouselAnchorRef.current !== carouselAnchor
+        || filteredClusterCarouselProgramsRef.current.length > 0) return;
+
+      // 전체 조건 viewport가 도착하기 전에도 DB 군집이 지정한 대표 프로그램을
+      // 먼저 그려 군집 선택에 즉시 반응한다. ref는 비워 두어 뒤이어 도착한
+      // viewport 결과가 주변 카드 전체를 원자적으로 채우도록 한다.
+      setPrograms([representative]);
+      setMapClusters([]);
+      setMapMode("individual");
+      mapModeRef.current = "individual";
+      setMapScope("individual");
+      mapScopeRef.current = "individual";
+      setFilteredClusterCarouselPrograms([representative]);
+      setFilteredClusterFocusedProgramID(representative.id);
+    }).catch(() => {
+      // 개별 대표 조회가 실패해도 idle에서 실행되는 조건 viewport 조회가
+      // 동일한 이동·카드 흐름을 완성하므로 사용자에게 중복 오류를 노출하지 않는다.
+    });
+  }, []);
 
   useEffect(() => {
     if (radiusKm === null || usesFallbackLocation) return;
@@ -1221,6 +1305,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           // 타일과 함께 자연스럽게 이동하고 idle의 새 서버 응답이 한 번에
           // 교체하므로 빈 지도 깜박임과 개별·군집 혼합을 모두 피한다.
           mapRequestIDRef.current += 1;
+          mapFilterRequestKeyRef.current = null;
           mapBoundsAbortRef.current?.abort();
         }
       });
@@ -1522,23 +1607,11 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           }
         }
         button.addEventListener("click", () => {
-          const coordinate = new window.kakao!.maps.LatLng(cluster.latitude, cluster.longitude);
-          map.panTo(coordinate);
           if (activeConditionCount > 0) {
-            // 필터 군집의 좌표와 첫 ID는 DB가 선택한 실제 대표 프로그램이다.
-            // 중간 군집 단계를 반복하지 않고 즉시 개별 축척으로 이동한다.
-            // 현재 군집은 idle의 단일 viewport 응답이 도착할 때까지 유지하고,
-            // 프로그램·모드·군집을 한 번에 교체해 중간 빈 장면을 만들지 않는다.
-            const carouselAnchor = { latitude: cluster.latitude, longitude: cluster.longitude };
-            setMapProgramCarouselSource("condition");
-            filteredClusterCarouselAnchorRef.current = carouselAnchor;
-            filteredClusterCarouselSignatureRef.current = mapFilterSignatureRef.current;
-            filteredClusterCarouselProgramsRef.current = [];
-            setFilteredClusterCarouselSignature(mapFilterSignatureRef.current);
-            setFilteredClusterCarouselPrograms([]);
-            setFilteredClusterFocusedProgramID(null);
-            map.setLevel(4);
+            openFilteredMapCluster(cluster, map);
           } else {
+            const coordinate = new window.kakao!.maps.LatLng(cluster.latitude, cluster.longitude);
+            map.panTo(coordinate);
             map.setLevel(Math.max(1, map.getLevel() - 2));
           }
         });
@@ -1582,7 +1655,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds]);
+  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds, openFilteredMapCluster]);
 
   const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
     if (!nearbyDestination) return;
