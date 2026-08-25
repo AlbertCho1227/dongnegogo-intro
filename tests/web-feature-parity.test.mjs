@@ -5,6 +5,7 @@ import { dominantProgram, programIconName } from "../lib/web-icon-mapper.ts";
 import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
 
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
+const webPageSource = readFileSync(new URL("../app/web/page.tsx", import.meta.url), "utf8");
 const webMapStyle = readFileSync(new URL("../app/web/web-map.css", import.meta.url), "utf8");
 const webMapLinksSource = readFileSync(new URL("../lib/web-map-links.ts", import.meta.url), "utf8");
 const webSearchAssistantRoute = readFileSync(new URL("../app/api/web-search-assistant/route.ts", import.meta.url), "utf8");
@@ -395,7 +396,12 @@ test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만
   assert.match(webUserSource, /app_platform:\s*"web"/);
   assert.match(webUserSource, /WEB_AUTH_CONSENT_VERSION\s*=\s*"2026-08-11"/);
   assert.match(webUserSource, /flowType:\s*"pkce"/);
+  assert.match(webPageSource, /publicRuntimeConfig/);
+  assert.match(webPageSource, /DONGNEGOGO_SUPABASE_URL/);
+  assert.match(webPageSource, /DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(webMapSource, /configureWebUserClient\(\{ url: supabaseUrl, publishableKey: supabasePublishableKey \}\)/);
   assert.doesNotMatch(webUserSource, /service_role|sb_secret_/i);
+  assert.doesNotMatch(webPageSource, /service_role|sb_secret_/i);
 });
 
 test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두 표시한다", () => {
@@ -427,6 +433,7 @@ test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다
   assert.match(webUserSource, /signInWithOAuth/);
   assert.match(webUserSource, /redirectTo/);
   assert.doesNotMatch(webUserSource, /scope:\s*"openid"/);
+  assert.match(webMapSource, /Apple 웹 로그인을 위한 운영 인증 설정이 아직 완료되지 않았어요/);
   assert.match(webMapStyle, /\.dg-auth-dialog/);
 });
 

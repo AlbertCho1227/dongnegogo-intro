@@ -8,20 +8,25 @@ export const metadata: Metadata = {
   alternates: { canonical: "/web" },
 };
 
-async function kakaoMapKey() {
-  let key = process.env.NEXT_PUBLIC_KAKAO_MAP_JS_KEY ?? "";
-  if (!key) {
-    try {
-      const { env } = await import("cloudflare:workers");
-      key = String((env as unknown as Record<string, unknown>).NEXT_PUBLIC_KAKAO_MAP_JS_KEY ?? "");
-    } catch {
-      // Local builds resolve the value from .env.local.
-    }
+async function publicRuntimeConfig() {
+  let runtime: Record<string, unknown> = {};
+  try {
+    const { env } = await import("cloudflare:workers");
+    runtime = env as unknown as Record<string, unknown>;
+  } catch {
+    // Local development resolves values from process.env.
   }
-  return key;
+  const value = (...names: string[]) => names
+    .map((name) => String(process.env[name] ?? runtime[name] ?? "").trim())
+    .find(Boolean) ?? "";
+  return {
+    kakaoMapKey: value("NEXT_PUBLIC_KAKAO_MAP_JS_KEY"),
+    supabaseUrl: value("NEXT_PUBLIC_SUPABASE_URL", "DONGNEGOGO_SUPABASE_URL"),
+    supabasePublishableKey: value("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "DONGNEGOGO_SUPABASE_PUBLISHABLE_KEY"),
+  };
 }
 
 export default async function WebVersionPage() {
-  return <WebMapApp kakaoMapKey={await kakaoMapKey()} />;
+  const config = await publicRuntimeConfig();
+  return <WebMapApp {...config} />;
 }
-

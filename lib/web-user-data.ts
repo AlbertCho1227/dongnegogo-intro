@@ -56,11 +56,22 @@ export const WEB_AUTH_CONSENT_VERSION = "2026-08-11";
 export const WEB_AUTH_CONSENT_STORAGE_KEY = "dongnegogo.web.legalConsentVersion";
 
 let client: SupabaseClient | null | undefined;
+let runtimeUrl = "";
+let runtimePublishableKey = "";
+
+export function configureWebUserClient(config: { url: string; publishableKey: string }) {
+  const nextUrl = config.url.trim();
+  const nextKey = config.publishableKey.trim();
+  if (runtimeUrl === nextUrl && runtimePublishableKey === nextKey) return;
+  runtimeUrl = nextUrl;
+  runtimePublishableKey = nextKey;
+  client = undefined;
+}
 
 function configuredClient() {
   if (client !== undefined) return client;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  const url = runtimeUrl || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = runtimePublishableKey || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
   if (!url || !key?.startsWith("sb_publishable_")) {
     client = null;
     return client;

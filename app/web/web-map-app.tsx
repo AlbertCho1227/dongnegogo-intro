@@ -30,6 +30,7 @@ import {
 } from "@/lib/web-search-engine";
 import type { WebRouteMode, WebRouteResult } from "@/lib/web-route-data";
 import {
+  configureWebUserClient,
   currentWebSession,
   createWebReview,
   createWebReviewComment,
@@ -559,7 +560,8 @@ async function fetchProgramsAroundPlace(place: WebPlaceSuggestion, radiusKm: num
   return payload.programs ?? [];
 }
 
-export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
+export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishableKey }: { kakaoMapKey: string; supabaseUrl: string; supabasePublishableKey: string }) {
+  configureWebUserClient({ url: supabaseUrl, publishableKey: supabasePublishableKey });
   const mapElementRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const queryRef = useRef("");
@@ -2211,7 +2213,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     try {
       await signInToWeb(provider);
     } catch (authError) {
-      setAccountError(authError instanceof Error ? authError.message : "로그인을 시작하지 못했어요.");
+      const message = authError instanceof Error ? authError.message : "로그인을 시작하지 못했어요.";
+      setAccountError(provider === "apple" && /missing OAuth secret|unsupported provider/i.test(message)
+        ? "Apple 웹 로그인을 위한 운영 인증 설정이 아직 완료되지 않았어요."
+        : message);
       setAuthLoading(false);
     }
   };
