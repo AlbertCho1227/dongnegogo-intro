@@ -13,6 +13,7 @@ import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyD
 import {
   hasAmbiguousAdministrativeSuggestions,
   haversineMeters,
+  fuzzyAdministrativeTitlePrograms,
   parseSearchIntent,
   preferredPlaceSuggestion,
   programMatchesAreaTerms,
@@ -2015,7 +2016,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       if (requestID !== searchRequestIDRef.current) return;
       setSearchProgress(82);
       setSearchCandidates(candidates);
-      const matches = searchPrograms(candidates, intent, location).map((item) => item.program);
+      let matches = searchPrograms(candidates, intent, location).map((item) => item.program);
+      if (!matches.length) {
+        matches = fuzzyAdministrativeTitlePrograms(term, intent, candidates);
+      }
       setSearchResults(matches);
       setSearchProgress(100);
       setError("");
@@ -2038,7 +2042,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       }
 
       const place = preferredPlaceSuggestion(term, intent, suggestions);
-      if (place && place.placeKind !== "administrative") {
+      if (titleSuggestion) {
+        setSearchAssistant({ kind: "titleSuggestion", ...titleSuggestion });
+      } else if (place && place.placeKind !== "administrative") {
         const shouldAutomaticallySearch = place.confidence >= 90 || matches.length <= 10;
         if (shouldAutomaticallySearch) {
           await runPlaceSearch(term, place, 1, requestID);
@@ -2046,7 +2052,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         }
         setSearchAssistant({ kind: "placeOffer", place, radiusKm: 1 });
       }
-      if (titleSuggestion && !place) setSearchAssistant({ kind: "titleSuggestion", ...titleSuggestion });
 
       const maps = window.kakao?.maps;
       if (mapRef.current && matches.length && maps) {

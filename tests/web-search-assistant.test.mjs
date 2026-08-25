@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   hasAmbiguousAdministrativeSuggestions,
+  fuzzyAdministrativeTitlePrograms,
   parseSearchIntent,
   preferredPlaceSuggestion,
   searchPrograms,
@@ -68,6 +69,31 @@ test("현재 도시 밖의 정확한 프로그램 제목은 지역 검색을 먼
   assert.deepEqual(suggestion, {
     regionName: "부산", programName: "공존의 세계", suggestedQuery: "부산 공존의 세계",
   });
+});
+
+test("조금 다르게 기억한 제목은 다른 도시의 더 강한 제목 후보를 제안한다", () => {
+  const suggestion = strongOutOfAreaTitleSuggestion(
+    "공존의 세계",
+    { displayName: "서울", regionPath: "서울", candidateAreaTerms: ["서울"] },
+    [
+      program({ id: "seoul", name: "순환의 정원, 공존의 시간", address: "서울특별시 강서구", area: "강서구" }),
+      program({ id: "busan", name: "공존의 경계에 흐르다: 파괴와 생성", address: "부산광역시 금정구", area: "금정구" }),
+    ],
+  );
+  assert.deepEqual(suggestion, {
+    regionName: "부산",
+    programName: "공존의 경계에 흐르다: 파괴와 생성",
+    suggestedQuery: "부산 공존의 세계",
+  });
+});
+
+test("행정지역과 기억한 제목을 함께 입력하면 반경 없이 도시 후보를 보완한다", () => {
+  const intent = parseSearchIntent("부산 공존의 세계");
+  const results = fuzzyAdministrativeTitlePrograms("부산 공존의 세계", intent, [
+    program({ id: "target", name: "공존의 경계에 흐르다: 파괴와 생성", address: "부산광역시 금정구", area: "금정구" }),
+    program({ id: "noise", name: "우장춘기념관", address: "부산광역시 동래구", area: "동래구" }),
+  ]);
+  assert.deepEqual(results.map((item) => item.id), ["target"]);
 });
 
 test("대구 검색에 부산 해운대구가 문자열 일부로 섞이지 않는다", () => {

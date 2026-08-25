@@ -37,6 +37,8 @@ export type OutOfAreaTitleSuggestion = {
   suggestedQuery: string;
 };
 
+type RankedTitleCandidate = { program: WebProgram; score: number };
+
 const REPLACEMENTS: Array<[RegExp, string]> = [
   [/공짜|돈\s*안\s*드는|무료로/g, "무료"], [/스맛폰|스마트 폰/g, "스마트폰"],
   [/키오스ㅋ|키오스크기/g, "키오스크"], [/베드민턴|배드민톤/g, "배드민턴"],
@@ -87,6 +89,75 @@ function compactKey(value: string) {
   return value.normalize("NFC").toLocaleLowerCase("ko").replace(/[^가-힣a-z0-9]/g, "");
 }
 
+function titleTokens(value: string) {
+  return value.normalize("NFC").toLocaleLowerCase("ko")
+    .split(/[^가-힣a-z0-9]+/g)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+}
+
+function bigramSimilarity(lhs: string, rhs: string) {
+  if (lhs === rhs) return 1;
+  if (lhs.length < 2 || rhs.length < 2) return 0;
+  const counts = new Map<string, number>();
+  for (let index = 0; index < lhs.length - 1; index += 1) {
+    const key = lhs.slice(index, index + 2);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let overlap = 0;
+  for (let index = 0; index < rhs.length - 1; index += 1) {
+    const key = rhs.slice(index, index + 2);
+    const count = counts.get(key) ?? 0;
+    if (count > 0) {
+      overlap += 1;
+      counts.set(key, count - 1);
+    }
+  }
+  return (2 * overlap) / (lhs.length + rhs.length - 2);
+}
+
+/** 제목을 조금 다르게 기억한 경우도 찾되 한두 글자 우연 일치는 제외한다. */
+export function titleSearchMatchScore(query: string, title: string) {
+  const queryKey = compactKey(query);
+  const titleKey = compactKey(title);
+  if (queryKey.length < 4 || titleKey.length < 2) return 0;
+  if (queryKey === titleKey) return 1_000;
+  if (titleKey.includes(queryKey)) return 950;
+  if (queryKey.includes(titleKey) && titleKey.length >= 4) return 900;
+
+  const tokens = titleTokens(query);
+  if (!tokens.length) return 0;
+  const matched = tokens.filter((token) => titleKey.includes(compactKey(token)));
+  if (!matched.some((token) => compactKey(token).length >= 3)) return 0;
+  const coverage = matched.length / tokens.length;
+  const firstKey = compactKey(tokens[0]);
+  const startsWithDistinctiveToken = firstKey.length >= 3 && titleKey.startsWith(firstKey);
+  if (coverage < 0.5 || (!startsWithDistinctiveToken && coverage < 1)) return 0;
+  return coverage * 60 + (startsWithDistinctiveToken ? 30 : 0)
+    + bigramSimilarity(queryKey, titleKey) * 20;
+}
+
+function rankedTitleCandidates(query: string, programs: WebProgram[]): RankedTitleCandidate[] {
+  return programs.map((program) => ({ program, score: titleSearchMatchScore(query, program.name) }))
+    .filter((candidate) => candidate.score >= 55)
+    .sort((lhs, rhs) => rhs.score - lhs.score || lhs.program.name.localeCompare(rhs.program.name, "ko"));
+}
+
+/** 행정지역 검색에서 엄격한 모든 단어 일치가 0건일 때 제목 유사 후보를 보완한다. */
+export function fuzzyAdministrativeTitlePrograms(
+  query: string,
+  intent: SearchIntent,
+  programs: WebProgram[],
+  limit = 20,
+) {
+  if (!intent.areaTerms.length || intent.subjectTerms.length || !intent.generalTerms.length) return [];
+  const ranked = rankedTitleCandidates(intent.generalTerms.join(" "), programs);
+  const bestScore = ranked[0]?.score ?? 0;
+  return ranked.filter((candidate) => candidate.score >= bestScore - 10)
+    .slice(0, limit)
+    .map((candidate) => candidate.program);
+}
+
 function programTopLevelRegion(program: WebProgram) {
   const document = `${program.region ?? ""} ${program.address ?? ""} ${program.area}`;
   return TOP_LEVEL_AREAS.find((area) => compactKey(document).includes(compactKey(area))) ?? "";
@@ -100,15 +171,18 @@ export function strongOutOfAreaTitleSuggestion(
   const intent = parseSearchIntent(query);
   const queryKey = compactKey(query);
   if (intent.areaTerms.length || intent.subjectTerms.length || queryKey.length < 4) return null;
-  const exact = programs.filter((program) => {
-    const titleKey = compactKey(program.name);
-    return titleKey === queryKey || titleKey.includes(queryKey);
-  });
-  if (!exact.length || exact.some((program) => programMatchesAreaTerms(program, currentScope.candidateAreaTerms))) return null;
-  const candidate = exact.find((program) => programTopLevelRegion(program) !== currentScope.displayName) ?? exact[0];
-  const regionName = programTopLevelRegion(candidate);
+  const ranked = rankedTitleCandidates(query, programs);
+  const outside = ranked.find(({ program }) => !programMatchesAreaTerms(program, currentScope.candidateAreaTerms));
+  if (!outside) return null;
+  const currentBest = ranked.find(({ program }) => programMatchesAreaTerms(program, currentScope.candidateAreaTerms));
+  if (currentBest && currentBest.score >= outside.score - 8) return null;
+  const regionName = programTopLevelRegion(outside.program);
   if (!regionName) return null;
-  return { regionName, programName: candidate.name, suggestedQuery: `${regionName} ${candidate.name}` };
+  return {
+    regionName,
+    programName: outside.program.name,
+    suggestedQuery: `${regionName} ${query.trim()}`,
+  };
 }
 
 function canonicalTopLevel(value: string) {
