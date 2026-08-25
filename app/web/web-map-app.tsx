@@ -3814,10 +3814,14 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
   const pagesRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const dragStartRef = useRef<number | null>(null);
+  const dragOffsetRef = useRef(0);
+  const closeTimerRef = useRef<number | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
   const [sort, setSort] = useState<SearchSort>("distance");
   const [dragOffset, setDragOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [closing, setClosing] = useState(false);
   const categories = useMemo(() => searchResultCategories(programs), [programs]);
   const visiblePrograms = useMemo(() => {
     const filtered = category ? programs.filter((program) => searchResultCategoryIDs(program).includes(category)) : programs;
@@ -3840,6 +3844,7 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
 
   useEffect(() => () => {
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -3858,12 +3863,34 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
     });
   };
 
-  return <section className={`dg-filtered-cluster-carousel${singleCardMode ? " is-single-card" : ""}${expanded && singleCardMode ? " has-controls" : ""}${expanded && !singleCardMode ? " is-expanded" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
-    <header onPointerDown={(event) => { dragStartRef.current = event.clientY; event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (dragStartRef.current !== null) setDragOffset(Math.max(0, event.clientY - dragStartRef.current)); }} onPointerUp={() => { dragStartRef.current = null; if (dragOffset > 84) onClose(); else setDragOffset(0); }}>
+  const animateClose = () => {
+    if (closing) return;
+    dragStartRef.current = null;
+    dragOffsetRef.current = 0;
+    setDragging(false);
+    setClosing(true);
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(onClose, 280);
+  };
+
+  const finishDrag = () => {
+    const offset = dragOffsetRef.current;
+    dragStartRef.current = null;
+    setDragging(false);
+    if (offset > 84) {
+      animateClose();
+      return;
+    }
+    dragOffsetRef.current = 0;
+    setDragOffset(0);
+  };
+
+  return <section className={`dg-filtered-cluster-carousel${singleCardMode ? " is-single-card" : ""}${expanded && singleCardMode ? " has-controls" : ""}${expanded && !singleCardMode ? " is-expanded" : ""}${dragging ? " is-dragging" : ""}${closing ? " is-closing" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
+    <header onPointerDown={(event) => { if (closing) return; dragStartRef.current = event.clientY; dragOffsetRef.current = 0; setDragging(true); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (dragStartRef.current === null || closing) return; const nextOffset = Math.max(0, event.clientY - dragStartRef.current); dragOffsetRef.current = nextOffset; setDragOffset(nextOffset); }} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
       <span><strong>{title}</strong><small>{singleCardMode ? "카드를 위아래로 넘겨 하나씩 확인해요" : "위아래로 넘기면 선택한 위치로 이동해요"}</small></span>
       <b>{Math.min(selectedIndex + 1, visiblePrograms.length)} / {visiblePrograms.length.toLocaleString("ko-KR")}</b>
       <button className="dg-carousel-filter-toggle" type="button" onPointerDown={(event) => event.stopPropagation()} onClick={() => setExpanded((value) => !value)} aria-label={expanded ? "프로그램 분류 접기" : "프로그램 분류 펼치기"}><SlidersHorizontal aria-hidden="true" size={16} /></button>
-      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={onClose} aria-label={`${title} 카드 닫기`}><X aria-hidden="true" size={17} /></button>
+      <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={animateClose} aria-label={`${title} 카드 닫기`}><X aria-hidden="true" size={17} /></button>
     </header>
     {expanded && <section className="dg-carousel-program-controls"><small>프로그램 분류</small><div className="dg-carousel-category-row"><button type="button" className={category === null ? "active" : ""} onClick={() => setCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => setCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div><div className="dg-carousel-sort-row">{([['relevance','관련도 순'],['distance','가까운 순'],['available','신청 가능한 순'],['free','무료 먼저']] as Array<[SearchSort,string]>).map(([value,label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => setSort(value)}>{label}</button>)}</div></section>}
     <div ref={pagesRef} className="dg-filtered-cluster-card-pages" onScroll={updateFocusedCard}>

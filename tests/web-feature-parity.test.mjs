@@ -451,7 +451,13 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.match(webMapSource, /dg-carousel-filter-toggle/);
   assert.match(webMapSource, /프로그램 분류 접기/);
   assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
-  assert.match(webMapSource, /if \(dragOffset > 84\) onClose\(\)/);
+  assert.match(webMapSource, /const offset = dragOffsetRef\.current/);
+  assert.match(webMapSource, /if \(offset > 84\)/);
+  assert.match(webMapSource, /setClosing\(true\)/);
+  assert.match(webMapSource, /window\.setTimeout\(onClose, 280\)/);
+  assert.match(webMapSource, /onPointerCancel=\{finishDrag\}/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-dragging \{[^}]*transition:[^}]*opacity/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-closing \{[^}]*100dvh \+ 40px[^}]*opacity:0/);
   assert.match(webMapSource, /focusedCarouselProgram[\s\S]*?dg-map-marker is-selected/);
   assert.match(webMapSource, /className="dg-carousel-map-action"[\s\S]*?onClick=\{\(\) => onFocus\(program\)\}/);
   assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*align-items:\s*center/);
