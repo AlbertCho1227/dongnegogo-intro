@@ -178,6 +178,49 @@ type AuxiliaryPanel = "calendar" | "family" | "history" | "nearby" | "programs" 
 type PlaceSheetState = { programs: WebProgram[]; index: number; expectedCount: number; loading: boolean };
 type NearbyCategory = "all" | WebNearbyPlace["placeType"];
 type AlertDialogState = { program: WebProgram; scheduledAt: string };
+
+function useSmoothSearchProgress(target: number, active: boolean) {
+  const normalizedTarget = Math.max(0, Math.min(100, target));
+  const [displayed, setDisplayed] = useState(0);
+  const displayedRef = useRef(0);
+
+  useEffect(() => {
+    let frame = 0;
+    if (!active) {
+      frame = window.requestAnimationFrame(() => {
+        displayedRef.current = normalizedTarget;
+        setDisplayed(normalizedTarget);
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    let previousTime = performance.now();
+    const advance = (time: number) => {
+      if (normalizedTarget < displayedRef.current) {
+        displayedRef.current = 0;
+        setDisplayed(0);
+        previousTime = time;
+        frame = window.requestAnimationFrame(advance);
+        return;
+      }
+      const elapsedSeconds = Math.min(.05, Math.max(.001, (time - previousTime) / 1_000));
+      previousTime = time;
+      const remaining = normalizedTarget - displayedRef.current;
+      if (remaining <= .05) {
+        displayedRef.current = normalizedTarget;
+        setDisplayed(normalizedTarget);
+        return;
+      }
+      displayedRef.current = Math.min(normalizedTarget, displayedRef.current + Math.max(12, remaining * 4.2) * elapsedSeconds);
+      setDisplayed(displayedRef.current);
+      frame = window.requestAnimationFrame(advance);
+    };
+    frame = window.requestAnimationFrame(advance);
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, normalizedTarget]);
+
+  return Math.round(displayed);
+}
+
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
 type PlaceSheetSnap = "hidden" | "collapsed" | "expanded";
 type RoutePanelMode = "route" | "nearby";
@@ -2286,9 +2329,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     setAlertDialog(null);
   };
 
-  const removeAlert = async () => {
-    if (!alertDialog) return;
-    const id = alertDialog.program.id;
+  const removeAlertForProgram = async (id: string) => {
     const nextAlerts = userAlerts.filter((item) => item.program_id !== id);
     setUserAlerts(nextAlerts);
     setReminders((previous) => previous.filter((item) => item !== id));
@@ -2301,6 +2342,11 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
       persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
     }
+  };
+
+  const removeAlert = async () => {
+    if (!alertDialog) return;
+    await removeAlertForProgram(alertDialog.program.id);
     setAlertDialog(null);
   };
 
@@ -2917,7 +2963,13 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             }}
           />
         ) : auxiliaryPanel === "calendar" ? (
-          <CalendarPanel programs={programs} reminders={reminders} onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }} />
+          <CalendarPanel
+            programs={programs}
+            alerts={userAlerts}
+            onBack={() => setAuxiliaryPanel(null)}
+            onOpen={(program) => { void selectProgram(program); }}
+            onDelete={(programID) => removeAlertForProgram(programID)}
+          />
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && auxiliaryPanel === "family" ? (
           <FamilyPanel programs={programs} members={familyMembers} signedIn={Boolean(session)}
             onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }}
@@ -3205,6 +3257,7 @@ function SearchExperience({
   const relaxations = intent ? relaxedSuggestions(intent) : [];
   const managedRadius = assistant.kind === "placeOffer" || assistant.kind === "placeSearching"
     || assistant.kind === "placeFound" || assistant.kind === "placeExpand";
+  const displayedProgress = useSmoothSearchProgress(progress, loading);
 
   if (!active) {
     return <div className="dg-search-idle-panel">
@@ -3252,8 +3305,8 @@ function SearchExperience({
     {warning && <p className="dg-search-warning" role="status"><span>!</span><strong>{warning}</strong><button type="button" onClick={onRetry}>다시 검색</button></p>}
     {alternativeNotice && assistant.kind !== "alternativeFound" && <p className="dg-search-alternative-notice">✓ {alternativeNotice}</p>}
     <section className="dg-search-result-header">
-      <div><strong><em>{cityScope.displayName}</em> 지역 기준으로 {loading ? "먼저 찾고 있어요." : <><b>{visibleResults.length.toLocaleString("ko-KR")}곳</b>을 찾았어요.</>}</strong>{loading && <span>{progress}%</span>}</div>
-      {loading && <progress max="100" value={progress} aria-label="검색 진행률" />}
+      <div><strong><em>{cityScope.displayName}</em> 지역 기준으로 {loading ? "먼저 찾고 있어요." : <><b>{visibleResults.length.toLocaleString("ko-KR")}곳</b>을 찾았어요.</>}</strong>{loading && <span>{displayedProgress}%</span>}</div>
+      {loading && <progress max="100" value={displayedProgress} aria-label="검색 진행률" aria-valuetext={`${displayedProgress}퍼센트`} />}
       {!loading && <p>다른 지역 검색을 원하시면,<br />검색창에 찾고자 하시는 지역명을 함께 입력해주세요.</p>}
     </section>
     {(intent!.chips.length > 0 || (!loading && !allResults.length && relaxations.length > 0)) && <section className="dg-search-intent-card">
@@ -4476,23 +4529,32 @@ function PanelHeader({ title, subtitle, onBack }: { title: string; subtitle?: st
   return <header className="dg-subpanel-header"><button type="button" onClick={onBack}>‹</button><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div></header>;
 }
 
-function CalendarPanel({ programs, reminders, onBack, onOpen }: { programs: WebProgram[]; reminders: string[]; onBack: () => void; onOpen: (program: WebProgram) => void }) {
+function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { programs: WebProgram[]; alerts: WebUserAlert[]; onBack: () => void; onOpen: (program: WebProgram) => void; onDelete: (programID: string) => Promise<void> }) {
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const datedPrograms = programs.flatMap((program) => {
+  const programsByID = new Map(programs.map((program) => [program.id, program]));
+  const alertEvents = alerts.flatMap((alert) => {
+    if (!alert.scheduled_at) return [];
+    const program = programsByID.get(alert.program_id);
+    const date = new Date(alert.scheduled_at);
+    return program && Number.isFinite(date.getTime()) ? [{ program, date, kind: "alert" as const }] : [];
+  });
+  const alertProgramIDs = new Set(alertEvents.map(({ program }) => program.id));
+  const receiptEvents = programs.flatMap((program) => {
+    if (alertProgramIDs.has(program.id)) return [];
     if (!program.receiptStart) return [];
     const date = new Date(program.receiptStart);
-    return Number.isFinite(date.getTime()) ? [{ program, date }] : [];
+    return Number.isFinite(date.getTime()) ? [{ program, date, kind: "receipt" as const }] : [];
   });
-  const events = datedPrograms.filter(({ date }) => date.getFullYear() === monthCursor.getFullYear() && date.getMonth() === monthCursor.getMonth()).sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 80);
+  const events = [...alertEvents, ...receiptEvents].filter(({ date }) => date.getFullYear() === monthCursor.getFullYear() && date.getMonth() === monthCursor.getMonth()).sort((a, b) => a.date.getTime() - b.date.getTime()).slice(0, 80);
   const firstWeekday = new Date(monthCursor.getFullYear(), monthCursor.getMonth(), 1).getDay();
   const daysInMonth = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0).getDate();
   const eventDays = new Set(events.map(({ date }) => date.getDate()));
   const cells = Array.from({ length: firstWeekday + daysInMonth }, (_, index) => index < firstWeekday ? null : index - firstWeekday + 1);
   const moveMonth = (offset: number) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
-  return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={day && eventDays.has(day) ? "has-event" : ""}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list">{events.length ? events.map(({ program, date }) => <button key={program.id} type="button" onClick={() => onOpen(program)}><span className="dg-date-badge">{date.getDate()}</span><span><small>{reminders.includes(program.id) ? "알림 저장" : "접수 일정"}</small><strong>{program.name}</strong><em>{program.facility}</em></span></button>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
+  return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={day && eventDays.has(day) ? "has-event" : ""}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list dg-calendar-event-list">{events.length ? events.map(({ program, date, kind }) => <article className="dg-calendar-event-group" key={`${kind}:${program.id}:${date.toISOString()}`}><button className="dg-calendar-program-card" type="button" onClick={() => onOpen(program)} aria-label={`${program.name} 자세히 보기`}><img src={`/markers/${programIconName(program)}.png`} alt=""/><span><small>{program.status}</small><strong>{program.name}</strong><em>{program.facility}</em></span><ChevronRight aria-hidden="true"/></button><div className="dg-calendar-schedule-card"><span className="dg-date-badge">{date.getDate()}</span><span><small>{kind === "alert" ? "알림 일정" : "접수 일정"}</small><strong>{date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</strong><em>{date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}</em></span>{kind === "alert" && <button type="button" onClick={() => { void onDelete(program.id); }} aria-label={`${program.name} 알림 일정 삭제`}><Trash2 aria-hidden="true"/>삭제</button>}</div></article>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
 }
 
 function FamilyPanel({ programs, members, signedIn, onBack, onOpen, onSave, onRemove }: { programs: WebProgram[]; members: WebFamilyMember[]; signedIn: boolean; onBack: () => void; onOpen: (program: WebProgram) => void; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {

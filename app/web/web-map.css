@@ -99,6 +99,7 @@
 .dg-search-result-header > div strong em, .dg-search-result-header > div strong b { color: var(--dg-green); font-style: normal; font-weight: 950; }
 .dg-search-result-header > div > span { padding: 5px 8px; border-radius: 999px; color: #137c36; background: #e8f7e3; font-size: 11px; font-weight: 900; }
 .dg-search-result-header progress { width: 100%; height: 7px; accent-color: var(--dg-green); }
+.dg-search-result-header > div > span { min-width: 38px; font-variant-numeric: tabular-nums; text-align: right; }
 .dg-search-result-header p { margin: 0; color: #7c867e; font-size: 11.5px; font-weight: 650; line-height: 1.45; }
 .dg-search-intent-card { display: grid; gap: 10px; }
 .dg-search-intent-card > header { display: flex; align-items: center; gap: 8px; color: #117f38; font-size: 13px; }
@@ -638,6 +639,18 @@
 .dg-aux-list strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
 .dg-aux-list em { overflow: hidden; color: #7c847d; font-size: 11px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
 .dg-date-badge, .dg-place-type { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 14px; color: var(--dg-green-deep); background: #eaf7e5; font-size: 16px; font-weight: 900; }
+.dg-calendar-event-list { display: flex; flex-direction: column; gap: 12px; }
+.dg-calendar-event-group { padding: 9px; border: 1px solid #dde7df; border-radius: 22px; background: #fff; box-shadow: 0 5px 16px rgba(31,60,39,.08); }
+.dg-calendar-program-card { width: 100%; padding: 12px; display: grid; grid-template-columns: 48px minmax(0,1fr) 18px; gap: 10px; align-items: center; border: 1px solid #e7ece8; border-radius: 16px; color: var(--dg-ink); background: #fff; text-align: left; cursor: pointer; }
+.dg-calendar-program-card > img { width: 48px; height: 48px; border: 3px solid var(--dg-green); border-radius: 50%; object-fit: cover; }
+.dg-calendar-program-card > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dg-calendar-program-card > svg { width: 18px; color: #98a09a; }
+.dg-calendar-schedule-card { margin-top: 8px; padding: 11px 12px; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 10px; align-items: center; border-radius: 15px; background: #edf8e9; }
+.dg-calendar-schedule-card > span:nth-child(2) { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dg-calendar-schedule-card > span:nth-child(2) strong { overflow: hidden; color: var(--dg-ink); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.dg-calendar-schedule-card > span:nth-child(2) em { color: var(--dg-green-deep); font-size: 12px; font-weight: 850; }
+.dg-calendar-schedule-card > button { height: 38px; padding: 0 10px; display: flex; align-items: center; gap: 4px; border: 0; border-radius: 12px; color: #d24a4a; background: #fff; font-size: 11px; font-weight: 850; cursor: pointer; }
+.dg-calendar-schedule-card > button svg { width: 16px; }
 .dg-family-tabs, .dg-nearby-categories { flex: none; padding: 12px 16px 0; display: flex; gap: 7px; overflow-x: auto; }
 .dg-family-tabs button, .dg-nearby-categories button { flex: none; padding: 8px 11px; border: 1px solid #dfe4df; border-radius: 999px; color: #5d655e; background: #fff; font-size: 11px; font-weight: 800; cursor: pointer; }
 .dg-family-tabs button.active, .dg-nearby-categories button.active { border-color: transparent; color: #fff; background: var(--dg-green); }
