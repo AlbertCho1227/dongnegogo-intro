@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     const subjectTerms = url.searchParams.getAll("subject");
     const areaTerms = url.searchParams.getAll("area");
     const generalTerms = url.searchParams.getAll("general");
+    const ids = url.searchParams.getAll("id");
     const programs = subjectTerms.length || areaTerms.length || generalTerms.length
       ? await fetchWebSearchCandidates({ subjectTerms, areaTerms, generalTerms })
       : await fetchWebPrograms({
@@ -22,7 +23,8 @@ export async function GET(request: Request) {
       east: numeric(url.searchParams.get("east")),
       limit: numeric(url.searchParams.get("limit")),
       query: url.searchParams.get("q") ?? undefined,
-      id: url.searchParams.get("id") ?? undefined,
+      id: ids.length === 1 ? ids[0] : undefined,
+      ids: ids.length > 1 ? ids : undefined,
       });
     return NextResponse.json({ programs }, {
       headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },

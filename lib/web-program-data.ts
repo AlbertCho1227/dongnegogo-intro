@@ -135,6 +135,24 @@ export type WebNearbyPlacesSummary = {
   isComplete: boolean;
 };
 
+export type WebParkingLot = {
+  id: string;
+  name: string;
+  parkingType: string | null;
+  address: string | null;
+  phone: string | null;
+  totalSpaces: number | null;
+  availableSpaces: number | null;
+  availabilityStatus: string | null;
+  isPaid: boolean | null;
+  feeSummary: string | null;
+  notes: string | null;
+  sourceUpdatedAt: string | null;
+  sourceUrl: string | null;
+  relationType: string | null;
+  distanceMeters: number | null;
+};
+
 type ProgramRow = Record<string, unknown>;
 
 type ProgramQuery = {
@@ -147,6 +165,7 @@ type ProgramQuery = {
   areaTerms?: string[];
   generalTerms?: string[];
   id?: string;
+  ids?: string[];
   limit?: number;
 };
 
@@ -293,6 +312,115 @@ async function rpc(functionName: string, body: Record<string, unknown>): Promise
   });
   if (!response.ok) throw new Error(`공개 프로그램을 불러오지 못했습니다. (${response.status})`);
   return response.json();
+}
+
+async function publicRows(resource: string, parameters: Array<[string, string]>): Promise<ProgramRow[]> {
+  const { projectUrl, publishableKey } = await readBindings();
+  const endpoint = new URL(`/rest/v1/${resource}`, projectUrl);
+  for (const [key, value] of parameters) endpoint.searchParams.append(key, value);
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: { accept: "application/json", apikey: publishableKey },
+    cache: "no-store",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`공개 시설 정보를 불러오지 못했습니다. (${response.status})`);
+  const payload: unknown = await response.json();
+  return Array.isArray(payload) ? payload.filter((row): row is ProgramRow => Boolean(row) && typeof row === "object") : [];
+}
+
+function coordinateDistanceMeters(origin: { latitude: number; longitude: number }, destination: { latitude: number; longitude: number }) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const radius = 6_371_000;
+  const latitudeDelta = radians(destination.latitude - origin.latitude);
+  const longitudeDelta = radians(destination.longitude - origin.longitude);
+  const startLatitude = radians(origin.latitude);
+  const endLatitude = radians(destination.latitude);
+  const value = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+  return 2 * radius * Math.asin(Math.min(1, Math.sqrt(value)));
+}
+
+function normalizedParkingLot(row: ProgramRow, program: WebProgram, relationType: string | null, providedDistance: number | null): WebParkingLot | null {
+  const id = textValue(row.id);
+  const name = textValue(row.name);
+  if (!id || !name) return null;
+  const latitude = numberValue(row.latitude);
+  const longitude = numberValue(row.longitude);
+  const calculatedDistance = latitude === null || longitude === null
+    ? null
+    : Math.round(coordinateDistanceMeters(program, { latitude, longitude }));
+  return {
+    id,
+    name,
+    parkingType: textValue(row.parking_type),
+    address: textValue(row.address),
+    phone: textValue(row.phone),
+    totalSpaces: numberValue(row.total_spaces),
+    availableSpaces: numberValue(row.available_spaces),
+    availabilityStatus: textValue(row.availability_status),
+    isPaid: typeof row.is_paid === "boolean" ? row.is_paid : null,
+    feeSummary: textValue(row.fee_summary),
+    notes: plainText(row.notes, 500) || null,
+    sourceUpdatedAt: textValue(row.source_updated_at),
+    sourceUrl: safePublicUrl(row.source_url),
+    relationType,
+    distanceMeters: providedDistance ?? calculatedDistance,
+  };
+}
+
+export async function fetchWebProgramParking(programID: string): Promise<WebParkingLot[]> {
+  const [program] = await fetchWebPrograms({ id: programID });
+  if (!program) return [];
+  const fields = "id,name,parking_type,address,latitude,longitude,phone,total_spaces,available_spaces,availability_status,is_paid,fee_summary,notes,source_updated_at,source_url";
+  const displayFacility = program.facility.split(">")[0]?.trim() ?? program.facility;
+  let candidates: WebParkingLot[] = [];
+  if (displayFacility) {
+    const facilities = await publicRows("facilities", [["select", "id"], ["title", `eq.${displayFacility}`], ["limit", "20"]]);
+    const facilityIDs = facilities.map((row) => textValue(row.id)).filter((id): id is string => Boolean(id));
+    if (facilityIDs.length) {
+      const links = await publicRows("facility_parking_links", [
+        ["select", "parking_lot_id,relation_type,distance_m"],
+        ["facility_id", `in.(${facilityIDs.join(",")})`],
+        ["limit", "30"],
+      ]);
+      const lotIDs = [...new Set(links.map((row) => textValue(row.parking_lot_id)).filter((id): id is string => Boolean(id)))];
+      if (lotIDs.length) {
+        const lots = await publicRows("parking_lots", [["select", fields], ["id", `in.(${lotIDs.join(",")})`], ["limit", "30"]]);
+        const rowsByID = new Map(lots.map((row) => [textValue(row.id), row]));
+        candidates = links.flatMap((link) => {
+          const lotID = textValue(link.parking_lot_id);
+          const row = lotID ? rowsByID.get(lotID) : null;
+          const lot = row ? normalizedParkingLot(row, program, textValue(link.relation_type), numberValue(link.distance_m)) : null;
+          return lot ? [lot] : [];
+        });
+      }
+    }
+  }
+  if (!candidates.length) {
+    const latitudeDelta = 0.018;
+    const longitudeDelta = latitudeDelta / Math.max(Math.cos(program.latitude * Math.PI / 180), 0.2);
+    const lots = await publicRows("parking_lots", [
+      ["select", fields],
+      ["latitude", `gte.${program.latitude - latitudeDelta}`],
+      ["latitude", `lte.${program.latitude + latitudeDelta}`],
+      ["longitude", `gte.${program.longitude - longitudeDelta}`],
+      ["longitude", `lte.${program.longitude + longitudeDelta}`],
+      ["limit", "100"],
+    ]);
+    candidates = lots.flatMap((row) => {
+      const lot = normalizedParkingLot(row, program, null, null);
+      return lot && (lot.distanceMeters ?? Number.POSITIVE_INFINITY) <= 2_000 ? [lot] : [];
+    });
+  }
+  const relationScore = (value: string | null) => value === "facility_note" ? 0 : value === "same_location" ? 1 : 2;
+  const seen = new Set<string>();
+  return candidates.sort((left, right) => relationScore(left.relationType) - relationScore(right.relationType)
+    || (left.distanceMeters ?? Number.MAX_SAFE_INTEGER) - (right.distanceMeters ?? Number.MAX_SAFE_INTEGER))
+    .filter((lot) => {
+      const key = `${lot.address?.replace(/\s/g, "").toLowerCase() ?? ""}|${lot.name.replace(/\s/g, "").toLowerCase()}`;
+      return !seen.has(key) && Boolean(seen.add(key));
+    }).slice(0, 5);
 }
 
 function nullableBoolean(value: unknown): boolean | null {
@@ -687,15 +815,23 @@ export async function fetchWebProgramsNear(input: {
     : null).filter((item): item is WebProgram => Boolean(item) && !seen.has(item!.id) && Boolean(seen.add(item!.id)));
 }
 
+async function fetchProgramsByIDs(ids: string[]) {
+  const normalizedIDs = [...new Set(ids.map((id) => id.trim().slice(0, 180)).filter(Boolean))].slice(0, 100);
+  if (!normalizedIDs.length) return [];
+  const rows = await rpc("get_programs_by_map_cluster_ids", { p_ids: normalizedIDs });
+  if (!Array.isArray(rows)) return [];
+  return rows.map((value) => value && typeof value === "object"
+    ? normalizedProgram(value as ProgramRow)
+    : null).filter((item): item is WebProgram => Boolean(item));
+}
+
 export async function fetchWebPrograms(input: ProgramQuery): Promise<WebProgram[]> {
+  if (input.ids?.length) {
+    return fetchProgramsByIDs(input.ids);
+  }
   if (input.id) {
     const id = input.id.trim().slice(0, 180);
-    if (!id) return [];
-    const rows = await rpc("get_programs_by_map_cluster_ids", { p_ids: [id] });
-    if (!Array.isArray(rows)) return [];
-    return rows.map((value) => value && typeof value === "object"
-      ? normalizedProgram(value as ProgramRow)
-      : null).filter((item): item is WebProgram => Boolean(item));
+    return id ? fetchProgramsByIDs([id]) : [];
   }
   const { projectUrl, publishableKey } = await readBindings();
   const endpoint = new URL("/rest/v1/programs", projectUrl);

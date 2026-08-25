@@ -10,6 +10,8 @@ const webMapLinksSource = readFileSync(new URL("../lib/web-map-links.ts", import
 const webSearchAssistantRoute = readFileSync(new URL("../app/api/web-search-assistant/route.ts", import.meta.url), "utf8");
 const webRouteSource = readFileSync(new URL("../lib/web-route-data.ts", import.meta.url), "utf8");
 const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.meta.url), "utf8");
+const webProgramDataSource = readFileSync(new URL("../lib/web-program-data.ts", import.meta.url), "utf8");
+const webParkingRouteSource = readFileSync(new URL("../app/api/web-program-parking/route.ts", import.meta.url), "utf8");
 const webProgramFiltersSource = readFileSync(new URL("../lib/web-program-filters.ts", import.meta.url), "utf8");
 
 function program(overrides = {}) {
@@ -301,6 +303,25 @@ test("모바일 지도는 첫 접속 시 지도 주변 패널을 숨긴다", () 
   assert.match(webMapSource, /useState<MobileSheetSnap>\("hidden"\)/);
 });
 
+test("웹 지도 첫 로드는 현재 위치 권한을 요청하고 허용 위치로 이동한다", () => {
+  assert.match(webMapSource, /initialLocationRequestStartedRef/);
+  assert.match(webMapSource, /initialLocationRequestStartedRef\.current = true;\s*moveToCurrentLocation\(\)/);
+  assert.match(webMapSource, /navigator\.geolocation\.getCurrentPosition/);
+  assert.match(webMapSource, /locationRequestState !== "granted"/);
+  assert.match(webMapSource, /map\.setCenter\(new maps\.LatLng\(location\.latitude, location\.longitude\)\)/);
+});
+
+test("프로그램 하단 패널은 iOS형 장소·시간·비용 아이콘을 쓰고 포스터 대체 마커를 만들지 않는다", () => {
+  assert.match(webMapSource, /<Building2 className="dg-sheet-info-icon"/);
+  assert.match(webMapSource, /<Clock className="dg-sheet-info-icon"/);
+  assert.match(webMapSource, /dg-sheet-info-icon-won/);
+  assert.match(webMapSource, /function ProgramPoster/);
+  assert.match(webMapSource, /if \(!imageURL \|\| failedImageURL === imageURL\) return null/);
+  const posterSource = webMapSource.slice(webMapSource.indexOf("function ProgramPoster"), webMapSource.indexOf("function KakaoRoutePreview"));
+  assert.doesNotMatch(posterSource, /\/markers\//);
+  assert.match(webMapStyle, /\.dg-sheet-info-icon-won[^}]*border-radius:\s*50%/);
+});
+
 test("알림을 저장하지 않아도 알림 하단 패널을 아래로 밀어 닫을 수 있다", () => {
   assert.match(webMapSource, /className="dg-alert-sheet-grabber"/);
   assert.match(webMapSource, /if \(next > 64\) onClose\(\)/);
@@ -367,6 +388,9 @@ test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만
   assert.match(webUserSource, /user_favorites/);
   assert.match(webUserSource, /open_run_alerts/);
   assert.match(webUserSource, /family_members/);
+  assert.match(webUserSource, /user_program_history/);
+  assert.match(webUserSource, /review_comments/);
+  assert.match(webUserSource, /\.from\("reviews"\)/);
   assert.match(webUserSource, /user_legal_consents/);
   assert.match(webUserSource, /app_platform:\s*"web"/);
   assert.match(webUserSource, /WEB_AUTH_CONSENT_VERSION\s*=\s*"2026-08-11"/);
@@ -397,10 +421,35 @@ test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다
   assert.match(webMapSource, /로그인 이용 확인/);
   assert.match(webMapSource, /만 14세 이상이며/);
   assert.match(webMapSource, /동의하고 계속/);
-  assert.match(webMapSource, /Kakao로 계속/);
-  assert.match(webMapSource, /Apple로 계속/);
-  assert.match(webMapSource, /Google로 계속/);
+  assert.match(webMapSource, /카카오로 로그인/);
+  assert.match(webMapSource, /Apple로 로그인/);
+  assert.match(webMapSource, /Google로 로그인/);
+  assert.match(webUserSource, /signInWithOAuth/);
+  assert.match(webUserSource, /redirectTo/);
+  assert.doesNotMatch(webUserSource, /scope:\s*"openid"/);
   assert.match(webMapStyle, /\.dg-auth-dialog/);
+});
+
+test("프로그램 상세는 iOS형 쉬운 설명 카드와 시설 우선 주차정보를 제공한다", () => {
+  assert.match(webMapSource, /function ProgramSummary/);
+  assert.match(webMapSource, /공식 내용을 쉽게 정리했어요/);
+  assert.match(webMapSource, /function ProgramParkingSection/);
+  assert.match(webMapSource, /근처 발견된 주차장/);
+  assert.match(webMapStyle, /\.dg-program-summary-card/);
+  assert.match(webMapStyle, /\.dg-program-parking-card/);
+  assert.match(webParkingRouteSource, /fetchWebProgramParking/);
+  assert.match(webProgramDataSource, /facility_parking_links/);
+  assert.match(webProgramDataSource, /parking_lots/);
+  assert.match(webProgramDataSource, /2_000/);
+});
+
+test("계정은 찜·알림·후기·댓글·대댓글·보관함·가족을 연결하고 지도 복귀 패널을 숨긴다", () => {
+  assert.match(webMapSource, /function ProgramReviews/);
+  assert.match(webMapSource, /function ReviewComments/);
+  assert.match(webMapSource, /createWebReviewComment\(session, \{ reviewID: review\.id, parentID: replyTo, body \}\)/);
+  assert.match(webUserSource, /upsertWebProgramHistoryBatch/);
+  assert.match(webMapSource, /setViewHistory\(accountHistory\)/);
+  assert.match(webMapSource, /if \(nextTab === "map"\) setMobileSheetSnap\("hidden"\)/);
 });
 
 test("모바일 웹은 하단 탭 없이 iOS형 지도 도구와 시트를 사용하고 PC 분할 구조는 유지한다", () => {

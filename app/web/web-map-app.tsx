@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, Bell, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Navigation, PersonStanding, Route, Search, Share, SlidersHorizontal, Store, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
-import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
+import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, MessageCircle, Navigation, ParkingCircle, PersonStanding, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
@@ -31,21 +31,29 @@ import {
 import type { WebRouteMode, WebRouteResult } from "@/lib/web-route-data";
 import {
   currentWebSession,
+  createWebReview,
+  createWebReviewComment,
   deleteWebAlert,
   deleteWebFamilyMember,
+  deleteWebReview,
+  deleteWebReviewComment,
+  fetchWebReviews,
   fetchWebUserSnapshot,
   observeWebSession,
+  recordWebProgramHistory,
   recordWebLegalConsents,
   saveWebFamilyMember,
   signInToWeb,
   signOutFromWeb,
   upsertWebAlert,
   upsertWebFavorite,
+  upsertWebProgramHistoryBatch,
   WEB_AUTH_CONSENT_STORAGE_KEY,
   WEB_AUTH_CONSENT_VERSION,
   webAuthConfigured,
   type Session,
   type WebFamilyMember,
+  type WebReview,
   type WebUserAlert,
 } from "@/lib/web-user-data";
 
@@ -563,6 +571,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   const mapItemsRef = useRef<KakaoMapItem[]>([]);
   const mapRequestIDRef = useRef(0);
   const mapBoundsAbortRef = useRef<AbortController | null>(null);
+  const initialLocationRequestStartedRef = useRef(false);
   const searchRequestIDRef = useRef(0);
   const searchSuggestionRequestIDRef = useRef(0);
   const idleTimerRef = useRef<number | null>(null);
@@ -817,6 +826,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         try { return JSON.parse(localStorage.getItem("dongnegogo.web.reminders") ?? "[]") as string[]; }
         catch { return []; }
       })();
+      const localHistory = (() => {
+        try { return JSON.parse(localStorage.getItem("dongnegogo.web.viewHistory") ?? "[]") as Array<{ program: WebProgram; viewedAt: string }>; }
+        catch { return []; }
+      })().filter((item) => item?.program?.id && item.viewedAt && Number.isFinite(new Date(item.viewedAt).getTime())).slice(0, 200);
       const mergedTargets = { ...snapshot.favoriteTargets };
       for (const programID of localFavoriteIDs) {
         if (!mergedTargets[programID]) {
@@ -836,11 +849,38 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
           });
         }
       }
+      await upsertWebProgramHistoryBatch(activeSession, localHistory.map((item) => ({
+        program_id: item.program.id,
+        viewed_at: item.viewedAt,
+      })));
+      const mergedHistory = new Map(snapshot.history.map((item) => [item.program_id, item.viewed_at]));
+      for (const item of localHistory) {
+        const remoteViewedAt = mergedHistory.get(item.program.id);
+        if (!remoteViewedAt || new Date(item.viewedAt) > new Date(remoteViewedAt)) mergedHistory.set(item.program.id, item.viewedAt);
+      }
+      const programByID = new Map(localHistory.map((item) => [item.program.id, item.program]));
+      const missingProgramIDs = [...mergedHistory.keys()].filter((programID) => !programByID.has(programID));
+      for (let start = 0; start < missingProgramIDs.length; start += 80) {
+        const parameters = new URLSearchParams();
+        for (const programID of missingProgramIDs.slice(start, start + 80)) parameters.append("id", programID);
+        try {
+          const hydrated = await fetchPrograms(parameters);
+          for (const program of hydrated) programByID.set(program.id, program);
+        } catch {
+          // Keep the rest of the account snapshot usable when an old program was retired.
+        }
+      }
+      const accountHistory = [...mergedHistory.entries()].flatMap(([programID, viewedAt]) => {
+        const program = programByID.get(programID);
+        return program ? [{ program, viewedAt }] : [];
+      }).sort((left, right) => new Date(right.viewedAt).getTime() - new Date(left.viewedAt).getTime()).slice(0, 200);
       setFavoriteTargets(mergedTargets);
       setFavorites(Object.keys(mergedTargets));
       setUserAlerts(snapshot.alerts);
       setReminders(snapshot.alerts.map((alert) => alert.program_id));
       setFamilyMembers(snapshot.family);
+      setViewHistory(accountHistory);
+      localStorage.setItem("dongnegogo.web.viewHistory", JSON.stringify(accountHistory));
     } catch (syncError) {
       setAccountError(syncError instanceof Error ? syncError.message : "계정 데이터를 불러오지 못했어요.");
     }
@@ -962,13 +1002,19 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
   }, [programs, selected, userAlerts]);
 
   const recordHistory = useCallback((program: WebProgram) => {
+    const viewedAt = new Date().toISOString();
+    if (session) {
+      void recordWebProgramHistory(session, program.id, viewedAt).catch((syncError) => {
+        setAccountError(syncError instanceof Error ? syncError.message : "보관함을 동기화하지 못했어요.");
+      });
+    }
     setViewHistory((previous) => {
-      const now = new Date();
+      const now = new Date(viewedAt);
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
       const oldest = today.getTime() - 3 * 86_400_000;
       const todayKey = now.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-      const next = [{ program, viewedAt: now.toISOString() }, ...previous.filter((item) => {
+      const next = [{ program, viewedAt }, ...previous.filter((item) => {
         if (new Date(item.viewedAt).getTime() < oldest) return false;
         const itemKey = new Date(item.viewedAt).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
         return item.program.id !== program.id || itemKey !== todayKey;
@@ -976,7 +1022,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       localStorage.setItem("dongnegogo.web.viewHistory", JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [session]);
 
   const resolveCenteredArea = useCallback((coordinate: Coordinate) => {
     const services = window.kakao?.maps.services;
@@ -2088,7 +2134,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
     recognition.start();
   };
 
-  const moveToCurrentLocation = () => {
+  const moveToCurrentLocation = useCallback(() => {
     setLocationRequestState("checking");
     setLocationRequestMessage("휴대폰의 현재 위치를 확인하고 있어요.");
     if (!window.isSecureContext) {
@@ -2135,7 +2181,22 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setLocationRequestMessage(message);
       if (!selected) setError(message);
     }, { enableHighAccuracy: true, timeout: 20_000, maximumAge: 60_000 });
-  };
+  }, [resolveCenteredArea, selected]);
+
+  useEffect(() => {
+    if (initialLocationRequestStartedRef.current) return;
+    initialLocationRequestStartedRef.current = true;
+    moveToCurrentLocation();
+  }, [moveToCurrentLocation]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const maps = window.kakao?.maps;
+    if (!mapReady || usesFallbackLocation || locationRequestState !== "granted" || !map || !maps) return;
+    map.setCenter(new maps.LatLng(location.latitude, location.longitude));
+    map.setLevel(4);
+    window.setTimeout(() => void loadBounds(map), 0);
+  }, [loadBounds, location.latitude, location.longitude, locationRequestState, mapReady, usesFallbackLocation]);
 
   const share = async (program: WebProgram) => {
     const url = `${window.location.origin}/program/${encodeURIComponent(program.id)}`;
@@ -2177,6 +2238,8 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       setFavoriteTargets({});
       setUserAlerts([]);
       setFamilyMembers([]);
+      setViewHistory([]);
+      localStorage.removeItem("dongnegogo.web.viewHistory");
       localStorage.removeItem("dongnegogo.web.favorites");
       localStorage.removeItem("dongnegogo.web.reminders");
       localStorage.removeItem("dongnegogo.web.alerts");
@@ -2333,7 +2396,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
       return;
     }
     searchActiveRef.current = nextTab === "search";
-    if (nextTab === "map") setMobileSheetSnap("medium");
+    if (nextTab === "map") setMobileSheetSnap("hidden");
     setTab(nextTab);
     setSelected(null);
     setRoutePanelActive(false);
@@ -2801,6 +2864,9 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
             reminder={reminders.includes(selected.id)} transport={transport} easyFirst={easyFirst}
             favoriteTargets={favoriteTargets[selected.id] ?? (favorites.includes(selected.id) ? ["personal"] : [])}
             familyMembers={familyMembers}
+            session={session}
+            mapReady={mapReady}
+            onRequireAuth={openAccountSignIn}
             onBack={() => { setSelected(null); setActiveRoute(null); }} onFavorite={() => toggleFavorite(selected.id)}
             onFavoriteTarget={(target) => toggleFavoriteTarget(selected.id, target)}
             onReminder={() => toggleReminder(selected.id)} onTransport={(value) => { setTransport(value); setActiveRoute(null); }}
@@ -2860,10 +2926,10 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
               <small>계정</small>
               {authLoading ? <strong>로그인 상태 확인 중…</strong> : session ? <>
                 <strong>{session.user.email ?? "로그인된 계정"}</strong>
-                <span>{String(session.user.app_metadata?.provider ?? "Supabase")} 로그인 · 찜·알림·가족 정보 동기화 중</span>
+                <span>{String(session.user.app_metadata?.provider ?? "Supabase")} 로그인 · 찜·알림·후기·보관함·가족 정보 동기화 중</span>
                 <button type="button" onClick={() => { void finishAccountSignOut(); }}>로그아웃</button>
               </> : <>
-                <span>로그인하면 찜, 오픈런 알림, 가족 정보를 계정에 안전하게 저장할 수 있어요.</span>
+                <span>로그인하면 찜, 알림, 후기, 보관함, 가족 정보를 계정에 안전하게 저장할 수 있어요.</span>
                 <button type="button" className="dg-login-cta" onClick={openAccountSignIn}>로그인하고 안전하게 저장</button>
               </>}
               {accountError && <p className="dg-account-error" role="alert">{accountError}</p>}
@@ -3022,6 +3088,7 @@ export default function WebMapApp({ kakaoMapKey }: { kakaoMapKey: string }) {
         {!selected && !placeSheet && (mapProgramCarouselSource === "nearby"
           || (activeConditionCount > 0 && filteredClusterCarouselSignature === currentFilterSelectionSignature))
           && filteredClusterCarouselPrograms.length > 0 && <FilteredClusterProgramCarousel
+          key={mapProgramCarouselSource === "nearby" ? "nearby-single" : "condition-list"}
           title={mapProgramCarouselSource === "nearby" ? "주변 프로그램" : "조건 프로그램"}
           singleCardMode={mapProgramCarouselSource === "nearby"}
           programs={filteredClusterCarouselPrograms}
@@ -3215,11 +3282,11 @@ function WebAuthDialog({ consentAccepted, loading, onAccept, onBrowse, onProvide
     <section className="dg-auth-dialog" role="dialog" aria-modal="true" aria-labelledby="dg-auth-title">
       <header><div><small>동네고고 계정</small><h2 id="dg-auth-title">{consentAccepted ? "로그인" : "로그인 이용 확인"}</h2></div><button type="button" onClick={onClose} aria-label="로그인 창 닫기">×</button></header>
       {consentAccepted ? <>
-        <p>앱과 같은 계정으로 로그인하면 찜, 오픈런 알림, 가족 정보를 안전하게 이어서 볼 수 있어요.</p>
+        <p>앱과 같은 계정으로 로그인하면 찜, 알림, 후기, 보관함, 가족 정보를 안전하게 이어서 볼 수 있어요.</p>
         <div className="dg-login-buttons" aria-label="로그인 방식 선택">
-          <button type="button" disabled={loading} onClick={() => onProvider("kakao")}>Kakao로 계속</button>
-          <button type="button" disabled={loading} onClick={() => onProvider("apple")}>Apple로 계속</button>
-          <button type="button" disabled={loading} onClick={() => onProvider("google")}>Google로 계속</button>
+          <button type="button" disabled={loading} onClick={() => onProvider("kakao")}><i aria-hidden="true">K</i>카카오로 로그인</button>
+          <button type="button" disabled={loading} onClick={() => onProvider("apple")}><i aria-hidden="true">●</i>Apple로 로그인</button>
+          <button type="button" disabled={loading} onClick={() => onProvider("google")}><i aria-hidden="true">G</i>Google로 로그인</button>
         </div>
         <span className="dg-auth-policy">보안을 위해 가장 최근에 로그인한 기기·브라우저의 세션이 유지될 수 있습니다.</span>
       </> : <>
@@ -3369,10 +3436,12 @@ function RouteInfoPanel({ program, current, usesFallbackLocation, locationReques
   </article>;
 }
 
-function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby }: {
+function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, session, mapReady, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby, onRequireAuth }: {
   program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; accountFeaturesVisible: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
+  session: Session | null;
+  mapReady: boolean;
   locationRequestState: LocationRequestState; locationRequestMessage: string;
-  onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void;
+  onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onRequireAuth: () => void;
 }) {
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
@@ -3442,10 +3511,11 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
         <h1>{program.name}</h1><p>▥ {program.facility}</p>
       </header>
       <div className="dg-detail-scroll">
-        <section><h2>프로그램 포스터</h2><div className="dg-poster">{program.imageUrl ? <img src={program.imageUrl} alt={`${program.name} 포스터`} /> : <img src={`/markers/${programIconName(program)}.png`} alt="" />}</div></section>
-        {easyFirst && <section className="dg-easy-summary"><h2>이 프로그램은요</h2><p>{program.summary}</p></section>}
+        <ProgramPoster program={program} />
+        {easyFirst && <ProgramSummary program={program} />}
         <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><small>누가 신청할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><small>언제 하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><small>어디서 하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><small>비용과 준비물</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
-        {!easyFirst && <section className="dg-easy-summary"><h2>프로그램 안내</h2><p>{program.summary}</p></section>}
+        {!easyFirst && <ProgramSummary program={program} />}
+        <ProgramParkingSection key={program.id} program={program} />
         {accountFeaturesVisible && favorite && <section className="dg-favorite-targets"><h2>누구의 찜으로 저장할까요?</h2><div>{targetOptions.map((target) => <button type="button" key={target.id} className={favoriteTargets.includes(target.id) ? "active" : ""} onClick={() => onFavoriteTarget(target.id)}>{target.label}{favoriteTargets.includes(target.id) ? " ✓" : ""}</button>)}</div></section>}
         <section>
           <h2>거리정보</h2>
@@ -3465,6 +3535,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
               routeState={routeState}
               transport={transport}
               usesFallbackLocation={usesFallbackLocation}
+              mapReady={mapReady}
               onOpen={onShowRouteOnMap}
             />
             <div className="dg-transport-tabs" aria-label="이동 수단 선택"><button type="button" className={transport === "walk" ? "active" : ""} onClick={() => onTransport("walk")} aria-pressed={transport === "walk"}><PersonStanding aria-hidden="true" />도보</button><button type="button" className={transport === "transit" ? "active" : ""} onClick={() => onTransport("transit")} aria-pressed={transport === "transit"}><TramFront aria-hidden="true" />대중교통</button><button type="button" className={transport === "car" ? "active" : ""} onClick={() => onTransport("car")} aria-pressed={transport === "car"}><CarFront aria-hidden="true" />자동차</button></div>
@@ -3488,6 +3559,7 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
             <button className="dg-nearby-button" type="button" onClick={onNearby}>☕ 목적지 주변 가게 보기</button>
           </div>
         </section>
+        {accountFeaturesVisible && <ProgramReviews program={program} session={session} onRequireAuth={onRequireAuth} />}
         <p className="dg-source">공공데이터 출처: {program.source ?? "제공기관 공개 데이터"}</p>
       </div>
       <footer className="dg-detail-footer">
@@ -3498,13 +3570,159 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
   );
 }
 
-function KakaoRoutePreview({ origin, destination, route, routeState, transport, usesFallbackLocation, onOpen }: {
+function ProgramPoster({ program }: { program: WebProgram }) {
+  const [failedImageURL, setFailedImageURL] = useState<string | null>(null);
+  const imageURL = program.imageUrl?.trim() ?? "";
+  if (!imageURL || failedImageURL === imageURL) return null;
+  return <section><h2>프로그램 포스터</h2><div className="dg-poster"><img src={imageURL} alt={`${program.name} 포스터`} onError={() => setFailedImageURL(imageURL)} /></div></section>;
+}
+
+function ProgramSummary({ program }: { program: WebProgram }) {
+  return <section className="dg-easy-summary"><h2>이 프로그램은요</h2><div className="dg-program-summary-card"><span aria-hidden="true"><Sparkles /></span><div><strong>공식 내용을 쉽게 정리했어요</strong><p>{program.summary || "우리 동네에서 만날 수 있는 프로그램이에요."}</p></div></div></section>;
+}
+
+function ProgramParkingSection({ program }: { program: WebProgram }) {
+  const [parkingLots, setParkingLots] = useState<WebParkingLot[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(`/api/web-program-parking?id=${encodeURIComponent(program.id)}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as { parkingLots?: WebParkingLot[] };
+        if (!response.ok) throw new Error("주차 정보를 불러오지 못했어요.");
+        setParkingLots(Array.isArray(payload.parkingLots) ? payload.parkingLots : []);
+      })
+      .catch((error) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setParkingLots([]);
+      })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [program.id]);
+
+  return <section className="dg-program-parking-section"><h2>시설정보</h2><div className="dg-program-parking-card">
+    <div className="dg-facility-info-rows"><div><span aria-hidden="true">📍</span><small>시설</small><strong>{program.facility}</strong></div>{(program.address || program.area) && <div><span aria-hidden="true">🗺️</span><small>주소</small><strong>{program.address || program.area}</strong></div>}{program.phone && <div><span aria-hidden="true">📞</span><small>전화</small><strong><a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>{program.phone}</a></strong></div>}</div>
+    {(loading || parkingLots.length > 0) && <div className="dg-parking-information"><header><span className="dg-parking-title-icon"><ParkingCircle aria-hidden="true" /></span><strong>주차정보</strong><em>{loading ? "확인 중" : `근처 발견된 주차장 ${parkingLots.length}곳`}</em>{!loading && <button type="button" className={expanded ? "active" : ""} onClick={() => setExpanded((value) => !value)} aria-label="주차장 상세정보" aria-expanded={expanded}><i />{expanded ? "ON" : "OFF"}</button>}</header>
+    {loading ? <div className="dg-parking-loading" role="status">시설 주변 공식 주차장을 확인하고 있어요.</div> : expanded ? <div className="dg-parking-lot-list">{parkingLots.map((lot) => <article key={lot.id}>
+      <div className="dg-parking-lot-heading"><strong>{lot.name}</strong>{lot.distanceMeters !== null && <span>{distanceLabel(lot.distanceMeters)}</span>}</div>
+      <dl>
+        {lot.address && <div><dt>주소</dt><dd>{lot.address}</dd></div>}
+        {lot.parkingType && <div><dt>구분</dt><dd>{lot.parkingType}</dd></div>}
+        {lot.isPaid !== null && <div><dt>요금</dt><dd>{lot.isPaid ? lot.feeSummary || "유료" : "무료"}</dd></div>}
+        {lot.totalSpaces !== null && <div><dt>주차 공간</dt><dd>{lot.totalSpaces.toLocaleString("ko-KR")}면{lot.availableSpaces !== null ? ` · 현재 ${lot.availableSpaces.toLocaleString("ko-KR")}면 가능` : ""}</dd></div>}
+        {lot.availabilityStatus && <div><dt>현재 상태</dt><dd>{lot.availabilityStatus}</dd></div>}
+        {lot.phone && <div><dt>문의</dt><dd><a href={`tel:${lot.phone.replace(/[^\d+]/g, "")}`}>{lot.phone}</a></dd></div>}
+        {lot.notes && <div><dt>안내</dt><dd>{lot.notes}</dd></div>}
+      </dl>
+      {lot.sourceUrl && <a className="dg-parking-source" href={lot.sourceUrl} target="_blank" rel="external nofollow noopener noreferrer">공식 주차 정보 확인 ↗</a>}
+    </article>)}</div> : <p className="dg-parking-collapsed-note">스위치를 켜면 주차장별 거리·요금·이용 조건을 확인할 수 있어요.</p>}
+    {!loading && expanded && <p className="dg-parking-notice"><Info aria-hidden="true" />실시간 잔여면과 운영 정보는 현장 사정에 따라 달라질 수 있어요.</p>}
+    </div>}
+  </div></section>;
+}
+
+function ProgramReviews({ program, session, onRequireAuth }: { program: WebProgram; session: Session | null; onRequireAuth: () => void }) {
+  const [reviews, setReviews] = useState<WebReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [body, setBody] = useState("");
+  const [satisfaction, setSatisfaction] = useState<"만족해요" | "보통이에요" | "아쉬워요">("만족해요");
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try { setReviews(await fetchWebReviews(program.id)); }
+    catch (reviewError) { setError(reviewError instanceof Error ? reviewError.message : "후기를 불러오지 못했어요."); }
+    finally { setLoading(false); }
+  }, [program.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchWebReviews(program.id).then((items) => {
+      if (!cancelled) setReviews(items);
+    }).catch((reviewError) => {
+      if (!cancelled) setError(reviewError instanceof Error ? reviewError.message : "후기를 불러오지 못했어요.");
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [program.id]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!session) { onRequireAuth(); return; }
+    setSaving(true);
+    setError("");
+    try {
+      await createWebReview(session, { programID: program.id, body, satisfaction });
+      setBody("");
+      await reload();
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "후기를 저장하지 못했어요.");
+    } finally { setSaving(false); }
+  };
+
+  const removeReview = async (reviewID: string) => {
+    if (!session || !window.confirm("이 후기를 삭제할까요?")) return;
+    setSaving(true);
+    try { await deleteWebReview(session, reviewID); await reload(); }
+    catch (reviewError) { setError(reviewError instanceof Error ? reviewError.message : "후기를 삭제하지 못했어요."); }
+    finally { setSaving(false); }
+  };
+
+  return <section className="dg-program-reviews"><h2>후기와 이야기</h2><div className="dg-review-card">
+    <header><span><MessageCircle aria-hidden="true" /></span><div><strong>이 프로그램을 경험하셨나요?</strong><p>계정에 연결된 후기는 모든 동네고고 환경에서 함께 보여요.</p></div></header>
+    <form className="dg-review-form" onSubmit={submit}>
+      <div className="dg-review-satisfaction">{(["만족해요", "보통이에요", "아쉬워요"] as const).map((value) => <button type="button" key={value} className={satisfaction === value ? "active" : ""} onClick={() => setSatisfaction(value)}>{value}</button>)}</div>
+      <textarea value={body} maxLength={600} onChange={(event) => setBody(event.target.value)} placeholder="프로그램에 도움이 될 경험을 남겨주세요." aria-label="후기 내용" />
+      <div><span>{body.length}/600</span><button type="submit" disabled={saving || !body.trim()}>{session ? "후기 등록" : "로그인하고 후기 등록"}</button></div>
+    </form>
+    {error && <p className="dg-review-error" role="alert">{error}</p>}
+    {loading ? <p className="dg-review-empty">후기를 불러오고 있어요.</p> : reviews.length ? <div className="dg-review-list">{reviews.map((review) => <article key={review.id}>
+      <header><span>{review.author_initial || "익"}</span><div><strong>{review.author_name}</strong><small>{new Date(review.created_at).toLocaleDateString("ko-KR")} · {review.satisfaction}</small></div>{session?.user.id === review.author_id && <button type="button" onClick={() => { void removeReview(review.id); }} aria-label="후기 삭제"><Trash2 aria-hidden="true" /></button>}</header>
+      <p>{review.body}</p>
+      <ReviewComments review={review} session={session} saving={saving} onRequireAuth={onRequireAuth} onChanged={reload} onError={setError} />
+    </article>)}</div> : <p className="dg-review-empty">첫 번째 후기를 기다리고 있어요.</p>}
+  </div></section>;
+}
+
+function ReviewComments({ review, session, saving, onRequireAuth, onChanged, onError }: { review: WebReview; session: Session | null; saving: boolean; onRequireAuth: () => void; onChanged: () => Promise<void>; onError: (message: string) => void }) {
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [body, setBody] = useState("");
+  const roots = review.comments.filter((comment) => !comment.parent_id);
+  const saveComment = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!session) { onRequireAuth(); return; }
+    try {
+      await createWebReviewComment(session, { reviewID: review.id, parentID: replyTo, body });
+      setBody("");
+      setReplyTo(null);
+      await onChanged();
+    } catch (commentError) { onError(commentError instanceof Error ? commentError.message : "댓글을 저장하지 못했어요."); }
+  };
+  const removeComment = async (commentID: string) => {
+    if (!session || !window.confirm("이 댓글을 삭제할까요?")) return;
+    try { await deleteWebReviewComment(session, commentID); await onChanged(); }
+    catch (commentError) { onError(commentError instanceof Error ? commentError.message : "댓글을 삭제하지 못했어요."); }
+  };
+  return <div className="dg-review-comments">
+    {roots.map((comment) => <div className="dg-review-comment-thread" key={comment.id}><div className="dg-review-comment"><span>{comment.author_name}</span><p>{comment.body}</p><div><small>{new Date(comment.created_at).toLocaleDateString("ko-KR")}</small><button type="button" onClick={() => { setReplyTo(comment.id); setBody(""); }}><Reply aria-hidden="true" /> 답글</button>{session?.user.id === comment.author_id && <button type="button" onClick={() => { void removeComment(comment.id); }}><Trash2 aria-hidden="true" /> 삭제</button>}</div></div>
+      {review.comments.filter((reply) => reply.parent_id === comment.id).map((reply) => <div className="dg-review-comment reply" key={reply.id}><span>{reply.author_name}</span><p>{reply.body}</p><div><small>{new Date(reply.created_at).toLocaleDateString("ko-KR")}</small>{session?.user.id === reply.author_id && <button type="button" onClick={() => { void removeComment(reply.id); }}><Trash2 aria-hidden="true" /> 삭제</button>}</div></div>)}
+    </div>)}
+    <form onSubmit={saveComment}>{replyTo && <button type="button" className="dg-reply-cancel" onClick={() => { setReplyTo(null); setBody(""); }}>답글 취소 ×</button>}<div><input value={body} maxLength={400} onChange={(event) => setBody(event.target.value)} placeholder={replyTo ? "답글을 입력해 주세요" : "댓글을 입력해 주세요"} aria-label={replyTo ? "답글 내용" : "댓글 내용"} /><button type="submit" disabled={saving || !body.trim()}>{session ? "등록" : "로그인"}</button></div></form>
+  </div>;
+}
+
+function KakaoRoutePreview({ origin, destination, route, routeState, transport, usesFallbackLocation, mapReady, onOpen }: {
   origin: Coordinate;
   destination: WebProgram;
   route: WebRouteResult | null;
   routeState: "waiting" | "loading" | "loaded" | "unavailable";
   transport: Transport;
   usesFallbackLocation: boolean;
+  mapReady: boolean;
   onOpen: () => void;
 }) {
   const elementRef = useRef<HTMLDivElement>(null);
@@ -3515,7 +3733,7 @@ function KakaoRoutePreview({ origin, destination, route, routeState, transport, 
     const element = elementRef.current;
     const frames: number[] = [];
     frames.push(window.requestAnimationFrame(() => setMapStatus("loading")));
-    if (!maps || !element) {
+    if (!mapReady || !maps || typeof maps.LatLng !== "function" || !element) {
       frames.push(window.requestAnimationFrame(() => setMapStatus("unavailable")));
       return () => frames.forEach((frame) => window.cancelAnimationFrame(frame));
     }
@@ -3584,7 +3802,7 @@ function KakaoRoutePreview({ origin, destination, route, routeState, transport, 
       overlays.forEach((overlay) => overlay.setMap(null));
       lines.forEach((line) => line.setMap(null));
     };
-  }, [destination, origin, route, routeState, transport, usesFallbackLocation]);
+  }, [destination, mapReady, origin, route, routeState, transport, usesFallbackLocation]);
 
   const statusText = usesFallbackLocation
     ? "현재 위치를 확인하면 실제 경로선으로 바뀝니다"
@@ -3920,10 +4138,6 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
   }, []);
 
-  useEffect(() => {
-    if (singleCardMode) setExpanded(false);
-  }, [singleCardMode]);
-
   const updateFocusedCard = () => {
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
     scrollFrameRef.current = window.requestAnimationFrame(() => {
@@ -4121,7 +4335,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
     {program ? <div className="dg-sheet-body">
       <div className="dg-sheet-badges"><span>{program.status}</span><span>집 근처 {distanceLabel(distanceMeters(current, program))}</span></div>
       <h2>{program.name}</h2><p className="dg-sheet-distance">⌖ 우리 집에서 {distanceLabel(distanceMeters(current, program))}</p>
-      <dl><div><dt>▥</dt><dd>{program.facility}</dd></div><div><dt>◷</dt><dd>{program.scheduleText ?? program.periodText ?? "이용시간은 예약 페이지에서 확인"}</dd></div><div><dt>₩</dt><dd>{program.isFree ? "무료" : program.feeText} · {program.status}</dd></div></dl>
+      <dl><div><dt><Building2 className="dg-sheet-info-icon" aria-hidden="true" /></dt><dd>{program.facility}</dd></div><div><dt><Clock className="dg-sheet-info-icon" aria-hidden="true" /></dt><dd>{program.scheduleText ?? program.periodText ?? "이용시간은 예약 페이지에서 확인"}</dd></div><div><dt><span className="dg-sheet-info-icon dg-sheet-info-icon-won" aria-hidden="true">₩</span></dt><dd>{program.isFree ? "무료" : program.feeText} · {program.status}</dd></div></dl>
       <button className="dg-sheet-detail" type="button" onClick={() => onDetail(program)}>자세히 보기</button>
       <div className="dg-sheet-actions">{accountFeaturesVisible && <button type="button" className={reminderIDs.includes(program.id) ? "active" : ""} onClick={() => onReminder(program)}>♧ {reminderIDs.includes(program.id) ? "알림 저장됨" : "알림 받기"}</button>}<a href={mapLink(program)} target="_blank" rel="noreferrer">➤ 길찾기</a></div>
     </div> : <div className="dg-sheet-loading"><strong>{state.loading ? "같은 장소 프로그램을 불러오고 있어요" : "프로그램 정보를 확인할 수 없어요"}</strong></div>}

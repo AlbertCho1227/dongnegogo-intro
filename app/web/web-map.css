@@ -232,9 +232,13 @@
 .dg-poster { min-height: 190px; max-height: 360px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid var(--dg-line); border-radius: 18px; background: #f8faf7; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
 .dg-poster img { width: 100%; max-height: 360px; object-fit: contain; }
 .dg-poster img[src*="/markers/"] { width: 128px; height: 128px; border: 8px solid var(--dg-green); border-radius: 50%; background: #fff; }
-.dg-easy-summary { padding: 17px; border-radius: 18px; background: #f1f9ed; }
+.dg-easy-summary { padding: 0; background: transparent; }
 .dg-easy-summary h2 { color: var(--dg-green-deep); }
-.dg-easy-summary p { margin: 0; color: #4b544c; font-size: 13.5px; line-height: 1.7; white-space: pre-line; }
+.dg-program-summary-card { padding: 17px; display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: start; gap: 13px; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
+.dg-program-summary-card > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; color: var(--dg-green); background: #eaf7e6; }
+.dg-program-summary-card > span svg { width: 21px; height: 21px; stroke-width: 2.5; }
+.dg-program-summary-card strong { display: block; margin-bottom: 7px; color: var(--dg-green); font-size: 13.5px; font-weight: 900; }
+.dg-program-summary-card p { margin: 0; color: #273029; font-size: 16px; font-weight: 650; line-height: 1.75; white-space: pre-line; }
 .dg-info-list { margin: 0; padding: 4px 17px; border: 1px solid var(--dg-line); border-radius: 18px; box-shadow: 0 3px 12px rgba(20,40,25,.05); }
 .dg-info-list > div { padding: 15px 0; display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 9px; border-bottom: 1px solid #eef1ee; }
 .dg-info-list > div:last-child { border-bottom: 0; }
@@ -243,6 +247,76 @@
 .dg-info-list small { color: #9ca39d; font-size: 11.5px; font-weight: 700; }
 .dg-info-list strong { font-size: 14px; line-height: 1.45; }
 .dg-info-list span { color: #7f8780; font-size: 12.5px; line-height: 1.45; }
+.dg-program-parking-card { padding: 17px; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
+.dg-facility-info-rows > div { min-height: 58px; padding: 11px 0; display: grid; grid-template-columns: 34px minmax(0,1fr); column-gap: 10px; border-bottom: 1px solid #edf0ed; }
+.dg-facility-info-rows > div > span { grid-row: 1 / 3; align-self: center; font-size: 18px; }
+.dg-facility-info-rows small { color: #8e968f; font-size: 11.5px; font-weight: 800; }
+.dg-facility-info-rows strong { color: #404a42; font-size: 13.5px; line-height: 1.45; }
+.dg-facility-info-rows a { color: inherit; text-decoration: none; }
+.dg-parking-information { padding-top: 10px; }
+.dg-parking-information > header { min-height: 44px; display: flex; align-items: center; gap: 7px; }
+.dg-parking-title-icon { width: 32px; height: 32px; display: grid; place-items: center; color: #278fd1; }
+.dg-parking-title-icon svg { width: 22px; height: 22px; stroke-width: 2.5; }
+.dg-parking-information > header > strong { color: #59625a; font-size: 14px; font-weight: 900; }
+.dg-parking-information > header > em { flex: 1; overflow: hidden; color: #848c85; font-size: 11.5px; font-style: normal; font-weight: 800; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+.dg-parking-information > header > button { width: 68px; min-height: 38px; padding: 0 6px; border: 1px solid #afb5b0; border-radius: 999px; display: flex; align-items: center; gap: 5px; color: #fff; background: #b6bbb7; font-size: 12px; font-weight: 950; cursor: pointer; }
+.dg-parking-information > header > button i { width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+.dg-parking-information > header > button.active { flex-direction: row-reverse; border-color: rgba(34,177,76,.35); background: var(--dg-green); }
+.dg-parking-loading, .dg-parking-collapsed-note { margin: 10px 0 0; padding-top: 11px; border-top: 1px solid #edf0ed; color: #7a837b; font-size: 12px; font-weight: 700; line-height: 1.55; }
+.dg-parking-lot-list { margin-top: 10px; padding-top: 4px; border-top: 1px solid #edf0ed; }
+.dg-parking-lot-list > article { padding: 13px 0; border-bottom: 1px solid #edf0ed; }
+.dg-parking-lot-list > article:last-child { border-bottom: 0; }
+.dg-parking-lot-heading { display: flex; align-items: flex-start; gap: 8px; }
+.dg-parking-lot-heading strong { flex: 1; font-size: 15.5px; line-height: 1.4; }
+.dg-parking-lot-heading span { flex: none; padding: 4px 7px; border-radius: 999px; color: var(--dg-green); background: #eef9ea; font-size: 10.5px; font-weight: 900; }
+.dg-parking-lot-list dl { margin: 9px 0 0; display: grid; gap: 6px; }
+.dg-parking-lot-list dl > div { display: grid; grid-template-columns: 68px minmax(0,1fr); gap: 8px; font-size: 12.5px; line-height: 1.5; }
+.dg-parking-lot-list dt { color: #8b938c; font-weight: 800; }
+.dg-parking-lot-list dd { margin: 0; color: #444e46; font-weight: 700; }
+.dg-parking-lot-list dd a, .dg-parking-source { color: var(--dg-green-deep); font-weight: 850; }
+.dg-parking-source { margin-top: 10px; display: inline-flex; font-size: 11.5px; text-decoration: none; }
+.dg-parking-notice { margin: 4px 0 0; padding: 11px; display: flex; align-items: flex-start; gap: 7px; border-radius: 12px; color: #765f2d; background: #fff7dc; font-size: 11.5px; line-height: 1.5; }
+.dg-parking-notice svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+.dg-review-card { overflow: hidden; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
+.dg-review-card > header { padding: 16px; display: flex; align-items: flex-start; gap: 11px; background: #f5fbf1; }
+.dg-review-card > header > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 13px; color: var(--dg-green); background: #fff; }
+.dg-review-card > header svg { width: 20px; height: 20px; }
+.dg-review-card > header strong { display: block; font-size: 14px; }
+.dg-review-card > header p { margin: 4px 0 0; color: #788178; font-size: 11.5px; line-height: 1.5; }
+.dg-review-form { padding: 14px; border-bottom: 1px solid #edf0ed; }
+.dg-review-satisfaction { display: flex; flex-wrap: wrap; gap: 6px; }
+.dg-review-satisfaction button { padding: 7px 10px; border: 1px solid #dfe5df; border-radius: 999px; color: #59625a; background: #fff; font-size: 11px; font-weight: 850; cursor: pointer; }
+.dg-review-satisfaction button.active { border-color: var(--dg-green); color: #fff; background: var(--dg-green); }
+.dg-review-form textarea { width: 100%; min-height: 96px; margin-top: 10px; padding: 12px; resize: vertical; border: 1px solid #dfe5df; border-radius: 13px; color: var(--dg-ink); background: #fbfcfb; font: inherit; font-size: 13px; line-height: 1.6; }
+.dg-review-form > div:last-child { margin-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dg-review-form > div:last-child span { color: #9aa19a; font-size: 10.5px; }
+.dg-review-form > div:last-child button, .dg-review-comments form button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px; color: #fff; background: var(--dg-green); font-size: 11.5px; font-weight: 900; cursor: pointer; }
+.dg-review-form button:disabled, .dg-review-comments form button:disabled { opacity: .45; cursor: default; }
+.dg-review-error { margin: 12px 14px 0; padding: 9px 11px; border-radius: 10px; color: #a6423c; background: #fdecea; font-size: 11.5px; font-weight: 750; }
+.dg-review-empty { margin: 0; padding: 20px 14px; color: #89918a; font-size: 12.5px; text-align: center; }
+.dg-review-list > article { padding: 16px 14px; border-bottom: 1px solid #edf0ed; }
+.dg-review-list > article:last-child { border-bottom: 0; }
+.dg-review-list > article > header { display: grid; grid-template-columns: 36px minmax(0,1fr) 32px; align-items: center; gap: 9px; }
+.dg-review-list > article > header > span { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--dg-green-deep); background: #eaf7e6; font-size: 13px; font-weight: 900; }
+.dg-review-list > article > header strong, .dg-review-list > article > header small { display: block; }
+.dg-review-list > article > header small { margin-top: 2px; color: #929a93; font-size: 10.5px; }
+.dg-review-list > article > header > button { width: 32px; height: 32px; border: 0; border-radius: 50%; color: #b2b8b3; background: #f4f6f4; cursor: pointer; }
+.dg-review-list > article > header > button svg { width: 15px; }
+.dg-review-list > article > p { margin: 12px 0; color: #3e4840; font-size: 13px; line-height: 1.7; white-space: pre-line; }
+.dg-review-comments { margin-top: 12px; padding-top: 10px; border-top: 1px solid #edf0ed; }
+.dg-review-comment-thread { margin-bottom: 9px; }
+.dg-review-comment { padding: 9px 10px; border-radius: 11px; background: #f7f9f7; }
+.dg-review-comment.reply { margin: 6px 0 0 24px; background: #eef7eb; }
+.dg-review-comment > span { color: #566158; font-size: 11px; font-weight: 900; }
+.dg-review-comment > p { margin: 4px 0; color: #465048; font-size: 12px; line-height: 1.55; }
+.dg-review-comment > div { display: flex; align-items: center; gap: 8px; }
+.dg-review-comment small { flex: 1; color: #9aa19b; font-size: 9.5px; }
+.dg-review-comment button { padding: 0; border: 0; display: inline-flex; align-items: center; gap: 3px; color: #758077; background: transparent; font-size: 9.5px; font-weight: 800; cursor: pointer; }
+.dg-review-comment button svg { width: 11px; height: 11px; }
+.dg-review-comments form { margin-top: 10px; }
+.dg-review-comments form > div { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; }
+.dg-review-comments form input { min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #dfe5df; border-radius: 10px; font: inherit; font-size: 12px; }
+.dg-review-comments .dg-reply-cancel { min-height: 0; margin: 0 0 6px; padding: 0; color: var(--dg-green-deep); background: transparent; }
 .dg-distance-card { padding: 18px; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 13px rgba(20,40,25,.055); }
 .dg-route-summary-title { margin-bottom: 9px; display: flex; align-items: center; gap: 8px; color: var(--dg-ink); font-size: 14.5px; }
 .dg-route-summary-title > svg { flex: none; }
@@ -479,6 +553,9 @@
 .dg-sheet-distance { margin: 0 0 14px; color: var(--dg-green); font-size: 15px; font-weight: 850; }
 .dg-sheet-body dl { margin: 0 0 14px; padding: 13px; border-radius: 16px; background: #f5f7f5; }
 .dg-sheet-body dl > div { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 4px; padding: 5px 0; color: #505850; font-size: 13px; font-weight: 700; }
+.dg-sheet-body dl dt { margin: 0; display: flex; align-items: center; justify-content: flex-start; color: var(--dg-green-deep); }
+.dg-sheet-info-icon { width: 18px; height: 18px; flex: none; stroke-width: 2.2; }
+.dg-sheet-info-icon-won { display: inline-flex; align-items: center; justify-content: center; border: 1.8px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 850; line-height: 1; }
 .dg-sheet-detail { width: 100%; height: 48px; border: 0; border-radius: 14px; color: #fff; background: linear-gradient(100deg, var(--dg-lime), var(--dg-green)); font-size: 16px; font-weight: 900; cursor: pointer; }
 .dg-sheet-actions { margin-top: 8px; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .dg-sheet-actions > * { min-height: 42px; border: 1px solid #dde3dd; border-radius: 13px; display: flex; align-items: center; justify-content: center; color: #485049; background: #fff; text-decoration: none; font-size: 13px; font-weight: 850; cursor: pointer; }
@@ -621,9 +698,14 @@
 
 .dg-account-card > span { color: #6f7871; font-size: 12px; line-height: 1.5; }
 .dg-login-cta { min-height: 46px; border: 0; border-radius: 13px; color: #fff; background: linear-gradient(100deg,var(--dg-lime),var(--dg-green)); font-size: 12px; font-weight: 900; cursor: pointer; }
-.dg-login-buttons { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px; }
-.dg-login-buttons button { min-height: 42px; padding: 7px; border: 1px solid #dce3dc; border-radius: 12px; color: #344039; background: #fff; font-size: 11px; font-weight: 850; cursor: pointer; }
-.dg-login-buttons button:first-child { border-color: #f5df00; color: #211f12; background: #fee500; }
+.dg-login-buttons { display: grid; grid-template-columns: 1fr; gap: 9px; }
+.dg-login-buttons button { min-height: 48px; padding: 7px 16px; border: 1px solid #747775; border-radius: 12px; display: grid; grid-template-columns: 26px minmax(0,1fr) 26px; align-items: center; color: #202420; background: #fff; font-size: 13px; font-weight: 850; cursor: pointer; }
+.dg-login-buttons button i { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #202420; font-size: 11px; font-style: normal; font-weight: 950; }
+.dg-login-buttons button:first-child { border-color: #fee500; color: #191919; background: #fee500; }
+.dg-login-buttons button:first-child i { color: #fee500; background: #191919; }
+.dg-login-buttons button:nth-child(2) { color: #fff; background: #000; }
+.dg-login-buttons button:nth-child(2) i { color: #000; background: #fff; }
+.dg-login-buttons button:nth-child(3) i { color: #4285f4; background: #fff; box-shadow: inset 0 0 0 1px #dadce0; }
 .dg-login-buttons button:disabled { opacity: .55; cursor: wait; }
 .dg-auth-dialog { width: min(520px,100%); padding: 22px; border-radius: 25px; background: #fff; box-shadow: 0 25px 80px rgba(0,0,0,.25); }
 .dg-auth-dialog > header { display: flex; align-items: flex-start; gap: 12px; }
