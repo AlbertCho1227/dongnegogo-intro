@@ -35,6 +35,7 @@ export type OutOfAreaTitleSuggestion = {
   regionName: string;
   programName: string;
   suggestedQuery: string;
+  programID: string;
 };
 
 type RankedTitleCandidate = { program: WebProgram; score: number };
@@ -158,6 +159,16 @@ export function fuzzyAdministrativeTitlePrograms(
     .map((candidate) => candidate.program);
 }
 
+/** 행정지역+기억한 제목 검색은 도시 전역 검색이며 좌표 반경 검색으로 바꾸지 않는다. */
+export function isAdministrativeTitleQuery(
+  query: string,
+  intent = parseSearchIntent(query),
+) {
+  return intent.areaTerms.length > 0
+    && intent.subjectTerms.length === 0
+    && intent.generalTerms.join("").length >= 4;
+}
+
 function programTopLevelRegion(program: WebProgram) {
   const document = `${program.region ?? ""} ${program.address ?? ""} ${program.area}`;
   return TOP_LEVEL_AREAS.find((area) => compactKey(document).includes(compactKey(area))) ?? "";
@@ -182,6 +193,7 @@ export function strongOutOfAreaTitleSuggestion(
     regionName,
     programName: outside.program.name,
     suggestedQuery: `${regionName} ${query.trim()}`,
+    programID: outside.program.id,
   };
 }
 

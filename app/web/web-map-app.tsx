@@ -14,6 +14,7 @@ import {
   hasAmbiguousAdministrativeSuggestions,
   haversineMeters,
   fuzzyAdministrativeTitlePrograms,
+  isAdministrativeTitleQuery,
   parseSearchIntent,
   preferredPlaceSuggestion,
   programMatchesAreaTerms,
@@ -236,7 +237,7 @@ type SearchAssistantState =
   | { kind: "placeFound"; place: WebPlaceSuggestion; radiusKm: number; count: number }
   | { kind: "placeExpand"; place: WebPlaceSuggestion; currentRadiusKm: number; nextRadiusKm: number; remoteSucceeded: boolean }
   | { kind: "alternativeFound"; message: string; count: number }
-  | { kind: "titleSuggestion"; regionName: string; programName: string; suggestedQuery: string };
+  | { kind: "titleSuggestion"; regionName: string; programName: string; suggestedQuery: string; programID: string };
 
 const ROUTE_MODE: Record<Transport, WebRouteMode> = {
   walk: "WALKING",
@@ -1954,7 +1955,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     }
   };
 
-  const runSearch = async (rawTerm: string) => {
+  const runSearch = async (rawTerm: string, preferredProgramID?: string) => {
     const term = rawTerm.trim();
     if (!term) return;
     queryRef.current = term;
@@ -2012,9 +2013,16 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       intent.subjectTerms.forEach((value) => params.append("subject", value));
       [...new Set([...intent.areaTerms, ...cityScope.candidateAreaTerms])].forEach((value) => params.append("area", value));
       intent.generalTerms.forEach((value) => params.append("general", value));
-      const candidates = await fetchPrograms(params);
+      const [fetchedCandidates, preferredPrograms] = await Promise.all([
+        fetchPrograms(params),
+        preferredProgramID
+          ? fetchPrograms(new URLSearchParams({ id: preferredProgramID })).catch(() => [] as WebProgram[])
+          : Promise.resolve([] as WebProgram[]),
+      ]);
       if (requestID !== searchRequestIDRef.current) return;
       setSearchProgress(82);
+      const candidates = uniquePrograms([...fetchedCandidates, ...preferredPrograms])
+        .filter((program) => programMatchesAreaTerms(program, cityScope.candidateAreaTerms));
       setSearchCandidates(candidates);
       let matches = searchPrograms(candidates, intent, location).map((item) => item.program);
       if (!matches.length) {
@@ -2041,7 +2049,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         titleSuggestion = strongOutOfAreaTitleSuggestion(term, cityScope, nationwideCandidates);
       }
 
-      const place = preferredPlaceSuggestion(term, intent, suggestions);
+      const place = isAdministrativeTitleQuery(term, intent)
+        ? null
+        : preferredPlaceSuggestion(term, intent, suggestions);
       if (titleSuggestion) {
         setSearchAssistant({ kind: "titleSuggestion", ...titleSuggestion });
       } else if (place && place.placeKind !== "administrative") {
@@ -2151,10 +2161,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     void runSearch(query);
   };
 
-  const chooseSearch = (term: string) => {
+  const chooseSearch = (term: string, preferredProgramID?: string) => {
     queryRef.current = term;
     setQuery(term);
-    void runSearch(term);
+    void runSearch(term, preferredProgramID);
   };
 
   const applyRelaxedIntent = (intent: SearchIntent, notice: string) => {
@@ -3264,7 +3274,7 @@ function SearchExperience({
   selectedCategory: string | null;
   sort: SearchSort;
   origin: Coordinate;
-  onChoose: (term: string) => void;
+  onChoose: (term: string, preferredProgramID?: string) => void;
   onClearRecent: () => void;
   onSelectSuggestion: (suggestion: WebPlaceSuggestion) => void;
   onRetry: () => void;
@@ -3310,7 +3320,7 @@ function SearchExperience({
     </section>;
     if (assistant.kind === "titleSuggestion") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
       <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>다른 지역의 정확한 제목을 찾았어요</small><strong>혹시 {assistant.regionName}에 위치한 ‘{assistant.programName}’ 프로그램을 찾고 계실까요?</strong>
-    </div><button type="button" className="dg-search-primary-action" onClick={() => onChoose(assistant.suggestedQuery)}>▥ 네, {assistant.regionName} 전역에서 찾아볼게요</button></section>;
+    </div><button type="button" className="dg-search-primary-action" onClick={() => onChoose(assistant.suggestedQuery, assistant.programID)}>▥ 네, {assistant.regionName} 전역에서 찾아볼게요</button></section>;
     if (assistant.kind === "placeOffer") return <section className="dg-search-assistant-stack"><div className="dg-search-assistant-card">
       <img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>원하시는 장소를 이해했어요</small><strong>‘{submittedQuery}’는 {assistant.place.displayName} 주변을 찾으시는 뜻으로 이해했어요. 제목에 장소명이 없어도 실제 위치를 기준으로 찾아드릴게요.</strong>
     </div><button type="button" className="dg-search-primary-action" onClick={() => onPlaceRadius(assistant.place, assistant.radiusKm)}>⌖ {searchRadiusLabel(assistant.radiusKm)} 주변 프로그램 찾아보기</button><button type="button" className="dg-search-secondary-action" onClick={onDismissPlace}>일반 검색 결과만 볼게요</button></section>;

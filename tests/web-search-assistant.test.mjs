@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   hasAmbiguousAdministrativeSuggestions,
   fuzzyAdministrativeTitlePrograms,
+  isAdministrativeTitleQuery,
   parseSearchIntent,
   preferredPlaceSuggestion,
   searchPrograms,
@@ -68,6 +69,7 @@ test("현재 도시 밖의 정확한 프로그램 제목은 지역 검색을 먼
   );
   assert.deepEqual(suggestion, {
     regionName: "부산", programName: "공존의 세계", suggestedQuery: "부산 공존의 세계",
+    programID: "sample",
   });
 });
 
@@ -84,6 +86,7 @@ test("조금 다르게 기억한 제목은 다른 도시의 더 강한 제목 �
     regionName: "부산",
     programName: "공존의 경계에 흐르다: 파괴와 생성",
     suggestedQuery: "부산 공존의 세계",
+    programID: "busan",
   });
 });
 
@@ -94,6 +97,8 @@ test("행정지역과 기억한 제목을 함께 입력하면 반경 없이 도�
     program({ id: "noise", name: "우장춘기념관", address: "부산광역시 동래구", area: "동래구" }),
   ]);
   assert.deepEqual(results.map((item) => item.id), ["target"]);
+  assert.equal(isAdministrativeTitleQuery("부산 공존의 세계", intent), true);
+  assert.equal(isAdministrativeTitleQuery("광화문 근처 요가"), false);
 });
 
 test("대구 검색에 부산 해운대구가 문자열 일부로 섞이지 않는다", () => {
