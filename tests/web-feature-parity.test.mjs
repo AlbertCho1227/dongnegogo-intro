@@ -409,12 +409,12 @@ test("계정 동기화는 공개키와 사용자 세션·RLS 대상 테이블만
 
 test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두 표시한다", () => {
   assert.match(webMapSource, /const WEB_ACCOUNT_FEATURES_VISIBLE = true/);
-  assert.match(webMapSource, /\{ id: "openrun", icon: "♧", label: "오픈런" \}/);
+  assert.match(webMapSource, /\{ id: "openrun", icon: "🔔", label: "오픈런" \}/);
   assert.match(webMapSource, /\{ id: "saved", icon: "♡", label: "찜" \}/);
-  assert.match(webMapSource, /\{ id: "me", icon: "♙", label: "내정보" \}/);
+  assert.match(webMapSource, /\{ id: "me", icon: "⚙", label: "설정" \}/);
   assert.match(webMapSource, /\.\.\.\(WEB_ACCOUNT_FEATURES_VISIBLE \? ACCOUNT_TABS : \[\]\)/);
   assert.match(webMapSource, /if \(!WEB_ACCOUNT_FEATURES_VISIBLE \|\| !webAuthConfigured\(\)\) return/);
-  assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell"/);
+  assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className=\{`dg-mobile-profile/);
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("openrun"\)\}/);
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("saved"\)\}/);
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("me"\)\}/);
@@ -425,9 +425,11 @@ test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두
   assert.match(webMapSource, /className=\{!WEB_ACCOUNT_FEATURES_VISIBLE \? "dg-public-nav" : undefined\}/);
 });
 
-test("모바일 지도 상단은 검색창 다음에 홈과 알림 버튼을 나란히 표시한다", () => {
-  assert.match(webMapSource, /className="dg-mobile-search-pill"[\s\S]*?<Link href="\/" aria-label="지도 홈">⌂<\/Link>[\s\S]*?className="dg-mobile-bell"/);
-  assert.match(webMapStyle, /\.dg-mobile-map-header\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) 44px 44px/);
+test("모바일 지도 상단은 넓은 검색창과 개인 프로그램 버튼을 표시한다", () => {
+  assert.match(webMapSource, /className="dg-mobile-search-pill"[\s\S]*?<MapIcon aria-hidden="true" \/>[\s\S]*?className=\{`dg-mobile-profile/);
+  assert.doesNotMatch(webMapSource, /aria-label="지도 홈"/);
+  assert.doesNotMatch(webMapSource, /startVoiceSearch|SpeechRecognition|음성으로 검색/);
+  assert.match(webMapStyle, /\.dg-mobile-map-header\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) 44px/);
 });
 
 test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다", () => {

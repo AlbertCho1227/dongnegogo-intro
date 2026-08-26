@@ -250,12 +250,12 @@ const FALLBACK: Coordinate = { latitude: 37.6027, longitude: 127.0128 };
 // related saved, alert, family, and profile experiences stay synchronized.
 const WEB_ACCOUNT_FEATURES_VISIBLE = true;
 const ACCOUNT_TABS: Array<{ id: Tab; icon: string; label: string }> = [
-  { id: "openrun", icon: "♧", label: "오픈런" },
+  { id: "openrun", icon: "🔔", label: "오픈런" },
   { id: "saved", icon: "♡", label: "찜" },
-  { id: "me", icon: "♙", label: "내정보" },
+  { id: "me", icon: "⚙", label: "설정" },
 ];
 const TABS: Array<{ id: Tab; icon: string; label: string }> = [
-  { id: "map", icon: "⌖", label: "지도" },
+  { id: "map", icon: "⌂", label: "홈" },
   { id: "search", icon: "⌕", label: "찾기" },
   ...(WEB_ACCOUNT_FEATURES_VISIBLE ? ACCOUNT_TABS : []),
 ];
@@ -2211,18 +2211,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     setSearchAlternativeNotice("");
   };
 
-  const startVoiceSearch = () => {
-    const SpeechRecognition = (window as unknown as { SpeechRecognition?: new () => { lang: string; interimResults: boolean; onresult: (event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void; onerror: () => void; start: () => void }; webkitSpeechRecognition?: new () => { lang: string; interimResults: boolean; onresult: (event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void; onerror: () => void; start: () => void } }).SpeechRecognition
-      ?? (window as unknown as { webkitSpeechRecognition?: new () => { lang: string; interimResults: boolean; onresult: (event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void; onerror: () => void; start: () => void } }).webkitSpeechRecognition;
-    if (!SpeechRecognition) { setError("이 브라우저에서는 음성 검색을 지원하지 않아요."); return; }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "ko-KR";
-    recognition.interimResults = false;
-    recognition.onresult = (event) => chooseSearch(event.results[0][0].transcript);
-    recognition.onerror = () => setError("음성을 듣지 못했어요. 다시 시도해 주세요.");
-    recognition.start();
-  };
-
   const moveToCurrentLocation = useCallback(() => {
     setLocationRequestState("checking");
     setLocationRequestMessage("휴대폰의 현재 위치를 확인하고 있어요.");
@@ -3085,7 +3073,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               <form className="dg-search" onSubmit={submitSearch}>
                 <span aria-hidden="true">⌕</span><input ref={searchInputRef} value={query} onChange={(event) => updateSearchQuery(event.target.value)} onKeyDown={submitSearchFromKeyboard} placeholder="시설명·강좌명 또는 자연어로 검색" aria-label="프로그램 검색" />
                 {query && <button type="button" className="dg-clear" onClick={clearSearch} aria-label="검색어 지우기">×</button>}
-                <button type="button" className="dg-voice" onClick={startVoiceSearch} aria-label="음성으로 검색">◉</button>
                 <button type="submit" className="dg-search-button">검색</button>
               </form>
               {tab !== "search" && <><div className="dg-location-row"><button type="button" onClick={moveToCurrentLocation}>● {centeredArea.split(" ").slice(-2).join(" ")}</button><span>{heatShelterMode ? `${heatShelters.length}곳` : `${visiblePrograms.length}곳`}</span></div>
@@ -3160,9 +3147,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         {!mapReady && <div className="dg-map-skeleton"><img src="/brand/app-icon.png" alt="" /><strong>지도를 준비하고 있어요</strong></div>}
         <div className="dg-mobile-map-chrome">
           <div className="dg-mobile-map-header">
-            <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em>●</em></button>
-            <Link href="/" aria-label="지도 홈">⌂</Link>
-            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className="dg-mobile-bell" onClick={() => changeTab("openrun")} aria-label="알림"><Bell aria-hidden="true" /><i /></button>}
+            <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em><MapIcon aria-hidden="true" /></em></button>
+            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className={`dg-mobile-profile${session ? " signed-in" : ""}`} onClick={() => { setSeniorOnly(false); setPersonaFilters([]); changeTab("search"); }} aria-label={session ? "나를 위한 프로그램 찾기" : "로그인 전 나를 위한 프로그램 찾기"}><User aria-hidden="true" /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
             <ConditionFilterButton count={activeConditionCount} onClick={() => setShowFilter(true)} />
