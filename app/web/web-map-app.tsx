@@ -252,7 +252,7 @@ const WEB_ACCOUNT_FEATURES_VISIBLE = true;
 const ACCOUNT_TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "openrun", icon: "🔔", label: "오픈런" },
   { id: "saved", icon: "♡", label: "찜" },
-  { id: "me", icon: "⚙", label: "설정" },
+  { id: "me", icon: "settings", label: "설정" },
 ];
 const TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "map", icon: "⌂", label: "홈" },
@@ -2853,7 +2853,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         <nav className={!WEB_ACCOUNT_FEATURES_VISIBLE ? "dg-public-nav" : undefined}>
           {TABS.map((item) => (
             <button key={item.id} type="button" className={tab === item.id && !selected ? "active" : ""} onClick={() => changeTab(item.id)}>
-              <span aria-hidden="true">{item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
+              <span aria-hidden="true">{item.id === "me" ? <SlidersHorizontal /> : item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
             </button>
           ))}
         </nav>

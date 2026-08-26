@@ -21,6 +21,7 @@
 .dg-nav-rail nav button { width: 100%; min-height: 66px; border: 0; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: transparent; color: #899089; cursor: pointer; font-size: 12px; font-weight: 750; }
 .dg-nav-rail nav button span { font-size: 25px; line-height: 1; }
 .dg-nav-rail nav button span { position: relative; }
+.dg-nav-rail nav button span > svg { width: 25px; height: 25px; }
 .dg-tab-badge { position: absolute; top: -9px; right: -13px; min-width: 18px; height: 18px; padding: 0 4px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 999px; color: #fff; background: #ee5b47; font-size: 9px; font-style: normal; font-weight: 900; }
 .dg-nav-rail nav button:hover, .dg-nav-rail nav button.active { color: var(--dg-green); background: #f0f8ed; }
 .dg-home-link { margin-top: auto; color: #7e867f; font-size: 11px; font-weight: 700; text-decoration: none; }
