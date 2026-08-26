@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode, TouchEvent as ReactTouchEvent } from "react";
 import Link from "next/link";
 import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
@@ -224,19 +224,23 @@ function useSmoothSearchProgress(target: number, active: boolean) {
   return Math.round(displayed);
 }
 
-function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious = true, canNext = true, animatePages = false }: {
+function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDown, canPrevious = true, canNext = true, animatePages = false }: {
   enabled: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  onDismissDown?: () => void;
   canPrevious?: boolean;
   canNext?: boolean;
   animatePages?: boolean;
 }) {
   const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, width: 1, axis: "pending" as "pending" | "horizontal" | "vertical" });
+  const touchGestureRef = useRef({ identifier: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
+  const dismissInFlightRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
   const transitionTimersRef = useRef<number[]>([]);
   const [offsetX, setOffsetX] = useState(0);
-  const [swipePhase, setSwipePhase] = useState<"idle" | "dragging" | "animating">("idle");
+  const [offsetY, setOffsetY] = useState(0);
+  const [swipePhase, setSwipePhase] = useState<"idle" | "dragging" | "animating" | "dismissing">("idle");
 
   const clearTransitionTimers = () => {
     transitionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -250,7 +254,18 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
   const settleAtRest = () => {
     setSwipePhase("animating");
     setOffsetX(0);
+    setOffsetY(0);
     transitionTimersRef.current.push(window.setTimeout(() => setSwipePhase("idle"), 220));
+  };
+  const dismissDownward = (deltaX: number, deltaY: number, surfaceHeight: number) => {
+    if (!onDismissDown || deltaY < 64 || deltaY <= Math.abs(deltaX) * 1.15 || dismissInFlightRef.current) return false;
+    dismissInFlightRef.current = true;
+    clearTransitionTimers();
+    suppressClickUntilRef.current = performance.now() + 420;
+    setSwipePhase("dismissing");
+    setOffsetY(Math.max(window.innerHeight, surfaceHeight));
+    transitionTimersRef.current.push(window.setTimeout(onDismissDown, 240));
+    return true;
   };
   const finish = (event: ReactPointerEvent<HTMLElement>) => {
     const gesture = gestureRef.current;
@@ -258,6 +273,10 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
     const deltaX = gesture.lastX - gesture.startX;
     const deltaY = gesture.lastY - gesture.startY;
     reset();
+    if (dismissDownward(deltaX, deltaY, event.currentTarget.getBoundingClientRect().height)) {
+      event.preventDefault();
+      return;
+    }
     if (gesture.axis !== "horizontal" || Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.12) {
       if (animatePages) settleAtRest();
       return;
@@ -293,7 +312,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
 
   const handlers = {
     onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
-      if (!enabled || swipePhase === "animating" || (event.pointerType === "mouse" && event.button !== 0)) return;
+      if (!enabled || swipePhase === "animating" || swipePhase === "dismissing" || (event.pointerType === "mouse" && event.button !== 0)) return;
       clearTransitionTimers();
       gestureRef.current = {
         pointerID: event.pointerId,
@@ -317,7 +336,12 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
       if (gesture.axis === "pending" && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 7) {
         gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? "horizontal" : "vertical";
       }
-      if (!animatePages || gesture.axis !== "horizontal") return;
+      if (!animatePages) return;
+      if (gesture.axis === "vertical" && onDismissDown && deltaY > 0) {
+        setOffsetY(Math.round(deltaY));
+        return;
+      }
+      if (gesture.axis !== "horizontal") return;
       const atEdge = (deltaX > 0 && !canPrevious) || (deltaX < 0 && !canNext);
       setOffsetX(Math.round(deltaX * (atEdge ? .28 : 1)));
     },
@@ -331,87 +355,48 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
       event.preventDefault();
       event.stopPropagation();
     },
+    onTouchStartCapture: (event: ReactTouchEvent<HTMLElement>) => {
+      if (!enabled || !onDismissDown || event.touches.length !== 1 || swipePhase === "dismissing") return;
+      const touch = event.touches[0];
+      touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY };
+    },
+    onTouchMoveCapture: (event: ReactTouchEvent<HTMLElement>) => {
+      const gesture = touchGestureRef.current;
+      if (gesture.identifier < 0) return;
+      const touch = Array.from(event.touches).find((candidate) => candidate.identifier === gesture.identifier);
+      if (!touch) return;
+      gesture.lastX = touch.clientX;
+      gesture.lastY = touch.clientY;
+      const deltaX = gesture.lastX - gesture.startX;
+      const deltaY = gesture.lastY - gesture.startY;
+      if (deltaY > 0 && deltaY > Math.abs(deltaX) * .8) setOffsetY(Math.round(deltaY));
+    },
+    onTouchEndCapture: (event: ReactTouchEvent<HTMLElement>) => {
+      const gesture = touchGestureRef.current;
+      if (gesture.identifier < 0) return;
+      const touch = Array.from(event.changedTouches).find((candidate) => candidate.identifier === gesture.identifier);
+      if (touch) {
+        gesture.lastX = touch.clientX;
+        gesture.lastY = touch.clientY;
+      }
+      touchGestureRef.current.identifier = -1;
+      if (dismissDownward(gesture.lastX - gesture.startX, gesture.lastY - gesture.startY, event.currentTarget.getBoundingClientRect().height)) {
+        event.preventDefault();
+        return;
+      }
+      if (animatePages) settleAtRest();
+    },
+    onTouchCancelCapture: () => {
+      touchGestureRef.current.identifier = -1;
+      if (animatePages) settleAtRest();
+    },
   };
   if (!animatePages) return handlers;
   return {
     ...handlers,
     "data-horizontal-swipe-animated": "true",
     "data-horizontal-swipe-phase": swipePhase,
-    style: { "--dg-horizontal-swipe-x": `${offsetX}px` } as CSSProperties,
-  };
-}
-
-function useDownwardHeaderDismiss(onDismiss: () => void) {
-  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
-  const dismissTimerRef = useRef<number | null>(null);
-  const suppressClickUntilRef = useRef(0);
-  const [offsetY, setOffsetY] = useState(0);
-  const [phase, setPhase] = useState<"idle" | "dragging" | "dismissing">("idle");
-
-  useEffect(() => () => {
-    if (dismissTimerRef.current != null) window.clearTimeout(dismissTimerRef.current);
-  }, []);
-
-  const finish = (event: ReactPointerEvent<HTMLElement>) => {
-    const gesture = gestureRef.current;
-    if (gesture.pointerID !== event.pointerId) return;
-    gesture.pointerID = -1;
-    const deltaX = gesture.lastX - gesture.startX;
-    const deltaY = gesture.lastY - gesture.startY;
-    const shouldDismiss = deltaY >= 64 && deltaY > Math.abs(deltaX) * 1.15;
-    if (!shouldDismiss) {
-      setPhase("idle");
-      setOffsetY(0);
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    suppressClickUntilRef.current = performance.now() + 420;
-    setPhase("dismissing");
-    setOffsetY(Math.max(window.innerHeight, event.currentTarget.closest<HTMLElement>(".dg-detail")?.offsetHeight ?? 0));
-    dismissTimerRef.current = window.setTimeout(() => {
-      dismissTimerRef.current = null;
-      onDismiss();
-    }, 240);
-  };
-
-  return {
-    offsetY,
-    phase,
-    handlers: {
-      onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
-        if (event.pointerType === "mouse" && event.button !== 0) return;
-        gestureRef.current = {
-          pointerID: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          lastX: event.clientX,
-          lastY: event.clientY,
-        };
-        setPhase("dragging");
-        try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
-      },
-      onPointerMoveCapture: (event: ReactPointerEvent<HTMLElement>) => {
-        const gesture = gestureRef.current;
-        if (gesture.pointerID !== event.pointerId) return;
-        gesture.lastX = event.clientX;
-        gesture.lastY = event.clientY;
-        const deltaX = gesture.lastX - gesture.startX;
-        const deltaY = gesture.lastY - gesture.startY;
-        if (deltaY > 0 && deltaY > Math.abs(deltaX) * .8) setOffsetY(Math.round(deltaY));
-      },
-      onPointerUpCapture: finish,
-      onPointerCancelCapture: () => {
-        gestureRef.current.pointerID = -1;
-        setPhase("idle");
-        setOffsetY(0);
-      },
-      onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
-        if (performance.now() >= suppressClickUntilRef.current) return;
-        event.preventDefault();
-        event.stopPropagation();
-      },
-    },
+    style: { "--dg-horizontal-swipe-x": `${offsetX}px`, "--dg-detail-drag-y": `${offsetY}px` } as CSSProperties,
   };
 }
 
@@ -850,6 +835,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const filteredClusterCarouselSignatureRef = useRef<string | null>(null);
   const filteredClusterCarouselProgramsRef = useRef<WebProgram[]>([]);
   const [filteredClusterCarouselSignature, setFilteredClusterCarouselSignature] = useState<string | null>(null);
+  const [filteredClusterCarouselOrigin, setFilteredClusterCarouselOrigin] = useState<Coordinate | null>(null);
   const [filteredClusterCarouselPrograms, setFilteredClusterCarouselPrograms] = useState<WebProgram[]>([]);
   const [filteredClusterFocusedProgramID, setFilteredClusterFocusedProgramID] = useState<string | null>(null);
   const [mapProgramCarouselSource, setMapProgramCarouselSource] = useState<"condition" | "nearby" | null>(null);
@@ -1493,6 +1479,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     filteredClusterCarouselSignatureRef.current = filterSignature;
     filteredClusterCarouselProgramsRef.current = [];
     setFilteredClusterCarouselSignature(filterSignature);
+    setFilteredClusterCarouselOrigin(carouselAnchor);
     setFilteredClusterCarouselPrograms([]);
     setFilteredClusterFocusedProgramID(null);
     map.setLevel(4);
@@ -1707,12 +1694,26 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const maps = window.kakao?.maps;
     if (!map || !maps) return;
     setFilterCatalogReadyRequestId(0);
+    const carouselOrigin = usesFallbackLocation ? center : location;
+    const immediatePrograms = [...new Map(visiblePrograms.map((program) => [program.id, program])).values()]
+      .sort((left, right) => distanceMeters(carouselOrigin, left) - distanceMeters(carouselOrigin, right))
+      .slice(0, 120);
+    filteredClusterCarouselAnchorRef.current = carouselOrigin;
+    filteredClusterCarouselSignatureRef.current = currentFilterSelectionSignature;
+    // viewport 응답이 도착하면 loadBounds가 이 임시 목록을 최신 조건 결과로
+    // 원자적으로 교체할 수 있도록 ref는 의도적으로 비워 둔다.
+    filteredClusterCarouselProgramsRef.current = [];
+    setFilteredClusterCarouselSignature(currentFilterSelectionSignature);
+    setFilteredClusterCarouselOrigin(carouselOrigin);
+    setFilteredClusterCarouselPrograms(immediatePrograms);
+    setFilteredClusterFocusedProgramID(immediatePrograms[0]?.id ?? null);
+    setMapProgramCarouselSource("condition");
     if (!usesFallbackLocation) {
       map.setCenter(new maps.LatLng(location.latitude, location.longitude));
       map.setLevel(4);
     }
     window.setTimeout(() => void loadBounds(map), 0);
-  }, [activeConditionCount, currentFilterSelectionSignature, filterCatalogReadyRequestId, filterFitAppliedSignature, filterFitRequestId, heatShelterMode, loadBounds, location.latitude, location.longitude, routePanelActive, tab, usesFallbackLocation]);
+  }, [activeConditionCount, center, currentFilterSelectionSignature, filterCatalogReadyRequestId, filterFitAppliedSignature, filterFitRequestId, heatShelterMode, loadBounds, location, routePanelActive, tab, usesFallbackLocation, visiblePrograms]);
 
   const searchCategoryCounts = useMemo(() => searchResultCategories(searchResults), [searchResults]);
 
@@ -1742,7 +1743,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     setActiveRoute(null);
     setSelectedNearbyPlace(null);
     setNearbyWalkingRoute(null);
-    setPlaceSheet(null);
     setAuxiliaryPanel(null);
     recordHistory(program);
     if (mapRef.current && window.kakao?.maps) {
@@ -2708,6 +2708,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     filteredClusterCarouselSignatureRef.current = null;
     filteredClusterCarouselProgramsRef.current = source;
     setFilteredClusterCarouselSignature(null);
+    setFilteredClusterCarouselOrigin(center);
     setFilteredClusterCarouselPrograms(source);
     setMapProgramCarouselSource("nearby");
     setSelected(null);
@@ -3379,7 +3380,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           title={mapProgramCarouselSource === "nearby" ? "주변 프로그램" : "조건 프로그램"}
           singleCardMode={mapProgramCarouselSource === "nearby"}
           programs={filteredClusterCarouselPrograms}
-          origin={location}
+          origin={filteredClusterCarouselOrigin ?? location}
           focusedProgramID={filteredClusterFocusedProgramID}
           onFocus={focusFilteredClusterProgram}
           onOpen={(program) => { void selectProgram(program); }}
@@ -3388,6 +3389,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             filteredClusterCarouselSignatureRef.current = null;
             filteredClusterCarouselProgramsRef.current = [];
             setFilteredClusterCarouselSignature(null);
+            setFilteredClusterCarouselOrigin(null);
             setFilteredClusterCarouselPrograms([]);
             setFilteredClusterFocusedProgramID(null);
             setMapProgramCarouselSource(null);
@@ -3751,19 +3753,16 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
     onProgramChange(detailPrograms[detailIndex + 1]);
   }, [detailIndex, detailPrograms, onProgramChange]);
   const detailSwipeHandlers = useHorizontalSwipeNavigation({
-    enabled: detailPrograms.length > 1,
+    enabled: true,
     onPrevious: showPreviousProgram,
     onNext: showNextProgram,
+    onDismissDown: onBack,
     canPrevious: detailIndex > 0,
     canNext: detailIndex < detailPrograms.length - 1,
     animatePages: true,
   });
-  const detailHeaderDismiss = useDownwardHeaderDismiss(onBack);
   const detailSwipeStyle = (detailSwipeHandlers as { style?: CSSProperties }).style;
-  const detailStyle = {
-    ...detailSwipeStyle,
-    "--dg-detail-drag-y": `${detailHeaderDismiss.offsetY}px`,
-  } as CSSProperties;
+  const detailStyle = { ...detailSwipeStyle } as CSSProperties;
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
   const officialAccess = officialProgramAccess(program.applyUrl);
@@ -3771,6 +3770,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   const [routeState, setRouteState] = useState<"waiting" | "loading" | "loaded" | "unavailable">(usesFallbackLocation ? "waiting" : "loading");
   const [routeError, setRouteError] = useState("");
   const [showRoadview, setShowRoadview] = useState(false);
+  const [showSamePlaceBottomPanel, setShowSamePlaceBottomPanel] = useState(false);
   const targetOptions = [
     { id: "personal", label: "나" },
     ...familyMembers.map((member) => ({
@@ -3819,8 +3819,8 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   const distanceMetric = usesFallbackLocation ? "—" : route ? distanceLabel(route.totalDistanceMeters) : distanceLabel(routeEstimate.distance);
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
-    <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers} style={detailStyle} data-detail-header-drag-phase={detailHeaderDismiss.phase}>
-      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지" {...detailHeaderDismiss.handlers}>
+    <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers} style={detailStyle}>
+      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
         <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 프로그램">‹</button>
         <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
         <button type="button" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 프로그램">›</button>
@@ -3836,7 +3836,11 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
         <div className="dg-detail-badges"><span>{program.status}</span>{program.applyUrl && <span>✓ 신청 링크 확인됨</span>}</div>
         <h1>{program.name}</h1><p>▥ {program.facility}</p>
       </header>
-      <div className="dg-detail-scroll">
+      <div className="dg-detail-scroll" onScroll={(event) => {
+        if (!showSamePlaceBottomPanel && detailPrograms.length > 1 && event.currentTarget.scrollTop > 180) {
+          setShowSamePlaceBottomPanel(true);
+        }
+      }}>
         <ProgramPoster program={program} />
         {easyFirst && <ProgramSummary program={program} />}
         <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><small>누가 신청할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><small>언제 하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><small>어디서 하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><small>비용과 준비물</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
@@ -3888,6 +3892,11 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
         {accountFeaturesVisible && <ProgramReviews program={program} session={session} onRequireAuth={onRequireAuth} />}
         <p className="dg-source">공공데이터 출처: {program.source ?? "제공기관 공개 데이터"}</p>
       </div>
+      {showSamePlaceBottomPanel && detailPrograms.length > 1 && <nav className="dg-detail-place-bottom-nav" aria-label={`같은 장소 프로그램 ${detailIndex + 1} / ${detailPrograms.length}`}>
+        <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 같은 장소 프로그램"><span aria-hidden="true">‹</span></button>
+        <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
+        <button type="button" className="next" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 같은 장소 프로그램"><span aria-hidden="true">›</span></button>
+      </nav>}
       <footer className="dg-detail-footer">
         {officialAccess ? <a className="dg-apply" href={officialAccess.href} target="_blank" rel="external nofollow noopener noreferrer" referrerPolicy="no-referrer">{officialAccess.requiresHomepageSearch ? `${officialAccess.providerName} 홈에서 검색` : "신청하러 가기"}</a> : <button className="dg-apply" type="button" disabled>신청 링크 확인 중</button>}
         <div>{accountFeaturesVisible && <button type="button" className={reminder ? "active" : ""} onClick={onReminder}>♧ {reminder ? "알림 저장됨" : "알림 받기"}</button>}<button type="button" onClick={onShare}>↗ 공유</button>{program.phone ? <a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>☎ 전화 문의</a> : <span>전화번호 없음</span>}</div>
@@ -4524,7 +4533,6 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
       {visiblePrograms.map((program) => <div className="dg-filtered-cluster-card-page" key={program.id}>
         <div className="dg-carousel-program-card">
           <button className="dg-program-card" type="button" onClick={() => onOpen(program)}>
-            <img src={`/markers/${programIconName(program)}.png`} alt="" />
             <span className="dg-card-copy">
               <span className={`dg-status ${statusClass(program)}`}>{program.status}</span>
               <strong>{program.name}</strong>
@@ -4532,6 +4540,7 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
               <em>{program.isFree ? "무료" : program.feeText}</em>
             </span>
           </button>
+          <img className="dg-carousel-program-marker" src={`/markers/${programIconName(program)}.png`} alt={`${program.name} 대표 마커`} />
           <button className="dg-carousel-map-action" type="button" onClick={() => onFocus(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" size={23} /></button>
         </div>
       </div>)}
