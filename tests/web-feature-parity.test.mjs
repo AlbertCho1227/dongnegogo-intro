@@ -508,6 +508,9 @@ test("모바일 웹은 하단 탭 없이 iOS형 지도 도구와 시트를 사�
   assert.match(webMapSource, /function placeSheetHeights\(viewportHeight/);
   assert.match(webMapSource, /ref=\{grabberRef\} className="dg-place-sheet-grabber"/);
   assert.match(webMapSource, /dg-place-sheet-\$\{snap\}/);
+  assert.match(webMapSource, /useDownwardHeaderDismiss\(onBack\)/);
+  assert.match(webMapSource, /aria-label="같은 장소 프로그램 상세 페이지" \{\.\.\.detailHeaderDismiss\.handlers\}/);
+  assert.match(webMapStyle, /\.dg-detail-place-nav \{[^}]*touch-action:\s*none/);
   assert.match(webMapSource, /setDragHeight\(Math\.max\(heights\.hidden, Math\.min\(heights\.expanded/);
   assert.match(webMapSource, /if \(nextSnap === "hidden"\) dismiss\(\)/);
   assert.match(webMapStyle, /\.dg-place-sheet-expanded \{[^}]*--dg-place-sheet-height:\s*calc\(100dvh - 8px\)/);

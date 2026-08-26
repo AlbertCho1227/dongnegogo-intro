@@ -341,6 +341,80 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious
   };
 }
 
+function useDownwardHeaderDismiss(onDismiss: () => void) {
+  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
+  const dismissTimerRef = useRef<number | null>(null);
+  const suppressClickUntilRef = useRef(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "dragging" | "dismissing">("idle");
+
+  useEffect(() => () => {
+    if (dismissTimerRef.current != null) window.clearTimeout(dismissTimerRef.current);
+  }, []);
+
+  const finish = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = gestureRef.current;
+    if (gesture.pointerID !== event.pointerId) return;
+    gesture.pointerID = -1;
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
+    const shouldDismiss = deltaY >= 64 && deltaY > Math.abs(deltaX) * 1.15;
+    if (!shouldDismiss) {
+      setPhase("idle");
+      setOffsetY(0);
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickUntilRef.current = performance.now() + 420;
+    setPhase("dismissing");
+    setOffsetY(Math.max(window.innerHeight, event.currentTarget.closest<HTMLElement>(".dg-detail")?.offsetHeight ?? 0));
+    dismissTimerRef.current = window.setTimeout(() => {
+      dismissTimerRef.current = null;
+      onDismiss();
+    }, 240);
+  };
+
+  return {
+    offsetY,
+    phase,
+    handlers: {
+      onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        gestureRef.current = {
+          pointerID: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          lastX: event.clientX,
+          lastY: event.clientY,
+        };
+        setPhase("dragging");
+        try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
+      },
+      onPointerMoveCapture: (event: ReactPointerEvent<HTMLElement>) => {
+        const gesture = gestureRef.current;
+        if (gesture.pointerID !== event.pointerId) return;
+        gesture.lastX = event.clientX;
+        gesture.lastY = event.clientY;
+        const deltaX = gesture.lastX - gesture.startX;
+        const deltaY = gesture.lastY - gesture.startY;
+        if (deltaY > 0 && deltaY > Math.abs(deltaX) * .8) setOffsetY(Math.round(deltaY));
+      },
+      onPointerUpCapture: finish,
+      onPointerCancelCapture: () => {
+        gestureRef.current.pointerID = -1;
+        setPhase("idle");
+        setOffsetY(0);
+      },
+      onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
+        if (performance.now() >= suppressClickUntilRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+      },
+    },
+  };
+}
+
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
 type PlaceSheetSnap = "hidden" | "collapsed" | "expanded";
 type RoutePanelMode = "route" | "nearby";
@@ -3684,6 +3758,12 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
     canNext: detailIndex < detailPrograms.length - 1,
     animatePages: true,
   });
+  const detailHeaderDismiss = useDownwardHeaderDismiss(onBack);
+  const detailSwipeStyle = (detailSwipeHandlers as { style?: CSSProperties }).style;
+  const detailStyle = {
+    ...detailSwipeStyle,
+    "--dg-detail-drag-y": `${detailHeaderDismiss.offsetY}px`,
+  } as CSSProperties;
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
   const officialAccess = officialProgramAccess(program.applyUrl);
@@ -3739,8 +3819,8 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   const distanceMetric = usesFallbackLocation ? "—" : route ? distanceLabel(route.totalDistanceMeters) : distanceLabel(routeEstimate.distance);
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
-    <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers}>
-      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
+    <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers} style={detailStyle} data-detail-header-drag-phase={detailHeaderDismiss.phase}>
+      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지" {...detailHeaderDismiss.handlers}>
         <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 프로그램">‹</button>
         <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
         <button type="button" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 프로그램">›</button>
