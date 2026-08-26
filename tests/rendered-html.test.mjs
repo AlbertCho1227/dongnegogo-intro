@@ -60,7 +60,10 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
+  assert.match(html, /<meta name="google-site-verification" content="kZjqmQ39j0Pu8-_nf1B3q1M54zOQ15VqCf5ptWsUPMo"\/>/);
   assert.match(html, /<meta name="naver-site-verification" content="645fbd3189250f6faed6a20e675b4a23b113c02b"\/>/);
+  assert.match(html, /<title>동네고고 \| 우리 동네 교육·문화·체육·행사 한눈에<\/title>/);
+  assert.match(html, /<meta name="description" content="내 주변의 교육, 문화, 체육, 공연, 전시와 공공 프로그램을 지도에서 쉽고 빠르게 찾아보세요\."\/>/);
   assert.match(html, /data-r="hero-title"[\s\S]*?우리 주변의 배움(?:&nbsp;|&#xA0;|\s)+과(?:&nbsp;|&#xA0;|\s)+[\s\S]*?data-r="mobile-break"[\s\S]*?즐거움을 한눈에[\s\S]*?동네고고 하나로/);
   assert.match(html, /data-r="map-heading"[\s\S]*?강좌와 행사가 지도 위에[\s\S]*?data-r="mobile-break"[\s\S]*?아이콘으로 떠 있어요/);
   assert.match(html, /신청까지 네 걸음이면[\s\S]*?data-r="mobile-break"[\s\S]*?충분해요/);
