@@ -554,6 +554,11 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.match(webMapSource, /expanded && singleCardMode \? " has-controls" : ""/);
   assert.match(webMapSource, /dg-carousel-filter-toggle/);
   assert.match(webMapSource, /프로그램 분류 접기/);
+  assert.match(webMapSource, /className="dg-filtered-cluster-page-arrow is-up"/);
+  assert.match(webMapSource, /aria-label="이전 프로그램 카드"/);
+  assert.match(webMapSource, /className="dg-filtered-cluster-page-arrow is-down"/);
+  assert.match(webMapSource, /aria-label="다음 프로그램 카드"/);
+  assert.match(webMapSource, /const moveCard = \(direction: -1 \| 1\)/);
   assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
   assert.match(webMapSource, /const offset = dragOffsetRef\.current/);
   assert.match(webMapSource, /if \(offset > 84\)/);
@@ -564,8 +569,14 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-closing \{[^}]*100dvh \+ 40px[^}]*opacity:0/);
   assert.match(webMapSource, /focusedCarouselProgram[\s\S]*?dg-map-marker is-selected/);
   assert.match(webMapSource, /className="dg-carousel-map-action"[\s\S]*?onClick=\{\(\) => onFocus\(program\)\}/);
-  assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*align-items:\s*center/);
-  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-single-card \.dg-filtered-cluster-card-pages \{[^}]*height:\s*155px;[^}]*scroll-snap-type:\s*y mandatory/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel \{[^}]*height:\s*286px/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-page-arrow\.is-up \{[^}]*top:52px/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-page-arrow\.is-down \{[^}]*bottom:9px/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-page-arrow\.is-up i \{[^}]*border-bottom:9px solid currentColor/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-card-page \{[^}]*min-height:\s*215px;[^}]*padding:\s*12px 4px;[^}]*align-items:\s*flex-start/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel\.is-single-card \.dg-filtered-cluster-card-pages \{[^}]*height:\s*215px;[^}]*scroll-snap-type:\s*y mandatory/);
+  assert.match(webMapStyle, /\.dg-carousel-program-card > \.dg-program-card \{[^}]*min-height:158px/);
+  assert.match(webMapStyle, /\.dg-filtered-cluster-carousel \{[^}]*right:\s*12px;[^}]*bottom:\s*calc\(64px \+ env\(safe-area-inset-bottom\)\);[^}]*left:\s*12px/);
   assert.match(webMapStyle, /\.dg-carousel-map-action \{[^}]*border-radius:50%/);
   assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-border-blink/);
   assert.doesNotMatch(webMapStyle, /dg-selected-marker-shimmer/);

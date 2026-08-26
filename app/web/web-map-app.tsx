@@ -4498,6 +4498,16 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
     setDragOffset(0);
   };
 
+  const moveCard = (direction: -1 | 1) => {
+    const nextIndex = Math.max(0, Math.min(visiblePrograms.length - 1, selectedIndex + direction));
+    const nextProgram = visiblePrograms[nextIndex];
+    if (!nextProgram || nextIndex === selectedIndex) return;
+    const viewport = pagesRef.current;
+    const page = viewport?.children[nextIndex] as HTMLElement | undefined;
+    if (viewport && page) viewport.scrollTo({ top: page.offsetTop, behavior: "smooth" });
+    onFocus(nextProgram);
+  };
+
   return <section className={`dg-filtered-cluster-carousel${singleCardMode ? " is-single-card" : ""}${expanded && singleCardMode ? " has-controls" : ""}${expanded && !singleCardMode ? " is-expanded" : ""}${dragging ? " is-dragging" : ""}${closing ? " is-closing" : ""}`} style={{ "--dg-carousel-drag": `${dragOffset}px` } as CSSProperties} aria-label={`${title} 카드`}>
     <header onPointerDown={(event) => { if (closing) return; dragStartRef.current = event.clientY; dragOffsetRef.current = 0; setDragging(true); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (dragStartRef.current === null || closing) return; const nextOffset = Math.max(0, event.clientY - dragStartRef.current); dragOffsetRef.current = nextOffset; setDragOffset(nextOffset); }} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
       <span><strong>{title}</strong><small>{singleCardMode ? "카드를 위아래로 넘겨 하나씩 확인해요" : "위아래로 넘기면 선택한 위치로 이동해요"}</small></span>
@@ -4506,6 +4516,10 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
       <button type="button" onPointerDown={(event) => event.stopPropagation()} onClick={animateClose} aria-label={`${title} 카드 닫기`}><X aria-hidden="true" size={17} /></button>
     </header>
     {expanded && <section className="dg-carousel-program-controls"><small>프로그램 분류</small><div className="dg-carousel-category-row"><button type="button" className={category === null ? "active" : ""} onClick={() => setCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => setCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div><div className="dg-carousel-sort-row">{([['relevance','관련도 순'],['distance','가까운 순'],['available','신청 가능한 순'],['free','무료 먼저']] as Array<[SearchSort,string]>).map(([value,label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => setSort(value)}>{label}</button>)}</div></section>}
+    {!expanded && <>
+      <button type="button" className="dg-filtered-cluster-page-arrow is-up" onClick={() => moveCard(-1)} disabled={selectedIndex <= 0} aria-label="이전 프로그램 카드"><i /></button>
+      <button type="button" className="dg-filtered-cluster-page-arrow is-down" onClick={() => moveCard(1)} disabled={selectedIndex >= visiblePrograms.length - 1} aria-label="다음 프로그램 카드"><i /></button>
+    </>}
     <div ref={pagesRef} className="dg-filtered-cluster-card-pages" onScroll={updateFocusedCard}>
       {visiblePrograms.map((program) => <div className="dg-filtered-cluster-card-page" key={program.id}>
         <div className="dg-carousel-program-card">
