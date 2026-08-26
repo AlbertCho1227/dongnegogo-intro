@@ -110,7 +110,7 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   const rss = await rssResponse.text();
   assert.equal(rssResponse.status, 200);
   assert.match(rssResponse.headers.get("content-type") ?? "", /application\/rss\+xml/);
-  assert.equal((rss.match(/<item>/g) ?? []).length, 19);
+  assert.equal((rss.match(/<item>/g) ?? []).length, 24);
   assert.match(rss, /content:encoded/);
   assert.match(rss, /이 강좌가 첫 코딩에 잘 맞는 이유/);
   assert.match(rss, /그림책 전시는 어떻게 보면 좋을까요/);
@@ -128,6 +128,11 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   assert.match(rss, /직업체험은 결과보다 질문을 준비하면 좋아요/);
   assert.match(rss, /산조 공연은 악기와 장단의 변화를 따라가 보세요/);
   assert.match(rss, /결과전시는 완성도보다 변화의 흔적을 보세요/);
+  assert.match(rss, /디저트 체험은 완성품보다 과정을 나눠 보세요/);
+  assert.match(rss, /걷기 행사는 내 속도에 맞는 구간을 고르세요/);
+  assert.match(rss, /시낭송은 목소리의 속도와 쉼을 들어보세요/);
+  assert.match(rss, /국악 공연은 음색이 겹치는 순간을 들어보세요/);
+  assert.match(rss, /제목을 작품 사이의 질문으로 바꿔 보세요/);
 
   const sitemapResponse = await render("/sitemap.xml", "application/xml");
   const sitemap = await sitemapResponse.text();
@@ -153,8 +158,32 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
     "seoul-nowon-kids-career-experience-guide",
     "yeongam-sanjo-festival-guide",
     "yangpyeong-weekend-art-exhibition-guide",
+    "mapo-free-parent-tiramisu-class-guide",
+    "seoul-heritage-wellness-walking-festival-guide",
+    "busan-disabled-poetry-recital-forum-guide",
+    "daejeon-season-wave-gugak-concert-guide",
+    "jeonju-endless-dialogue-free-exhibition-guide",
   ]) {
     assert.match(sitemap, new RegExp(`https://www\\.dongnegogo\\.com/blog/${slug}`));
+  }
+});
+
+test("2026년 8월 27일 편집형 5편은 신규 지역 프로그램·실제 이미지·AEO 스키마를 제공한다", async () => {
+  for (const slug of [
+    "mapo-free-parent-tiramisu-class-guide",
+    "seoul-heritage-wellness-walking-festival-guide",
+    "busan-disabled-poetry-recital-forum-guide",
+    "daejeon-season-wave-gugak-concert-guide",
+    "jeonju-endless-dialogue-free-exhibition-guide",
+  ]) {
+    const response = await render(`/blog/${slug}`);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /사진 출처:.*(?:서울시 문화행사 공공서비스예약 정보|서울시 문화행사 정보|한국문화정보원 한눈에 보는 문화정보)/);
+    assert.match(html, /"@type":"BlogPosting"/);
+    assert.match(html, /"@type":"FAQPage"/);
+    assert.match(html, /"@type":"Event"/);
+    assert.match(html, /2026-08-27T06:3[5-9]:00\+09:00/);
   }
 });
 
