@@ -557,7 +557,7 @@
 .dg-place-sheet > header > div { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .dg-place-sheet > header small { color: #9aa09a; font-size: 13px; font-weight: 800; }
 .dg-place-sheet > header strong { font-size: 20px; }
-.dg-sheet-body { padding: 20px; }
+.dg-sheet-body { padding: 24px 20px 20px; }
 .dg-sheet-badges { display: flex; gap: 7px; }
 .dg-sheet-badges span { padding: 6px 9px; border-radius: 8px; color: var(--dg-green-deep); background: #eaf7e5; font-size: 11px; font-weight: 850; }
 .dg-sheet-body h2 { margin: 13px 0 7px; font-size: 25px; line-height: 1.25; }
@@ -1074,7 +1074,7 @@
   .dg-search-button { padding: 0 10px; }
   .dg-filter-row button { padding: 7px 10px; }
   .dg-place-sheet { left: 8px; right: 8px; bottom: 0; }
-  .dg-sheet-body { padding: 16px; }
+  .dg-sheet-body { padding: 24px 16px 16px; }
   .dg-sheet-body h2 { font-size: 21px; }
   .dg-place-sheet > header { padding-inline: 18px; }
   .dg-login-buttons { grid-template-columns: 1fr; }
