@@ -208,9 +208,14 @@ test("같은 장소 프로그램은 패널과 상세 전체 영역에서 좌우�
   assert.match(webMapSource, /setSnap\("expanded"\)/);
   assert.match(webMapSource, /selectProgram\(program, placeSheet\.programs\)/);
   assert.match(webMapSource, /samePlacePrograms=\{detailPlacePrograms\}/);
-  assert.match(webMapSource, /className="dg-detail" \{\.\.\.detailSwipeHandlers\}/);
+  assert.match(webMapSource, /className="dg-detail" data-testid="program-detail-swipe-surface" \{\.\.\.detailSwipeHandlers\}/);
   assert.match(webMapSource, /aria-label="같은 장소 프로그램 상세 페이지"/);
+  assert.match(webMapSource, /onPointerDownCapture/);
+  assert.match(webMapSource, /animatePages:\s*true/);
+  assert.match(webMapSource, /disabled=\{detailIndex <= 0\}/);
+  assert.match(webMapSource, /disabled=\{detailIndex >= detailPrograms\.length - 1\}/);
   assert.match(webMapStyle, /\.dg-place-sheet[^}]*touch-action:\s*pan-y/);
+  assert.match(webMapStyle, /\.dg-detail\[data-horizontal-swipe-animated="true"\][^}]*translate3d\(var\(--dg-horizontal-swipe-x/);
   assert.match(webMapStyle, /@keyframes dg-detail-reveal/);
 });
 

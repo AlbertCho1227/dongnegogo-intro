@@ -224,54 +224,120 @@ function useSmoothSearchProgress(target: number, active: boolean) {
   return Math.round(displayed);
 }
 
-function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext }: {
+function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, canPrevious = true, canNext = true, animatePages = false }: {
   enabled: boolean;
   onPrevious: () => void;
   onNext: () => void;
+  canPrevious?: boolean;
+  canNext?: boolean;
+  animatePages?: boolean;
 }) {
-  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
+  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, width: 1, axis: "pending" as "pending" | "horizontal" | "vertical" });
   const suppressClickUntilRef = useRef(0);
+  const transitionTimersRef = useRef<number[]>([]);
+  const [offsetX, setOffsetX] = useState(0);
+  const [swipePhase, setSwipePhase] = useState<"idle" | "dragging" | "animating">("idle");
+
+  const clearTransitionTimers = () => {
+    transitionTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    transitionTimersRef.current = [];
+  };
+  useEffect(() => () => clearTransitionTimers(), []);
 
   const reset = () => {
     gestureRef.current.pointerID = -1;
   };
+  const settleAtRest = () => {
+    setSwipePhase("animating");
+    setOffsetX(0);
+    transitionTimersRef.current.push(window.setTimeout(() => setSwipePhase("idle"), 220));
+  };
   const finish = (event: ReactPointerEvent<HTMLElement>) => {
     const gesture = gestureRef.current;
     if (!enabled || gesture.pointerID !== event.pointerId) return;
-    const deltaX = event.clientX - gesture.startX;
-    const deltaY = event.clientY - gesture.startY;
+    const deltaX = gesture.lastX - gesture.startX;
+    const deltaY = gesture.lastY - gesture.startY;
     reset();
-    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.12) return;
+    if (gesture.axis !== "horizontal" || Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.12) {
+      if (animatePages) settleAtRest();
+      return;
+    }
     event.preventDefault();
     suppressClickUntilRef.current = performance.now() + 420;
-    if (deltaX < 0) onNext();
-    else onPrevious();
+    const movingNext = deltaX < 0;
+    if ((movingNext && !canNext) || (!movingNext && !canPrevious)) {
+      if (animatePages) settleAtRest();
+      return;
+    }
+    if (!animatePages) {
+      if (movingNext) onNext();
+      else onPrevious();
+      return;
+    }
+
+    clearTransitionTimers();
+    setSwipePhase("animating");
+    setOffsetX(movingNext ? -gesture.width : gesture.width);
+    transitionTimersRef.current.push(window.setTimeout(() => {
+      if (movingNext) onNext();
+      else onPrevious();
+      setSwipePhase("idle");
+      setOffsetX(movingNext ? gesture.width : -gesture.width);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        setSwipePhase("animating");
+        setOffsetX(0);
+      }));
+    }, 155));
+    transitionTimersRef.current.push(window.setTimeout(() => setSwipePhase("idle"), 390));
   };
 
-  return {
-    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
-      if (!enabled || event.button !== 0) return;
+  const handlers = {
+    onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
+      if (!enabled || swipePhase === "animating" || (event.pointerType === "mouse" && event.button !== 0)) return;
+      clearTransitionTimers();
       gestureRef.current = {
         pointerID: event.pointerId,
         startX: event.clientX,
         startY: event.clientY,
         lastX: event.clientX,
         lastY: event.clientY,
+        width: Math.max(event.currentTarget.getBoundingClientRect().width, window.innerWidth, 1),
+        axis: "pending",
       };
+      if (animatePages) setSwipePhase("dragging");
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
     },
-    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
-      if (gestureRef.current.pointerID !== event.pointerId) return;
-      gestureRef.current.lastX = event.clientX;
-      gestureRef.current.lastY = event.clientY;
+    onPointerMoveCapture: (event: ReactPointerEvent<HTMLElement>) => {
+      const gesture = gestureRef.current;
+      if (gesture.pointerID !== event.pointerId) return;
+      gesture.lastX = event.clientX;
+      gesture.lastY = event.clientY;
+      const deltaX = gesture.lastX - gesture.startX;
+      const deltaY = gesture.lastY - gesture.startY;
+      if (gesture.axis === "pending" && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 7) {
+        gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? "horizontal" : "vertical";
+      }
+      if (!animatePages || gesture.axis !== "horizontal") return;
+      const atEdge = (deltaX > 0 && !canPrevious) || (deltaX < 0 && !canNext);
+      setOffsetX(Math.round(deltaX * (atEdge ? .28 : 1)));
     },
-    onPointerUp: finish,
-    onPointerCancel: reset,
+    onPointerUpCapture: finish,
+    onPointerCancelCapture: () => {
+      reset();
+      if (animatePages) settleAtRest();
+    },
     onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
       if (performance.now() >= suppressClickUntilRef.current) return;
       event.preventDefault();
       event.stopPropagation();
     },
+  };
+  if (!animatePages) return handlers;
+  return {
+    ...handlers,
+    "data-horizontal-swipe-animated": "true",
+    "data-horizontal-swipe-phase": swipePhase,
+    style: { "--dg-horizontal-swipe-x": `${offsetX}px` } as CSSProperties,
   };
 }
 
@@ -3603,17 +3669,20 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   }, [program, samePlacePrograms]);
   const detailIndex = Math.max(0, detailPrograms.findIndex((candidate) => candidate.id === program.id));
   const showPreviousProgram = useCallback(() => {
-    if (detailPrograms.length < 2) return;
-    onProgramChange(detailPrograms[detailIndex <= 0 ? detailPrograms.length - 1 : detailIndex - 1]);
+    if (detailIndex <= 0) return;
+    onProgramChange(detailPrograms[detailIndex - 1]);
   }, [detailIndex, detailPrograms, onProgramChange]);
   const showNextProgram = useCallback(() => {
-    if (detailPrograms.length < 2) return;
-    onProgramChange(detailPrograms[detailIndex + 1 >= detailPrograms.length ? 0 : detailIndex + 1]);
+    if (detailIndex >= detailPrograms.length - 1) return;
+    onProgramChange(detailPrograms[detailIndex + 1]);
   }, [detailIndex, detailPrograms, onProgramChange]);
   const detailSwipeHandlers = useHorizontalSwipeNavigation({
     enabled: detailPrograms.length > 1,
     onPrevious: showPreviousProgram,
     onNext: showNextProgram,
+    canPrevious: detailIndex > 0,
+    canNext: detailIndex < detailPrograms.length - 1,
+    animatePages: true,
   });
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
@@ -3670,11 +3739,11 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   const distanceMetric = usesFallbackLocation ? "—" : route ? distanceLabel(route.totalDistanceMeters) : distanceLabel(routeEstimate.distance);
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
-    <article className="dg-detail" {...detailSwipeHandlers}>
+    <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers}>
       {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
-        <button type="button" onClick={showPreviousProgram} aria-label="이전 프로그램">‹</button>
+        <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 프로그램">‹</button>
         <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
-        <button type="button" onClick={showNextProgram} aria-label="다음 프로그램">›</button>
+        <button type="button" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 프로그램">›</button>
       </nav>}
       <header className="dg-detail-hero">
         <div className="dg-detail-actions">
