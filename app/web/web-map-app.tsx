@@ -4554,6 +4554,18 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
     closeTimerRef.current = window.setTimeout(() => onCloseRef.current(), 240);
   }, []);
 
+  const openDetail = useCallback(() => {
+    if (!program) return;
+    if (detailTimerRef.current !== null) window.clearTimeout(detailTimerRef.current);
+    if (!window.matchMedia("(max-width: 900px)").matches) {
+      onDetail(program);
+      return;
+    }
+    setDragHeight(null);
+    setSnap("expanded");
+    detailTimerRef.current = window.setTimeout(() => onDetail(program), 210);
+  }, [onDetail, program]);
+
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -4587,6 +4599,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       if (drag.pointerID !== pointerID) return;
       const heights = placeSheetHeights(window.innerHeight);
       const delta = clientY - drag.startY;
+      const liftedTowardDetail = delta < -36;
       const finalHeight = Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight - delta));
       let nextSnap: PlaceSheetSnap = snap;
       if (finalHeight < heights.collapsed * 0.55) nextSnap = "hidden";
@@ -4596,6 +4609,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       dragRef.current.pointerID = -1;
       setDragHeight(null);
       if (nextSnap === "hidden") dismiss();
+      else if (liftedTowardDetail) openDetail();
       else setSnap(nextSnap);
     };
     const onPointerDown = (event: PointerEvent) => {
@@ -4649,7 +4663,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, [dismiss, snap]);
+  }, [dismiss, openDetail, snap]);
 
   const toggleSnap = () => {
     if (dragRef.current.moved) {
@@ -4660,18 +4674,6 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
     setDragHeight(null);
   };
   const sheetStyle = (dragHeight === null ? {} : { "--dg-place-sheet-height": `${dragHeight}px` }) as CSSProperties;
-  const openDetail = () => {
-    if (!program) return;
-    if (detailTimerRef.current !== null) window.clearTimeout(detailTimerRef.current);
-    if (!window.matchMedia("(max-width: 900px)").matches) {
-      onDetail(program);
-      return;
-    }
-    setDragHeight(null);
-    setSnap("expanded");
-    detailTimerRef.current = window.setTimeout(() => onDetail(program), 210);
-  };
-
   return <section ref={sheetRef} className={`dg-place-sheet dg-place-sheet-${snap}${dragHeight !== null ? " dg-place-sheet-dragging" : ""}`} style={sheetStyle} role="dialog" aria-label="같은 장소 프로그램" {...sheetSwipeHandlers}>
     <button ref={grabberRef} className="dg-place-sheet-grabber" type="button" onClick={toggleSnap} aria-label={snap === "expanded" ? "프로그램 패널 축소하기" : "프로그램 패널 전체로 펼치기"}><span aria-hidden="true" /><em>{snap === "expanded" ? "아래로 내려 축소하거나 닫기" : "위로 올려 전체 보기 · 아래로 내려 닫기"}</em></button>
     <button className="dg-sheet-close" type="button" onClick={dismiss} aria-label="닫기">×</button>
