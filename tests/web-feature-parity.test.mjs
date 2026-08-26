@@ -412,7 +412,7 @@ test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두
   assert.match(webMapSource, /\{ id: "openrun", icon: "🔔", label: "오픈런" \}/);
   assert.match(webMapSource, /\{ id: "saved", icon: "♡", label: "찜" \}/);
   assert.match(webMapSource, /\{ id: "me", icon: "settings", label: "전체" \}/);
-  assert.match(webMapSource, /item\.id === "me" \? <SlidersHorizontal \/> : item\.icon/);
+  assert.match(webMapSource, /item\.id === "me" \? <Menu \/> : item\.icon/);
   assert.match(webMapSource, /\.\.\.\(WEB_ACCOUNT_FEATURES_VISIBLE \? ACCOUNT_TABS : \[\]\)/);
   assert.match(webMapSource, /if \(!WEB_ACCOUNT_FEATURES_VISIBLE \|\| !webAuthConfigured\(\)\) return/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className=\{`dg-mobile-profile/);

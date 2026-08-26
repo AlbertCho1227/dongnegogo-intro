@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, MessageCircle, Navigation, ParkingCircle, PersonStanding, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
@@ -2853,7 +2853,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         <nav className={!WEB_ACCOUNT_FEATURES_VISIBLE ? "dg-public-nav" : undefined}>
           {TABS.map((item) => (
             <button key={item.id} type="button" className={tab === item.id && !selected ? "active" : ""} onClick={() => changeTab(item.id)}>
-              <span aria-hidden="true">{item.id === "me" ? <SlidersHorizontal /> : item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
+              <span aria-hidden="true">{item.id === "me" ? <Menu /> : item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
             </button>
           ))}
         </nav>
