@@ -252,7 +252,7 @@ const WEB_ACCOUNT_FEATURES_VISIBLE = true;
 const ACCOUNT_TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "openrun", icon: "🔔", label: "오픈런" },
   { id: "saved", icon: "♡", label: "찜" },
-  { id: "me", icon: "settings", label: "설정" },
+  { id: "me", icon: "settings", label: "전체" },
 ];
 const TABS: Array<{ id: Tab; icon: string; label: string }> = [
   { id: "map", icon: "⌂", label: "홈" },
