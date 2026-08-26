@@ -4533,7 +4533,17 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   const grabberRef = useRef<HTMLButtonElement>(null);
   const closeTimerRef = useRef<number | null>(null);
   const detailTimerRef = useRef<number | null>(null);
-  const dragRef = useRef({ pointerID: -1, startY: 0, startHeight: 0, moved: false });
+  const dragRef = useRef({
+    pointerID: -1,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    startHeight: 0,
+    moved: false,
+    axis: "pending" as "pending" | "horizontal" | "vertical",
+  });
+  const verticalSuppressClickUntilRef = useRef(0);
   const onCloseRef = useRef(onClose);
   const [snap, setSnap] = useState<PlaceSheetSnap>("collapsed");
   const [dragHeight, setDragHeight] = useState<number | null>(null);
@@ -4577,26 +4587,43 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
 
   useEffect(() => {
     const sheet = sheetRef.current;
-    const grabber = grabberRef.current;
-    if (!sheet || !grabber || !window.matchMedia("(max-width: 900px)").matches || snap === "hidden") return;
+    if (!sheet || !window.matchMedia("(max-width: 900px)").matches || snap === "hidden") return;
 
-    const begin = (pointerID: number, clientY: number) => {
+    const begin = (pointerID: number, clientX: number, clientY: number) => {
       const heights = placeSheetHeights(window.innerHeight);
       const height = sheet.getBoundingClientRect().height || heights[snap];
-      dragRef.current = { pointerID, startY: clientY, startHeight: height, moved: false };
+      dragRef.current = {
+        pointerID,
+        startX: clientX,
+        startY: clientY,
+        lastX: clientX,
+        lastY: clientY,
+        startHeight: height,
+        moved: false,
+        axis: "pending",
+      };
       setDragHeight(height);
     };
-    const move = (pointerID: number, clientY: number) => {
+    const move = (pointerID: number, clientX: number, clientY: number) => {
       const drag = dragRef.current;
       if (drag.pointerID !== pointerID) return;
+      drag.lastX = clientX;
+      drag.lastY = clientY;
       const heights = placeSheetHeights(window.innerHeight);
+      const deltaX = clientX - drag.startX;
       const delta = drag.startY - clientY;
+      if (drag.axis === "pending" && Math.max(Math.abs(deltaX), Math.abs(delta)) >= 7) {
+        drag.axis = Math.abs(deltaX) > Math.abs(delta) * 1.15 ? "horizontal" : "vertical";
+      }
+      if (drag.axis !== "vertical") return;
       if (Math.abs(delta) > 6) drag.moved = true;
       setDragHeight(Math.max(heights.hidden, Math.min(heights.expanded, drag.startHeight + delta)));
     };
-    const finish = (pointerID: number, clientY: number) => {
+    const finish = (pointerID: number) => {
       const drag = dragRef.current;
       if (drag.pointerID !== pointerID) return;
+      const axis = drag.axis;
+      const clientY = drag.lastY;
       const heights = placeSheetHeights(window.innerHeight);
       const delta = clientY - drag.startY;
       const liftedTowardDetail = delta < -36;
@@ -4608,60 +4635,75 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       else nextSnap = Math.abs(finalHeight - heights.expanded) < Math.abs(finalHeight - heights.collapsed) ? "expanded" : "collapsed";
       dragRef.current.pointerID = -1;
       setDragHeight(null);
+      if (axis === "horizontal") return;
+      if (drag.moved) verticalSuppressClickUntilRef.current = performance.now() + 420;
       if (nextSnap === "hidden") dismiss();
       else if (liftedTowardDetail) openDetail();
       else setSnap(nextSnap);
     };
     const onPointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
-      event.preventDefault();
-      begin(event.pointerId, event.clientY);
+      begin(event.pointerId, event.clientX, event.clientY);
     };
     const onPointerMove = (event: PointerEvent) => {
       if (dragRef.current.pointerID !== event.pointerId) return;
-      event.preventDefault();
-      move(event.pointerId, event.clientY);
+      move(event.pointerId, event.clientX, event.clientY);
+      if (dragRef.current.axis === "vertical" && event.cancelable) event.preventDefault();
     };
-    const onPointerEnd = (event: PointerEvent) => finish(event.pointerId, event.clientY);
+    const onPointerEnd = (event: PointerEvent) => finish(event.pointerId);
     const onTouchStart = (event: TouchEvent) => {
       const touch = event.changedTouches[0];
       if (!touch) return;
-      event.preventDefault();
-      begin(touch.identifier, touch.clientY);
+      begin(touch.identifier, touch.clientX, touch.clientY);
     };
     const onTouchMove = (event: TouchEvent) => {
       const touch = Array.from(event.changedTouches).find((item) => item.identifier === dragRef.current.pointerID);
       if (!touch) return;
-      event.preventDefault();
-      move(touch.identifier, touch.clientY);
+      move(touch.identifier, touch.clientX, touch.clientY);
+      if (dragRef.current.axis === "vertical" && event.cancelable) event.preventDefault();
     };
     const onTouchEnd = (event: TouchEvent) => {
       const touch = Array.from(event.changedTouches).find((item) => item.identifier === dragRef.current.pointerID);
-      if (touch) finish(touch.identifier, touch.clientY);
+      if (touch) {
+        dragRef.current.lastX = touch.clientX;
+        dragRef.current.lastY = touch.clientY;
+        finish(touch.identifier);
+      }
+    };
+    const suppressDraggedClick = (event: MouseEvent) => {
+      if (performance.now() >= verticalSuppressClickUntilRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
     };
 
     if ("PointerEvent" in window) {
-      grabber.addEventListener("pointerdown", onPointerDown, { passive: false });
+      // 상단 손잡이에 한정하지 않고 카드 본문 어느 지점에서 시작한
+      // 세로 스와이프도 패널 높이 변경과 상세 열기로 연결한다.
+      sheet.addEventListener("pointerdown", onPointerDown, { passive: true });
       window.addEventListener("pointermove", onPointerMove, { passive: false });
       window.addEventListener("pointerup", onPointerEnd);
       window.addEventListener("pointercancel", onPointerEnd);
+      sheet.addEventListener("click", suppressDraggedClick, true);
       return () => {
-        grabber.removeEventListener("pointerdown", onPointerDown);
+        sheet.removeEventListener("pointerdown", onPointerDown);
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerEnd);
         window.removeEventListener("pointercancel", onPointerEnd);
+        sheet.removeEventListener("click", suppressDraggedClick, true);
       };
     }
 
-    grabber.addEventListener("touchstart", onTouchStart, { passive: false });
+    sheet.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     window.addEventListener("touchend", onTouchEnd);
     window.addEventListener("touchcancel", onTouchEnd);
+    sheet.addEventListener("click", suppressDraggedClick, true);
     return () => {
-      grabber.removeEventListener("touchstart", onTouchStart);
+      sheet.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("touchcancel", onTouchEnd);
+      sheet.removeEventListener("click", suppressDraggedClick, true);
     };
   }, [dismiss, openDetail, snap]);
 
@@ -4670,7 +4712,8 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       dragRef.current.moved = false;
       return;
     }
-    setSnap((currentSnap) => currentSnap === "expanded" ? "collapsed" : "expanded");
+    if (snap === "expanded") setSnap("collapsed");
+    else openDetail();
     setDragHeight(null);
   };
   const sheetStyle = (dragHeight === null ? {} : { "--dg-place-sheet-height": `${dragHeight}px` }) as CSSProperties;

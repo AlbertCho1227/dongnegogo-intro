@@ -515,6 +515,8 @@ test("모바일 웹은 하단 탭 없이 iOS형 지도 도구와 시트를 사�
   assert.match(webMapSource, /if \(nextSnap === "hidden"\) dismiss\(\)/);
   assert.match(webMapSource, /const liftedTowardDetail = delta < -36/);
   assert.match(webMapSource, /else if \(liftedTowardDetail\) openDetail\(\)/);
+  assert.match(webMapSource, /sheet\.addEventListener\("pointerdown", onPointerDown/);
+  assert.match(webMapSource, /drag\.axis = Math\.abs\(deltaX\) > Math\.abs\(delta\) \* 1\.15 \? "horizontal" : "vertical"/);
   assert.match(webMapStyle, /\.dg-place-sheet-expanded \{[^}]*--dg-place-sheet-height:\s*calc\(100dvh - 8px\)/);
   assert.match(webMapStyle, /\.dg-place-sheet-hidden \{[^}]*--dg-place-sheet-height:\s*0px;[^}]*opacity:\s*0/);
   assert.match(webMapStyle, /\.dg-place-sheet-dragging \{\s*transition:\s*none/);
