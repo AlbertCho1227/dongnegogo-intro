@@ -202,6 +202,18 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.doesNotMatch(webMapStyle, /\.dg-map-tools button:nth-child\(2\).*display:\s*none/);
 });
 
+test("같은 장소 프로그램은 패널과 상세 전체 영역에서 좌우로 넘긴다", () => {
+  assert.match(webMapSource, /function useHorizontalSwipeNavigation/);
+  assert.match(webMapSource, /enabled: state\.programs\.length > 1/);
+  assert.match(webMapSource, /setSnap\("expanded"\)/);
+  assert.match(webMapSource, /selectProgram\(program, placeSheet\.programs\)/);
+  assert.match(webMapSource, /samePlacePrograms=\{detailPlacePrograms\}/);
+  assert.match(webMapSource, /className="dg-detail" \{\.\.\.detailSwipeHandlers\}/);
+  assert.match(webMapSource, /aria-label="같은 장소 프로그램 상세 페이지"/);
+  assert.match(webMapStyle, /\.dg-place-sheet[^}]*touch-action:\s*pan-y/);
+  assert.match(webMapStyle, /@keyframes dg-detail-reveal/);
+});
+
 test("상세 종목은 하나만 선택하고 대상 조건은 다중 선택한다", () => {
   assert.match(webProgramFiltersSource, /programIconName\(program\)/);
   assert.match(webProgramFiltersSource, /detailLabels\.some/);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import Link from "next/link";
 import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
@@ -222,6 +222,57 @@ function useSmoothSearchProgress(target: number, active: boolean) {
   }, [active, normalizedTarget]);
 
   return Math.round(displayed);
+}
+
+function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext }: {
+  enabled: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
+  const suppressClickUntilRef = useRef(0);
+
+  const reset = () => {
+    gestureRef.current.pointerID = -1;
+  };
+  const finish = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = gestureRef.current;
+    if (!enabled || gesture.pointerID !== event.pointerId) return;
+    const deltaX = event.clientX - gesture.startX;
+    const deltaY = event.clientY - gesture.startY;
+    reset();
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.12) return;
+    event.preventDefault();
+    suppressClickUntilRef.current = performance.now() + 420;
+    if (deltaX < 0) onNext();
+    else onPrevious();
+  };
+
+  return {
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      if (!enabled || event.button !== 0) return;
+      gestureRef.current = {
+        pointerID: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+      };
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
+    },
+    onPointerMove: (event: ReactPointerEvent<HTMLElement>) => {
+      if (gestureRef.current.pointerID !== event.pointerId) return;
+      gestureRef.current.lastX = event.clientX;
+      gestureRef.current.lastY = event.clientY;
+    },
+    onPointerUp: finish,
+    onPointerCancel: reset,
+    onClickCapture: (event: ReactMouseEvent<HTMLElement>) => {
+      if (performance.now() >= suppressClickUntilRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+  };
 }
 
 type MobileSheetSnap = "hidden" | "collapsed" | "medium" | "expanded";
@@ -653,6 +704,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [mapScope, setMapScope] = useState<WebMapAggregationScope>("individual");
   const [tab, setTab] = useState<Tab>("map");
   const [selected, setSelected] = useState<WebProgram | null>(null);
+  const [detailPlacePrograms, setDetailPlacePrograms] = useState<WebProgram[]>([]);
   const [placeSheet, setPlaceSheet] = useState<PlaceSheetState | null>(null);
   const filteredClusterCarouselAnchorRef = useRef<Coordinate | null>(null);
   const filteredClusterCarouselSignatureRef = useRef<string | null>(null);
@@ -1535,7 +1587,11 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     return result;
   }, [mapClusters, center]);
 
-  const selectProgram = useCallback(async (program: WebProgram) => {
+  const selectProgram = useCallback(async (program: WebProgram, samePlacePrograms: WebProgram[] = [program]) => {
+    const detailPrograms = samePlacePrograms.some((candidate) => candidate.id === program.id)
+      ? samePlacePrograms
+      : [program, ...samePlacePrograms];
+    setDetailPlacePrograms(detailPrograms.filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index));
     setSelected(program);
     setRoutePanelActive(false);
     setRoutePanelMode("route");
@@ -2942,7 +2998,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           />
         ) : selected ? (
           <ProgramDetail
+            key={selected.id}
             program={selected} current={location} favorite={favorites.includes(selected.id)}
+            samePlacePrograms={detailPlacePrograms}
             accountFeaturesVisible={WEB_ACCOUNT_FEATURES_VISIBLE}
             usesFallbackLocation={usesFallbackLocation}
             reminder={reminders.includes(selected.id)} transport={transport} easyFirst={easyFirst}
@@ -2951,7 +3009,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             session={session}
             mapReady={mapReady}
             onRequireAuth={openAccountSignIn}
-            onBack={() => { setSelected(null); setActiveRoute(null); }} onFavorite={() => toggleFavorite(selected.id)}
+            onBack={() => { setSelected(null); setDetailPlacePrograms([]); setActiveRoute(null); }} onFavorite={() => toggleFavorite(selected.id)}
+            onProgramChange={(program) => { void selectProgram(program, detailPlacePrograms); }}
             onFavoriteTarget={(target) => toggleFavoriteTarget(selected.id, target)}
             onReminder={() => toggleReminder(selected.id)} onTransport={(value) => { setTransport(value); setActiveRoute(null); }}
             onRouteChange={setActiveRoute}
@@ -3200,7 +3259,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           accountFeaturesVisible={WEB_ACCOUNT_FEATURES_VISIBLE}
           onClose={() => setPlaceSheet(null)}
           onIndex={(index) => setPlaceSheet((current) => current ? { ...current, index } : current)}
-          onDetail={(program) => { void selectProgram(program); }}
+          onDetail={(program) => { void selectProgram(program, placeSheet.programs); }}
           onReminder={(program) => toggleReminder(program.id)}
           reminderIDs={reminders}
         />}
@@ -3528,13 +3587,34 @@ function RouteInfoPanel({ program, current, usesFallbackLocation, locationReques
   </article>;
 }
 
-function ProgramDetail({ program, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, session, mapReady, onBack, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby, onRequireAuth }: {
-  program: WebProgram; current: Coordinate; usesFallbackLocation: boolean; accountFeaturesVisible: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
+function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, session, mapReady, onBack, onProgramChange, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby, onRequireAuth }: {
+  program: WebProgram; samePlacePrograms: WebProgram[]; current: Coordinate; usesFallbackLocation: boolean; accountFeaturesVisible: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
   session: Session | null;
   mapReady: boolean;
   locationRequestState: LocationRequestState; locationRequestMessage: string;
-  onBack: () => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onRequireAuth: () => void;
+  onBack: () => void; onProgramChange: (program: WebProgram) => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onRequireAuth: () => void;
 }) {
+  const detailPrograms = useMemo(() => {
+    const source = samePlacePrograms.length ? samePlacePrograms : [program];
+    const programs = source.some((candidate) => candidate.id === program.id) ? source : [program, ...source];
+    return programs
+      .filter((candidate, index, all) => all.findIndex((item) => item.id === candidate.id) === index)
+      .map((candidate) => candidate.id === program.id ? program : candidate);
+  }, [program, samePlacePrograms]);
+  const detailIndex = Math.max(0, detailPrograms.findIndex((candidate) => candidate.id === program.id));
+  const showPreviousProgram = useCallback(() => {
+    if (detailPrograms.length < 2) return;
+    onProgramChange(detailPrograms[detailIndex <= 0 ? detailPrograms.length - 1 : detailIndex - 1]);
+  }, [detailIndex, detailPrograms, onProgramChange]);
+  const showNextProgram = useCallback(() => {
+    if (detailPrograms.length < 2) return;
+    onProgramChange(detailPrograms[detailIndex + 1 >= detailPrograms.length ? 0 : detailIndex + 1]);
+  }, [detailIndex, detailPrograms, onProgramChange]);
+  const detailSwipeHandlers = useHorizontalSwipeNavigation({
+    enabled: detailPrograms.length > 1,
+    onPrevious: showPreviousProgram,
+    onNext: showNextProgram,
+  });
   const distance = distanceMeters(current, program);
   const routeEstimate = estimatedRoute(distance, transport);
   const officialAccess = officialProgramAccess(program.applyUrl);
@@ -3590,7 +3670,12 @@ function ProgramDetail({ program, current, usesFallbackLocation, locationRequest
   const distanceMetric = usesFallbackLocation ? "—" : route ? distanceLabel(route.totalDistanceMeters) : distanceLabel(routeEstimate.distance);
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
-    <article className="dg-detail">
+    <article className="dg-detail" {...detailSwipeHandlers}>
+      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
+        <button type="button" onClick={showPreviousProgram} aria-label="이전 프로그램">‹</button>
+        <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
+        <button type="button" onClick={showNextProgram} aria-label="다음 프로그램">›</button>
+      </nav>}
       <header className="dg-detail-hero">
         <div className="dg-detail-actions">
           <button type="button" onClick={onBack} aria-label="목록으로 돌아가기"><span className="dg-ios-back-icon" aria-hidden="true">‹</span></button>
@@ -4298,6 +4383,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   const sheetRef = useRef<HTMLElement>(null);
   const grabberRef = useRef<HTMLButtonElement>(null);
   const closeTimerRef = useRef<number | null>(null);
+  const detailTimerRef = useRef<number | null>(null);
   const dragRef = useRef({ pointerID: -1, startY: 0, startHeight: 0, moved: false });
   const onCloseRef = useRef(onClose);
   const [snap, setSnap] = useState<PlaceSheetSnap>("collapsed");
@@ -4306,6 +4392,11 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   const total = Math.max(state.expectedCount, state.programs.length);
   const previous = () => onIndex(state.index <= 0 ? Math.max(0, state.programs.length - 1) : state.index - 1);
   const next = () => onIndex(state.index + 1 >= state.programs.length ? 0 : state.index + 1);
+  const sheetSwipeHandlers = useHorizontalSwipeNavigation({
+    enabled: state.programs.length > 1,
+    onPrevious: previous,
+    onNext: next,
+  });
 
   const dismiss = useCallback(() => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
@@ -4320,6 +4411,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
 
   useEffect(() => () => {
     if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    if (detailTimerRef.current !== null) window.clearTimeout(detailTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -4419,8 +4511,19 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
     setDragHeight(null);
   };
   const sheetStyle = (dragHeight === null ? {} : { "--dg-place-sheet-height": `${dragHeight}px` }) as CSSProperties;
+  const openDetail = () => {
+    if (!program) return;
+    if (detailTimerRef.current !== null) window.clearTimeout(detailTimerRef.current);
+    if (!window.matchMedia("(max-width: 900px)").matches) {
+      onDetail(program);
+      return;
+    }
+    setDragHeight(null);
+    setSnap("expanded");
+    detailTimerRef.current = window.setTimeout(() => onDetail(program), 210);
+  };
 
-  return <section ref={sheetRef} className={`dg-place-sheet dg-place-sheet-${snap}${dragHeight !== null ? " dg-place-sheet-dragging" : ""}`} style={sheetStyle} role="dialog" aria-label="같은 장소 프로그램">
+  return <section ref={sheetRef} className={`dg-place-sheet dg-place-sheet-${snap}${dragHeight !== null ? " dg-place-sheet-dragging" : ""}`} style={sheetStyle} role="dialog" aria-label="같은 장소 프로그램" {...sheetSwipeHandlers}>
     <button ref={grabberRef} className="dg-place-sheet-grabber" type="button" onClick={toggleSnap} aria-label={snap === "expanded" ? "프로그램 패널 축소하기" : "프로그램 패널 전체로 펼치기"}><span aria-hidden="true" /><em>{snap === "expanded" ? "아래로 내려 축소하거나 닫기" : "위로 올려 전체 보기 · 아래로 내려 닫기"}</em></button>
     <button className="dg-sheet-close" type="button" onClick={dismiss} aria-label="닫기">×</button>
     {total > 1 && <header><button type="button" onClick={previous} disabled={state.programs.length < 2} aria-label="왼쪽으로 이동">‹</button><div><small>같은 장소 프로그램</small><strong>{Math.min(state.index + 1, total)} / {total}</strong></div><button type="button" onClick={next} disabled={state.programs.length < 2} aria-label="오른쪽으로 이동">›</button></header>}
@@ -4428,7 +4531,7 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
       <div className="dg-sheet-badges"><span>{program.status}</span><span>집 근처 {distanceLabel(distanceMeters(current, program))}</span></div>
       <h2>{program.name}</h2><p className="dg-sheet-distance">⌖ 우리 집에서 {distanceLabel(distanceMeters(current, program))}</p>
       <dl><div><dt><Building2 className="dg-sheet-info-icon" aria-hidden="true" /></dt><dd>{program.facility}</dd></div><div><dt><Clock className="dg-sheet-info-icon" aria-hidden="true" /></dt><dd>{program.scheduleText ?? program.periodText ?? "이용시간은 예약 페이지에서 확인"}</dd></div><div><dt><span className="dg-sheet-info-icon dg-sheet-info-icon-won" aria-hidden="true">₩</span></dt><dd>{program.isFree ? "무료" : program.feeText} · {program.status}</dd></div></dl>
-      <button className="dg-sheet-detail" type="button" onClick={() => onDetail(program)}>자세히 보기</button>
+      <button className="dg-sheet-detail" type="button" onClick={openDetail}>자세히 보기</button>
       <div className="dg-sheet-actions">{accountFeaturesVisible && <button type="button" className={reminderIDs.includes(program.id) ? "active" : ""} onClick={() => onReminder(program)}>♧ {reminderIDs.includes(program.id) ? "알림 저장됨" : "알림 받기"}</button>}<a href={mapLink(program)} target="_blank" rel="noreferrer">➤ 길찾기</a></div>
     </div> : <div className="dg-sheet-loading"><strong>{state.loading ? "같은 장소 프로그램을 불러오고 있어요" : "프로그램 정보를 확인할 수 없어요"}</strong></div>}
   </section>;
