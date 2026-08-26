@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   applicationName: "동네고고",
   keywords: ["동네고고", "공공프로그램", "문화센터", "평생교육", "생활체육", "문화행사"],
   verification: {
-    google: "kZjqmQ39j0Pu8-_nf1B3q1M54zOQ15VqCf5ptWsUPMo",
+    google: "cjeYGg8Z11C59idKYE91ALiCdAhslfunVNBv3XLx3ac",
     other: {
       "naver-site-verification": "645fbd3189250f6faed6a20e675b4a23b113c02b",
     },

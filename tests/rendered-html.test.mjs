@@ -60,7 +60,7 @@ test("동네고고 서비스 소개 홈페이지를 렌더링한다", async () =
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /<meta name="google-site-verification" content="kZjqmQ39j0Pu8-_nf1B3q1M54zOQ15VqCf5ptWsUPMo"\/>/);
+  assert.match(html, /<meta name="google-site-verification" content="cjeYGg8Z11C59idKYE91ALiCdAhslfunVNBv3XLx3ac"\/>/);
   assert.match(html, /<meta name="naver-site-verification" content="645fbd3189250f6faed6a20e675b4a23b113c02b"\/>/);
   assert.match(html, /<title>동네고고 \| 우리 동네 교육·문화·체육·행사 한눈에<\/title>/);
   assert.match(html, /<meta name="description" content="내 주변의 교육, 문화, 체육, 공연, 전시와 공공 프로그램을 지도에서 쉽고 빠르게 찾아보세요\."\/>/);
