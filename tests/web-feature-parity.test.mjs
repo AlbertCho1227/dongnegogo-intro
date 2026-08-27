@@ -66,6 +66,13 @@ test("iOS 마커 우선순위와 동일 좌표 대표 아이콘을 재현한다"
   assert.equal(representative.id, "swim-a");
 });
 
+test("지도 이동과 확대 축소 후에도 개별 마커는 실제 프로그램 좌표에 고정된다", () => {
+  assert.doesNotMatch(webMapSource, /spreadMarkerCollisions|containerPointFromCoords|--dg-marker-offset/);
+  assert.doesNotMatch(webMapStyle, /--dg-marker-offset/);
+  assert.match(webMapSource, /grouped\.set\(markerPlaceKey\(program\)/);
+  assert.match(webMapSource, /position:\s*new maps\.LatLng\(representative\.latitude, representative\.longitude\)/);
+});
+
 test("조건 수영은 사물놀이를 제외하고 실제 물놀이만 포함한다", () => {
   const samul = program({ id: "samul-filter", name: "신나는 사물놀이 한마당", rawCategory: "국악", rawField: "국악" });
   const pungmul = program({ id: "pungmul-filter", name: "신명나는 풍물놀이", rawCategory: "국악", rawField: "국악" });

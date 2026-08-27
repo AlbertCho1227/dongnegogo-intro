@@ -10,7 +10,6 @@ import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, toggleSingleWebDetailFilter, webProgramMatchesFilters } from "@/lib/web-program-filters";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
-import { spreadMarkerCollisions } from "@/lib/marker-collision";
 import {
   hasAmbiguousAdministrativeSuggestions,
   haversineMeters,
@@ -69,7 +68,6 @@ type KakaoMap = {
   setBounds: (bounds: KakaoBounds, ...padding: number[]) => void; setCenter: (position: KakaoLatLng) => void;
   setLevel: (level: number) => void; panTo: (position: KakaoLatLng) => void;
   setDraggable?: (enabled: boolean) => void; setZoomable?: (enabled: boolean) => void; relayout?: () => void;
-  getProjection?: () => { containerPointFromCoords?: (position: KakaoLatLng) => { x: number; y: number } };
 };
 type KakaoMapItem = { setMap: (map: KakaoMap | null) => void };
 type KakaoOverlay = KakaoMapItem;
@@ -1922,14 +1920,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const grouped = new Map<string, WebProgram[]>();
     visiblePrograms.forEach((program) => grouped.set(markerPlaceKey(program), [...(grouped.get(markerPlaceKey(program)) ?? []), program]));
     const markerGroups = Array.from(grouped.values()).slice(0, 1_200);
-    const projection = map.getProjection?.();
-    const markerRepresentatives = markerGroups.map((group) => dominantProgram(group, statusRank));
-    const collisionOffsets = spreadMarkerCollisions(markerRepresentatives.flatMap((program) => {
-      const point = projection?.containerPointFromCoords?.(new maps.LatLng(program.latitude, program.longitude));
-      return Number.isFinite(point?.x) && Number.isFinite(point?.y)
-        ? [{ id: markerPlaceKey(program), x: point!.x, y: point!.y }]
-        : [];
-    }));
     markerGroups.forEach((group) => {
       const representative = dominantProgram(group, statusRank);
       const count = Math.max(group.length, programCounts[representative.id] ?? 1);
@@ -1938,9 +1928,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       const button = document.createElement("button");
       button.type = "button";
       button.className = `dg-map-marker${isFocused ? " is-selected" : ""}`;
-      const collisionOffset = collisionOffsets.get(markerPlaceKey(representative)) ?? { x: 0, y: 0 };
-      button.style.setProperty("--dg-marker-offset-x", `${collisionOffset.x.toFixed(1)}px`);
-      button.style.setProperty("--dg-marker-offset-y", `${collisionOffset.y.toFixed(1)}px`);
       button.setAttribute("aria-label", count > 1 ? `같은 장소 ${count}개 프로그램` : representative.name);
       const image = document.createElement("img");
       image.src = `/markers/${programIconName(representative)}.png`;
