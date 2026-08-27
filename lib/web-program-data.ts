@@ -1,6 +1,5 @@
 import "server-only";
 import { displayAudienceTexts, displayFeeText, displayRequirementText, displayRoomText, displayScheduleText } from "@/lib/program-display";
-import type { WebFamilyProgramResult } from "@/lib/web-family-programs";
 
 const REQUEST_TIMEOUT_MS = 6_000;
 const MAX_RESULT_LIMIT = 4_000;
@@ -37,10 +36,6 @@ export type WebProgram = {
   maxClassName: string | null;
   minClassName: string | null;
   isSeniorRecommended: boolean;
-  isActive?: boolean;
-  mapRegionName?: string | null;
-  mapAdminArea?: string | null;
-  mapLocalName?: string | null;
 };
 
 export type WebMapCluster = {
@@ -267,10 +262,6 @@ function normalizedProgram(row: ProgramRow): WebProgram | null {
     maxClassName: textValue(row.max_class_nm),
     minClassName: textValue(row.min_class_nm),
     isSeniorRecommended: row.is_senior_recommended === true,
-    isActive: typeof row.is_active === "boolean" ? row.is_active : undefined,
-    mapRegionName: textValue(row.map_region_name),
-    mapAdminArea: textValue(row.map_admin_area),
-    mapLocalName: textValue(row.map_local_name),
   };
 }
 
@@ -828,185 +819,6 @@ export async function fetchWebProgramsNear(input: {
   return rows.map((value) => value && typeof value === "object"
     ? normalizedProgram(value as ProgramRow)
     : null).filter((item): item is WebProgram => Boolean(item) && !seen.has(item!.id) && Boolean(seen.add(item!.id)));
-}
-
-type FamilyRegionScope = {
-  regionPath: string;
-  mapRegionName: string;
-  mapAdminArea: string | null;
-  localityName: string | null;
-  cityHint: string | null;
-};
-
-const FAMILY_REGION_NAMES: Record<string, string> = {
-  "서울": "서울특별시", "서울시": "서울특별시",
-  "부산": "부산광역시", "부산시": "부산광역시",
-  "대구": "대구광역시", "대구시": "대구광역시",
-  "인천": "인천광역시", "인천시": "인천광역시",
-  "광주": "광주광역시", "광주시": "광주광역시",
-  "대전": "대전광역시", "대전시": "대전광역시",
-  "울산": "울산광역시", "울산시": "울산광역시",
-  "세종": "세종특별자치시", "세종시": "세종특별자치시",
-  "강원": "강원특별자치도", "강원도": "강원특별자치도",
-  "전북": "전북특별자치도", "전라북도": "전북특별자치도",
-  "제주": "제주특별자치도", "제주도": "제주특별자치도",
-  "경기": "경기도", "충북": "충청북도", "충남": "충청남도",
-  "전남": "전라남도", "경북": "경상북도", "경남": "경상남도",
-};
-
-function familyRegionScope(regionPath: string): FamilyRegionScope | null {
-  const safePath = regionPath.normalize("NFC").trim().replace(/\s+/g, " ").slice(0, 80);
-  const components = safePath.split(" ").filter(Boolean);
-  if (!components.length) return null;
-  const localityIndex = components.findLastIndex((value) => /[동읍면리]$/.test(value));
-  const localityName = localityIndex >= 0 ? components[localityIndex] : null;
-  const administrative = components.slice(1, localityIndex >= 0 ? localityIndex : undefined);
-  const mapAdminArea = [...administrative].reverse().find((value) => /[시군구]$/.test(value)) ?? null;
-  const cityHint = administrative.find((value) => value !== mapAdminArea && /시$/.test(value)) ?? null;
-  return {
-    regionPath: safePath,
-    mapRegionName: FAMILY_REGION_NAMES[components[0]] ?? components[0],
-    mapAdminArea,
-    localityName,
-    cityHint,
-  };
-}
-
-function median(values: number[]): number | null {
-  if (!values.length) return null;
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor(sorted.length / 2)] ?? null;
-}
-
-async function fetchFamilyRegionAnchor(scope: FamilyRegionScope): Promise<{ latitude: number; longitude: number; radiusMeters: number } | null> {
-  if (!scope.localityName) return null;
-  const localNames = [...new Set([
-    scope.localityName,
-    scope.localityName.replace(/제?\d+(?:[·.]\d+)?(?=동$)/, ""),
-  ].filter(Boolean))];
-  let rows: ProgramRow[] = [];
-  for (const localName of localNames) {
-    const parameters: Array<[string, string]> = [
-      ["select", "latitude,longitude"],
-      ["map_region_name", `eq.${scope.mapRegionName}`],
-      ["map_local_name", `eq.${localName}`],
-      ["is_active", "eq.true"],
-      ["latitude", "not.is.null"],
-      ["longitude", "not.is.null"],
-      ["limit", "1000"],
-    ];
-    if (scope.mapAdminArea) parameters.push(["map_admin_area", `eq.${scope.mapAdminArea}`]);
-    rows = await publicRows("programs", parameters);
-    if (rows.length) break;
-  }
-  const coordinates = rows.flatMap((row) => {
-    const latitude = numberValue(row.latitude);
-    const longitude = numberValue(row.longitude);
-    return latitude !== null && longitude !== null
-      && latitude >= 32 && latitude <= 40 && longitude >= 123 && longitude <= 133
-      ? [{ latitude, longitude }]
-      : [];
-  });
-  const latitude = median(coordinates.map((value) => value.latitude));
-  const longitude = median(coordinates.map((value) => value.longitude));
-  if (latitude === null || longitude === null) return null;
-  const distances = coordinates
-    .map((coordinate) => coordinateDistanceMeters({ latitude, longitude }, coordinate))
-    .sort((left, right) => left - right);
-  const percentileIndex = Math.min(distances.length - 1, Math.round((distances.length - 1) * .9));
-  return {
-    latitude,
-    longitude,
-    radiusMeters: Math.min(4_000, Math.max(1_000, (distances[percentileIndex] ?? 0) + 500)),
-  };
-}
-
-function programMatchesFamilyParent(program: WebProgram, scope: FamilyRegionScope): boolean {
-  const location = `${program.mapRegionName ?? ""} ${program.mapAdminArea ?? ""} ${program.area} ${program.address ?? ""}`;
-  const regionAliases = Object.entries(FAMILY_REGION_NAMES)
-    .filter(([, canonical]) => canonical === scope.mapRegionName)
-    .map(([alias]) => alias);
-  const regionMatches = program.mapRegionName
-    ? program.mapRegionName === scope.mapRegionName
-    : [scope.mapRegionName, ...regionAliases].some((value) => location.includes(value));
-  const adminMatches = !scope.mapAdminArea || (program.mapAdminArea
-    ? program.mapAdminArea === scope.mapAdminArea
-    : location.includes(scope.mapAdminArea));
-  const cityMatches = !scope.cityHint || location.includes(scope.cityHint);
-  return regionMatches && adminMatches && cityMatches;
-}
-
-function familyLocalSpecificity(program: WebProgram, scope: FamilyRegionScope): number {
-  if (!scope.localityName) return 0;
-  const baseLocality = scope.localityName.replace(/제?\d+(?:[·.]\d+)?(?=동$)/, "");
-  const location = `${program.mapLocalName ?? ""} ${program.area} ${program.address ?? ""} ${program.facility}`;
-  if (location.includes(scope.localityName)) return 2;
-  return baseLocality !== scope.localityName && location.includes(baseLocality) ? 1 : 0;
-}
-
-async function fetchFamilyParentPrograms(scope: FamilyRegionScope, limit: number): Promise<WebProgram[]> {
-  const select = [
-    "id", "name", "category", "field", "facility", "room", "address", "area", "region",
-    "latitude", "longitude", "is_free", "fee_text", "status", "audiences", "schedule_text",
-    "period_text", "receipt_start", "receipt_end", "apply_url", "phone", "summary", "requirement",
-    "preparation", "primary_image_url", "source", "max_class_nm", "min_class_nm",
-    "is_senior_recommended", "is_active", "map_region_name", "map_admin_area", "map_local_name",
-  ].join(",");
-  const programs: WebProgram[] = [];
-  for (let offset = 0; offset < limit; offset += 1_000) {
-    const requested = Math.min(1_000, limit - offset);
-    const parameters: Array<[string, string]> = [
-      ["select", select], ["is_active", "eq.true"], ["map_region_name", `eq.${scope.mapRegionName}`],
-      ["latitude", "not.is.null"], ["longitude", "not.is.null"], ["order", "id"],
-      ["limit", String(requested)], ["offset", String(offset)],
-    ];
-    if (scope.mapAdminArea) parameters.push(["map_admin_area", `eq.${scope.mapAdminArea}`]);
-    const page = (await publicRows("programs", parameters))
-      .map(normalizedProgram).filter((program): program is WebProgram => Boolean(program));
-    programs.push(...page);
-    if (page.length < requested) break;
-  }
-  return programs;
-}
-
-/** Loads the saved family's living area independently from the current map viewport. */
-export async function fetchWebFamilyPrograms(regionPath: string, limit = 4_000): Promise<WebFamilyProgramResult> {
-  const scope = familyRegionScope(regionPath);
-  if (!scope) return { programs: [], region: "", radiusMeters: null, regionProgramCount: 0 };
-  const boundedLimit = Math.max(1, Math.min(4_000, Math.round(limit)));
-  const anchor = await fetchFamilyRegionAnchor(scope);
-  let candidates: WebProgram[];
-  if (anchor) {
-    candidates = (await fetchWebProgramsNear({
-      latitude: anchor.latitude,
-      longitude: anchor.longitude,
-      radiusKm: anchor.radiusMeters / 1_000,
-      limit: boundedLimit,
-    })).filter((program) => program.isActive !== false && programMatchesFamilyParent(program, scope));
-  } else {
-    candidates = (await fetchFamilyParentPrograms(scope, boundedLimit))
-      .filter((program) => programMatchesFamilyParent(program, scope));
-    if (scope.localityName) {
-      const localCandidates = candidates.filter((program) => familyLocalSpecificity(program, scope) > 0);
-      if (localCandidates.length) candidates = localCandidates;
-    }
-  }
-  const unique = [...new Map(candidates.map((program) => [program.id, program])).values()];
-  unique.sort((left, right) => {
-    const specificity = familyLocalSpecificity(right, scope) - familyLocalSpecificity(left, scope);
-    if (specificity) return specificity;
-    if (anchor) {
-      const distance = coordinateDistanceMeters(anchor, left) - coordinateDistanceMeters(anchor, right);
-      if (distance) return distance;
-    }
-    return left.name.localeCompare(right.name, "ko");
-  });
-  return {
-    programs: unique,
-    region: scope.regionPath,
-    radiusMeters: anchor ? Math.round(anchor.radiusMeters) : null,
-    regionProgramCount: unique.length,
-  };
 }
 
 async function fetchProgramsByIDs(ids: string[]) {

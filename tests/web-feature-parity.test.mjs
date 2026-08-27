@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dominantProgram, programIconName } from "../lib/web-icon-mapper.ts";
 import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
-import { familyProgramsForProfile } from "../lib/web-family-programs.ts";
 
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
 const webPageSource = readFileSync(new URL("../app/web/page.tsx", import.meta.url), "utf8");
@@ -15,7 +14,6 @@ const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.met
 const webProgramDataSource = readFileSync(new URL("../lib/web-program-data.ts", import.meta.url), "utf8");
 const webParkingRouteSource = readFileSync(new URL("../app/api/web-program-parking/route.ts", import.meta.url), "utf8");
 const webProgramFiltersSource = readFileSync(new URL("../lib/web-program-filters.ts", import.meta.url), "utf8");
-const webFamilyRouteSource = readFileSync(new URL("../app/api/web-family-programs/route.ts", import.meta.url), "utf8");
 
 function program(overrides = {}) {
   return {
@@ -66,16 +64,6 @@ test("iOS 마커 우선순위와 동일 좌표 대표 아이콘을 재현한다"
     program({ id: "swim-a", name: "성인 수영", status: "접수중" }),
   ], (item) => item.status === "접수중" ? 0 : 1);
   assert.equal(representative.id, "swim-a");
-});
-
-test("지도 이동 후에도 개별 마커는 실제 프로그램 좌표에 고정된다", () => {
-  assert.doesNotMatch(webMapSource, /spreadMarkerCollisions|containerPointFromCoords|--dg-marker-offset/);
-  assert.doesNotMatch(webMapStyle, /--dg-marker-offset/);
-  assert.match(webMapSource, /grouped\.set\(markerPlaceKey\(program\)/);
-  assert.match(webMapSource, /Array\.from\(grouped\.values\(\)\)\.slice\(0, 1_200\)\.forEach/);
-  assert.match(webMapSource, /position:\s*new maps\.LatLng\(representative\.latitude, representative\.longitude\)/);
-  assert.match(webMapSource, /content:\s*button,\s*xAnchor:\s*0\.5,\s*yAnchor:\s*0\.5/);
-  assert.doesNotMatch(webMapStyle, /\.dg-map-marker:hover, \.dg-map-marker\.is-selected \{[^}]*transform:/);
 });
 
 test("조건 수영은 사물놀이를 제외하고 실제 물놀이만 포함한다", () => {
@@ -616,21 +604,4 @@ test("가족 추천은 간결한 주변 카드와 지도·공유·전화·위로
   assert.match(webMapSource, /전화걸기/);
   assert.match(webMapSource, /dg-family-scroll-top/);
   assert.match(webMapStyle, /\.dg-family-program-heading > div button \{[^}]*border-radius: 50%/);
-});
-
-test("가족 추천은 현재 지도와 분리된 저장 지역 생활권 조회 뒤 역할·연령 조건을 적용한다", () => {
-  assert.match(webMapSource, /fetchFamilyRegionPrograms\(requestedRegion/);
-  assert.match(webMapSource, /\/api\/web-family-programs/);
-  assert.doesNotMatch(webMapSource, /<FamilyPanel programs=\{programs\}/);
-  assert.match(webFamilyRouteSource, /fetchWebFamilyPrograms\(region\)/);
-  assert.match(webProgramDataSource, /map_local_name/);
-  assert.match(webProgramDataSource, /fetchWebProgramsNear/);
-  assert.match(webProgramDataSource, /programMatchesFamilyParent/);
-
-  const senior = program({ id: "senior", name: "어르신 체조", audiences: ["어르신"] });
-  const adult = program({ id: "adult", name: "성인 글쓰기", audiences: ["성인"] });
-  const child = program({ id: "child", name: "초등 미술", audiences: ["초등학생"] });
-  assert.deepEqual(familyProgramsForProfile([adult, senior, child], "어머니", "70대").map(({ id }) => id), ["senior"]);
-  assert.deepEqual(familyProgramsForProfile([adult, child], "아이", "10대 미만").map(({ id }) => id), ["child", "adult"]);
-  assert.deepEqual(familyProgramsForProfile([child, adult], "나", "40대").map(({ id }) => id), ["adult"]);
 });
