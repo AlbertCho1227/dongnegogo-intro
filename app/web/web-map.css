@@ -127,6 +127,7 @@
 .dg-search-empty-state > section > strong { color: #6e786f; }
 .dg-search-empty-state > section p { margin: 8px 0 0; }
 .dg-search-program-list { display: grid; gap: 10px; }
+.dg-search-more { width: 100%; min-height: 46px; margin: 12px 0 4px; border: 1px solid #ccebd5; border-radius: 14px; color: #168f41; background: #f1fbf4; font-weight: 850; cursor: pointer; }
 @keyframes dg-search-spin { to { transform: rotate(360deg); } }
 .dg-location-row { margin-top: 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .dg-location-row button { padding: 7px 12px; border: 0; border-radius: 999px; color: var(--dg-green-deep); background: #edf8e7; font-size: 13px; font-weight: 800; cursor: pointer; }

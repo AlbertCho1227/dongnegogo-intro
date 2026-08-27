@@ -810,6 +810,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const mainRoutePanelDragRef = useRef({ pointerID: -1, startY: 0, startHeight: 230, moved: false });
   const mapModeRef = useRef<"individual" | "cluster">("individual");
   const mapScopeRef = useRef<WebMapAggregationScope>("individual");
+  const tabRef = useRef<Tab>("map");
   const searchActiveRef = useRef(false);
   const heatShelterModeRef = useRef(false);
   const programFilterActiveRef = useRef(false);
@@ -1669,6 +1670,28 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     if (mapRef.current) window.setTimeout(() => mapRef.current && void loadBounds(mapRef.current), 0);
   };
 
+  const mapVisiblePrograms = useMemo(() => {
+    // `programs` is already replaced with the current viewport's filtered rows.
+    // Merging a previously saved unfiltered viewport here could keep markers from
+    // the old region (most visibly Seoul) after the user moved the map.
+    const items = programs.filter((program) => {
+      if (!fieldMatches(program, fieldFilter)) return false;
+      if (freeOnly && !program.isFree) return false;
+      if (paidOnly && program.isFree) return false;
+      if (seniorOnly && !program.isSeniorRecommended && !program.audiences.some((audience) => /시니어|어르신|노인|65세/.test(audience))) return false;
+      if (!webProgramMatchesFilters(program, subjectFilters, personaFilters)) return false;
+      if (statusFilter !== "전체" && (statusFilter === "접수중" ? !/접수중|상시|진행중|가능|안내중/.test(program.status) : statusFilter === "접수예정" ? !/예정|곧/.test(program.status) : !/마감임박/.test(program.status))) return false;
+      if (todayOnly && !/접수중|상시|진행중|가능|안내중|마감임박/.test(program.status)) return false;
+      if (radiusKm !== null && !usesFallbackLocation && distanceMeters(location, program) > radiusKm * 1_000) return false;
+      return true;
+    });
+    return items.sort((a, b) => {
+      if (sort === "free" && a.isFree !== b.isFree) return a.isFree ? -1 : 1;
+      if (sort === "available" && isAvailable(a) !== isAvailable(b)) return isAvailable(a) ? -1 : 1;
+      return distanceMeters(center, a) - distanceMeters(center, b);
+    });
+  }, [programs, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, sort, center]);
+
   const visiblePrograms = useMemo(() => {
     if (tab === "search" && searchIntent) {
       const categorized = searchResultCategory
@@ -1685,28 +1708,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         return distanceMeters(searchOrigin, a) - distanceMeters(searchOrigin, b);
       });
     }
-    // `programs` is already replaced with the current viewport's filtered rows.
-    // Merging a previously saved unfiltered viewport here could keep markers from
-    // the old region (most visibly Seoul) after the user moved the map.
-    const items = programs.filter((program) => {
-      if (!fieldMatches(program, fieldFilter)) return false;
-      if (freeOnly && !program.isFree) return false;
-      if (paidOnly && program.isFree) return false;
-      if (seniorOnly && !program.isSeniorRecommended && !program.audiences.some((audience) => /시니어|어르신|노인|65세/.test(audience))) return false;
-      if (!webProgramMatchesFilters(program, subjectFilters, personaFilters)) return false;
-      if (statusFilter !== "전체" && (statusFilter === "접수중" ? !/접수중|상시|진행중|가능|안내중/.test(program.status) : statusFilter === "접수예정" ? !/예정|곧/.test(program.status) : !/마감임박/.test(program.status))) return false;
-      if (todayOnly && !/접수중|상시|진행중|가능|안내중|마감임박/.test(program.status)) return false;
-      if (radiusKm !== null && !usesFallbackLocation && distanceMeters(location, program) > radiusKm * 1_000) return false;
-      if (tab === "saved" && !favorites.includes(program.id)) return false;
-      if (tab === "openrun" && (!program.receiptStart || !isAvailable(program))) return false;
-      return true;
-    });
-    return items.sort((a, b) => {
-      if (sort === "free" && a.isFree !== b.isFree) return a.isFree ? -1 : 1;
-      if (sort === "available" && isAvailable(a) !== isAvailable(b)) return isAvailable(a) ? -1 : 1;
-      return distanceMeters(center, a) - distanceMeters(center, b);
-    });
-  }, [activeConditionCount, programs, searchResults, searchIntent, searchResultCategory, searchSort, searchAssistant, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, location, usesFallbackLocation, tab, favorites, sort, center]);
+    if (tab === "saved") return mapVisiblePrograms.filter((program) => favorites.includes(program.id));
+    if (tab === "openrun") return mapVisiblePrograms.filter((program) => program.receiptStart && isAvailable(program));
+    return mapVisiblePrograms;
+  }, [tab, searchIntent, searchResultCategory, searchResults, searchSort, searchAssistant, location, mapVisiblePrograms, favorites]);
 
   useEffect(() => {
     if (filterFitRequestId === 0 || activeConditionCount === 0
@@ -1881,7 +1886,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const focusedCarouselProgram = filteredClusterFocusedProgramID
       ? filteredClusterCarouselPrograms.find((program) => program.id === filteredClusterFocusedProgramID)
       : null;
-    if (focusedCarouselProgram && tab === "map") {
+    if (focusedCarouselProgram && tabRef.current === "map") {
       // 카드 선택은 직전 viewport의 군집 장면보다 우선한다. 선택 프로그램 한 건을
       // 즉시 개별 마커로 고정하고 패널이 닫히면 기존 adaptive 장면으로 복귀한다.
       const button = document.createElement("button");
@@ -1904,7 +1909,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       }));
       return () => { overlaysRef.current.forEach((overlay) => overlay.setMap(null)); overlaysRef.current = []; };
     }
-    if (mapMode === "cluster" && tab === "map") {
+    if (mapMode === "cluster" && tabRef.current === "map") {
       const clusterKeyword = activeConditionCount > 0 ? mapFilterClusterKeyword(mapFilterRequestRef.current) : "";
       visibleClusters.forEach((cluster) => {
         const insightText = activeConditionCount > 0 ? null : visibleClusterInsightLabel(cluster.categoryName);
@@ -1981,7 +1986,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       overlaysRef.current.forEach((overlay) => overlay.setMap(null));
       overlaysRef.current = [];
     };
-  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, tab, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds, openFilteredMapCluster]);
+  }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds, openFilteredMapCluster]);
 
   const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
     if (!nearbyDestination) return;
@@ -2207,6 +2212,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const intent = parseSearchIntent(term);
     let hadLocalResults = false;
     searchActiveRef.current = true;
+    tabRef.current = "search";
     setTab("search");
     setSelected(null);
     setRoutePanelActive(false);
@@ -2388,6 +2394,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     setSearchSuggestionError("");
     setSearchSuggestions([]);
     searchActiveRef.current = false;
+    tabRef.current = "map";
     setTab("map");
     setSelected(null);
     setRoutePanelActive(false);
@@ -2723,6 +2730,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       return;
     }
     searchActiveRef.current = nextTab === "search";
+    tabRef.current = nextTab;
     if (nextTab !== "search") {
       searchAbortRef.current?.abort();
       searchSuggestionAbortRef.current?.abort();
@@ -3403,7 +3411,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         {!mapReady && <div className="dg-map-skeleton"><img src="/brand/app-icon.png" alt="" /><strong>지도를 준비하고 있어요</strong></div>}
         <div className="dg-mobile-map-chrome">
           <div className="dg-mobile-map-header">
-            <button type="button" className="dg-mobile-search-pill" onClick={() => changeTab("search")}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em><MapIcon aria-hidden="true" /></em></button>
+            <button type="button" className="dg-mobile-search-pill" onClick={() => { clearSearch(); changeTab("search"); }}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em><MapIcon aria-hidden="true" /></em></button>
             {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className={`dg-mobile-profile${session ? " signed-in" : ""}`} onClick={() => { setSeniorOnly(false); setPersonaFilters([]); changeTab("search"); }} aria-label={session ? "나를 위한 프로그램 찾기" : "로그인 전 나를 위한 프로그램 찾기"}><User aria-hidden="true" /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
@@ -3546,6 +3554,16 @@ function SearchExperience({
   const managedRadius = assistant.kind === "placeOffer" || assistant.kind === "placeSearching"
     || assistant.kind === "placeFound" || assistant.kind === "placeExpand";
   const displayedProgress = useSmoothSearchProgress(progress, loading);
+  const [visibleLimit, setVisibleLimit] = useState(48);
+  const renderedResults = visibleResults.slice(0, visibleLimit);
+  const chooseCategory = (category: string | null) => {
+    setVisibleLimit(48);
+    onCategory(category);
+  };
+  const chooseSort = (nextSort: SearchSort) => {
+    setVisibleLimit(48);
+    onSort(nextSort);
+  };
 
   if (!active) {
     return <div className="dg-search-idle-panel">
@@ -3608,10 +3626,11 @@ function SearchExperience({
         : <button key={chip} type="button" onClick={() => onRemoveChip(chip)} aria-label={`${chip} 조건 삭제`}>{chip}<i>×</i></button>)}</div>}
       {!loading && !allResults.length && relaxations.length > 0 && <div className="dg-search-alternatives">{relaxations.map((item) => <article key={item.label}><p>{item.message}</p><button type="button" onClick={() => onRelax(item.intent, item.appliedNotice)}>⊕ {item.label}<span>→</span></button></article>)}</div>}
     </section>}
-    {allResults.length > 0 && <section className="dg-search-filter-card"><div><small>프로그램 분류</small><div><button type="button" className={selectedCategory === null ? "active" : ""} onClick={() => onCategory(null)}>✨ 전체 <b>{allResults.length}</b></button>{categories.map((category) => <button type="button" key={category.id} className={selectedCategory === category.id ? "active" : ""} onClick={() => onCategory(category.id)}>{category.emoji} {category.label} <b>{category.count}</b></button>)}</div></div><hr /><div className="dg-search-sort-row">{([[
-      "relevance", "관련도 순"], ["distance", "가까운 순"], ["available", "신청 가능한 순"], ["free", "무료 먼저"]] as Array<[SearchSort, string]>).map(([value, label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => onSort(value)}>{label}</button>)}</div></section>}
+    {allResults.length > 0 && <section className="dg-search-filter-card"><div><small>프로그램 분류</small><div><button type="button" className={selectedCategory === null ? "active" : ""} onClick={() => chooseCategory(null)}>✨ 전체 <b>{allResults.length}</b></button>{categories.map((category) => <button type="button" key={category.id} className={selectedCategory === category.id ? "active" : ""} onClick={() => chooseCategory(category.id)}>{category.emoji} {category.label} <b>{category.count}</b></button>)}</div></div><hr /><div className="dg-search-sort-row">{([[
+      "relevance", "관련도 순"], ["distance", "가까운 순"], ["available", "신청 가능한 순"], ["free", "무료 먼저"]] as Array<[SearchSort, string]>).map(([value, label]) => <button type="button" key={value} className={sort === value ? "active" : ""} onClick={() => chooseSort(value)}>{label}</button>)}</div></section>}
     {!loading && !allResults.length && assistant.kind === "idle" && !relaxations.length && <div className="dg-search-empty-state"><div className="dg-search-assistant-card"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>버들이가 함께 찾아볼게요</small><strong>‘{submittedQuery}’에 꼭 맞는 결과가 아직 없어요. 표현이나 조건을 한 가지만 바꾸면 더 잘 찾을 수 있어요.</strong></div><section><strong>이렇게 바꿔보세요</strong><p>💡 더 짧게: ‘{parseSearchIntent(submittedQuery).generalTerms[0] ?? submittedQuery}’</p><p>💡 시설명으로: ‘정릉복지관’, ‘성북구민수영장’</p><p>💡 분야로: ‘수영’, ‘요가’, ‘스마트폰’</p></section></div>}
-    <div className="dg-search-program-list">{visibleResults.slice(0, 300).map((program) => <button className="dg-program-card" type="button" key={program.id} onClick={() => onOpen(program)}><img src={`/markers/${programIconName(program)}.png`} alt="" /><span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.isFree ? "무료" : program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small><em>{program.scheduleText ?? program.periodText ?? (program.isFree ? "무료" : program.feeText)}</em></span><span className="dg-card-arrow" aria-hidden="true">›</span></button>)}</div>
+    <div className="dg-search-program-list">{renderedResults.map((program) => <button className="dg-program-card" type="button" key={program.id} onClick={() => onOpen(program)}><img src={`/markers/${programIconName(program)}.png`} alt="" /><span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.isFree ? "무료" : program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small><em>{program.scheduleText ?? program.periodText ?? (program.isFree ? "무료" : program.feeText)}</em></span><span className="dg-card-arrow" aria-hidden="true">›</span></button>)}</div>
+    {renderedResults.length < visibleResults.length && <button type="button" className="dg-search-more" onClick={() => setVisibleLimit((current) => current + 48)}>{Math.min(48, visibleResults.length - renderedResults.length)}개 더 보기</button>}
   </div>;
 }
 

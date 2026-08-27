@@ -470,3 +470,13 @@ test("공공누리 1~4유형과 출처 표시 원칙을 모두 고지한다", as
   assert.match(html, /라이선스 미확인/);
   assert.match(html, /숙박 자원은 수집·제공 대상에서 제외/);
 });
+
+test("메인 지도에서 찾기 화면은 이전 결과와 지도 마커를 다시 만들지 않고 즉시 열린다", async () => {
+  const source = await readFile(new URL("app/web/web-map-app.tsx", projectRoot), "utf8");
+  assert.match(source, /className="dg-mobile-search-pill" onClick=\{\(\) => \{ clearSearch\(\); changeTab\("search"\); \}\}/);
+  assert.match(source, /const mapVisiblePrograms = useMemo/);
+  assert.match(source, /return mapVisiblePrograms;/);
+  assert.match(source, /const \[visibleLimit, setVisibleLimit\] = useState\(48\)/);
+  assert.match(source, /renderedResults\.length < visibleResults\.length/);
+  assert.doesNotMatch(source, /visibleResults\.slice\(0, 300\)/);
+});
