@@ -72,6 +72,7 @@ test("지도 이동 후에도 개별 마커는 실제 프로그램 좌표에 고
   assert.doesNotMatch(webMapSource, /spreadMarkerCollisions|containerPointFromCoords|--dg-marker-offset/);
   assert.doesNotMatch(webMapStyle, /--dg-marker-offset/);
   assert.match(webMapSource, /grouped\.set\(markerPlaceKey\(program\)/);
+  assert.match(webMapSource, /Array\.from\(grouped\.values\(\)\)\.slice\(0, 1_200\)\.forEach/);
   assert.match(webMapSource, /position:\s*new maps\.LatLng\(representative\.latitude, representative\.longitude\)/);
 });
 

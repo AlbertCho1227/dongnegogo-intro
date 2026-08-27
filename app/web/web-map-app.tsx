@@ -1928,8 +1928,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     }
     const grouped = new Map<string, WebProgram[]>();
     visiblePrograms.forEach((program) => grouped.set(markerPlaceKey(program), [...(grouped.get(markerPlaceKey(program)) ?? []), program]));
-    const markerGroups = Array.from(grouped.values()).slice(0, 1_200);
-    markerGroups.forEach((group) => {
+    Array.from(grouped.values()).slice(0, 1_200).forEach((group) => {
       const representative = dominantProgram(group, statusRank);
       const count = Math.max(group.length, programCounts[representative.id] ?? 1);
       const isFocused = selected?.id === representative.id
