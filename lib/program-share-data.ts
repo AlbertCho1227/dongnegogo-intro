@@ -3,6 +3,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 
 import { dedupeImagesByContent, imageContentIdentity } from "@/lib/image-content-identity";
+import { displayAudienceTexts, displayFeeText, displayRequirementText, displayRoomText, displayScheduleText } from "@/lib/program-display";
 
 const REQUEST_TIMEOUT_MS = 2_500;
 const CACHE_SECONDS = 300;
@@ -345,9 +346,12 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
 
   const name = stringValue(program.name);
   if (!name) return null;
-  const audiences = Array.isArray(program.audiences)
+  const rawAudiences = Array.isArray(program.audiences)
     ? program.audiences.map(stringValue).filter((value): value is string => !!value)
     : [];
+  const requirement = displayRequirementText(stringValue(program.requirement));
+  const audiences = displayAudienceTexts(rawAudiences, requirement);
+  const feeText = displayFeeText(stringValue(program.fee_text)) ?? "이용료는 신청 페이지에서 확인";
 
   return {
     id: stringValue(program.id) ?? id,
@@ -355,19 +359,19 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
     category: stringValue(program.category) ?? "프로그램",
     field: stringValue(program.field) ?? "",
     facility: stringValue(program.facility) ?? "장소는 앱에서 확인해 주세요",
-    room: stringValue(program.room),
+    room: displayRoomText(stringValue(program.room)),
     address: stringValue(program.address),
     area: stringValue(program.area) ?? "",
     latitude: numberValue(program.latitude),
     longitude: numberValue(program.longitude),
-    isFree: program.is_free === true,
-    feeText: stringValue(program.fee_text) ?? "이용료는 신청 페이지에서 확인",
+    isFree: program.is_free === true || feeText === "무료",
+    feeText,
     status: stringValue(program.status) ?? "일정 확인",
     receiptStart: stringValue(program.receipt_start),
     receiptEnd: stringValue(program.receipt_end),
     lectureStart: stringValue(program.lecture_start),
     lectureEnd: stringValue(program.lecture_end),
-    scheduleText: stringValue(program.schedule_text),
+    scheduleText: displayScheduleText(stringValue(program.schedule_text)),
     periodText: stringValue(program.period_text),
     audiences,
     description: readableSummary(descriptions[0]?.summary ?? program.summary),
@@ -375,7 +379,7 @@ async function fetchSharedProgramUncached(programID: string): Promise<SharedProg
     phone: stringValue(program.phone),
     source: stringValue(program.source),
     updatedAt: stringValue(program.updated_at),
-    requirement: stringValue(program.requirement),
+    requirement,
     preparation: stringValue(program.preparation),
     maxClassName: stringValue(program.max_class_nm),
     minClassName: stringValue(program.min_class_nm),

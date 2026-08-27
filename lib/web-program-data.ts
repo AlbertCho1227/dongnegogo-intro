@@ -1,4 +1,5 @@
 import "server-only";
+import { displayAudienceTexts, displayFeeText, displayRequirementText, displayRoomText, displayScheduleText } from "@/lib/program-display";
 
 const REQUEST_TIMEOUT_MS = 6_000;
 const MAX_RESULT_LIMIT = 4_000;
@@ -224,32 +225,35 @@ function normalizedProgram(row: ProgramRow): WebProgram | null {
   if (!id || !name || latitude === null || longitude === null) return null;
   if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
 
+  const requirement = displayRequirementText(textValue(row.requirement));
+  const rawAudiences = Array.isArray(row.audiences)
+    ? row.audiences.map(textValue).filter((value): value is string => Boolean(value))
+    : [];
+  const feeText = displayFeeText(textValue(row.fee_text)) ?? "신청 페이지에서 확인";
   return {
     id,
     name,
     category: textValue(row.category) ?? "프로그램",
     field: textValue(row.field) ?? "",
     facility: textValue(row.facility) ?? "장소 정보 확인 중",
-    room: textValue(row.room),
+    room: displayRoomText(textValue(row.room)),
     address: textValue(row.address),
     area: textValue(row.area) ?? "",
     region: textValue(row.region) ?? undefined,
     latitude,
     longitude,
-    isFree: row.is_free === true,
-    feeText: textValue(row.fee_text) ?? "신청 페이지에서 확인",
+    isFree: row.is_free === true || feeText === "무료",
+    feeText,
     status: textValue(row.status) ?? "일정 확인",
-    audiences: Array.isArray(row.audiences)
-      ? row.audiences.map(textValue).filter((value): value is string => Boolean(value))
-      : [],
-    scheduleText: textValue(row.schedule_text),
+    audiences: displayAudienceTexts(rawAudiences, requirement),
+    scheduleText: displayScheduleText(textValue(row.schedule_text)),
     periodText: textValue(row.period_text),
     receiptStart: textValue(row.receipt_start),
     receiptEnd: textValue(row.receipt_end),
     applyUrl: safePublicUrl(row.apply_url),
     phone: textValue(row.phone),
     summary: plainText(row.summary) || "자세한 내용은 신청 페이지에서 확인해 주세요.",
-    requirement: textValue(row.requirement),
+    requirement,
     preparation: textValue(row.preparation),
     imageUrl: safePublicUrl(row.primary_image_url),
     source: textValue(row.source),
