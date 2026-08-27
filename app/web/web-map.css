@@ -732,6 +732,7 @@
 .dg-openrun-card > div:last-child button { min-height: 44px; border: 0; border-radius: 13px; color: #fff; background: linear-gradient(100deg,var(--dg-lime),var(--dg-green)); font-size: 12px; font-weight: 850; cursor: pointer; }
 .dg-openrun-card > div:last-child button:last-child, .dg-openrun-card > div:last-child button.is-off { background: var(--dg-ink); }
 .dg-openrun-tip { padding: 15px; border-radius: 16px; color: #687069; background: #f4f6f4; font-size: 11px; font-weight: 700; }
+.dg-openrun-more { width: 100%; min-height: 46px; margin-top: 14px; border: 1px solid #ccebd5; border-radius: 14px; color: #168f41; background: #f1fbf4; font-weight: 850; cursor: pointer; }
 .dg-heat-hero { background: linear-gradient(145deg,#edf8ff,#d9effc); }
 
 /* iOS parity: route, roadview, nearby places, account sync, family and alerts */

@@ -784,6 +784,17 @@ export async function fetchWebSearchCandidates(input: Pick<ProgramQuery, "subjec
   }).filter((item): item is WebProgram => Boolean(item));
 }
 
+export async function fetchWebOpenRunPrograms(limit = 1_000): Promise<WebProgram[]> {
+  const rows = await rpc("get_open_run_programs_v1", {
+    p_limit: Math.max(1, Math.min(1_000, Math.round(limit))),
+  });
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  return rows.map((value) => value && typeof value === "object"
+    ? normalizedProgram(value as ProgramRow)
+    : null).filter((item): item is WebProgram => Boolean(item) && !seen.has(item!.id) && Boolean(seen.add(item!.id)));
+}
+
 export async function fetchWebPlaceSuggestions(query: string, limit = 60): Promise<WebPlaceSuggestion[]> {
   const safeQuery = safeSearchTerm(query);
   if (safeQuery.length < 2) return [];

@@ -761,15 +761,15 @@ async function fetchMapFilterCatalog(body: MapFilterRequest, signal?: AbortSigna
   return payload;
 }
 
-async function fetchSearchSuggestions(query: string): Promise<WebPlaceSuggestion[]> {
+async function fetchSearchSuggestions(query: string, signal?: AbortSignal): Promise<WebPlaceSuggestion[]> {
   const params = new URLSearchParams({ q: query });
-  const response = await fetch(`/api/web-search-assistant?${params}`, { cache: "no-store" });
+  const response = await fetch(`/api/web-search-assistant?${params}`, { signal, cache: "no-store" });
   const payload = await response.json() as { suggestions?: WebPlaceSuggestion[]; message?: string };
   if (!response.ok) throw new Error(payload.message ?? "지역·장소 이름을 확인하지 못했습니다.");
   return payload.suggestions ?? [];
 }
 
-async function fetchProgramsAroundPlace(place: WebPlaceSuggestion, radiusKm: number): Promise<WebProgram[]> {
+async function fetchProgramsAroundPlace(place: WebPlaceSuggestion, radiusKm: number, signal?: AbortSignal): Promise<WebProgram[]> {
   if (place.latitude === null || place.longitude === null) return [];
   const params = new URLSearchParams({
     mode: "nearby",
@@ -777,7 +777,7 @@ async function fetchProgramsAroundPlace(place: WebPlaceSuggestion, radiusKm: num
     longitude: String(place.longitude),
     radiusKm: String(radiusKm),
   });
-  const response = await fetch(`/api/web-search-assistant?${params}`, { cache: "no-store" });
+  const response = await fetch(`/api/web-search-assistant?${params}`, { signal, cache: "no-store" });
   const payload = await response.json() as { programs?: WebProgram[]; message?: string };
   if (!response.ok) throw new Error(payload.message ?? "장소 주변 프로그램을 불러오지 못했습니다.");
   return payload.programs ?? [];
@@ -796,6 +796,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const mapItemsRef = useRef<KakaoMapItem[]>([]);
   const mapRequestIDRef = useRef(0);
   const mapBoundsAbortRef = useRef<AbortController | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+  const searchSuggestionAbortRef = useRef<AbortController | null>(null);
   const initialLocationRequestStartedRef = useRef(false);
   const searchRequestIDRef = useRef(0);
   const searchSuggestionRequestIDRef = useRef(0);
@@ -823,6 +825,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const mapFilterRequestKeyRef = useRef<string | null>(null);
   const [filterCatalogReadyRequestId, setFilterCatalogReadyRequestId] = useState(0);
   const [programs, setPrograms] = useState<WebProgram[]>([]);
+  const [openRunPrograms, setOpenRunPrograms] = useState<WebProgram[]>([]);
   const [mapClusters, setMapClusters] = useState<WebMapCluster[]>([]);
   const [programCounts, setProgramCounts] = useState<Record<string, number>>({});
   const [mapMode, setMapMode] = useState<"individual" | "cluster">("individual");
@@ -917,10 +920,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [familyMembers, setFamilyMembers] = useState<WebFamilyMember[]>([]);
   const [alertDialog, setAlertDialog] = useState<AlertDialogState | null>(null);
 
-  const openRunBadge = useMemo(
-    () => Math.min(9, programs.filter((program) => program.receiptStart && isAvailable(program)).length),
-    [programs],
-  );
+  const openRunBadge = openRunPrograms.length;
   const activeConditionCount = useMemo(() => {
     let count = subjectFilters.length + personaFilters.length;
     if (fieldFilter !== "전체") count += 1;
@@ -1018,6 +1018,21 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/web-openrun", { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as { programs?: WebProgram[] };
+        if (!response.ok) throw new Error("오픈런 프로그램을 불러오지 못했습니다.");
+        setOpenRunPrograms(payload.programs ?? []);
+      })
+      .catch((fetchError) => {
+        if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
+        setOpenRunPrograms([]);
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
     if (tab !== "search") return;
     const frame = window.requestAnimationFrame(() => searchInputRef.current?.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
@@ -1032,10 +1047,14 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const candidate = searchSuggestionQuery(term, intent);
     const requestID = ++searchSuggestionRequestIDRef.current;
     const timer = window.setTimeout(() => {
-      void fetchSearchSuggestions(candidate).then((suggestions) => {
+      searchSuggestionAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchSuggestionAbortRef.current = controller;
+      void fetchSearchSuggestions(candidate, controller.signal).then((suggestions) => {
         if (requestID !== searchSuggestionRequestIDRef.current || queryRef.current.trim() !== term) return;
         setSearchSuggestions(suggestions);
-      }).catch(() => {
+      }).catch((fetchError) => {
+        if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
         if (requestID !== searchSuggestionRequestIDRef.current || queryRef.current.trim() !== term) return;
         setSearchSuggestions([]);
         setSearchSuggestionError("추가 지역·장소 이름을 확인하지 못했어요. 검색은 그대로 진행할 수 있어요.");
@@ -1043,7 +1062,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         if (requestID === searchSuggestionRequestIDRef.current) setSearchSuggestionsLoading(false);
       });
     }, 120);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      searchSuggestionAbortRef.current?.abort();
+    };
   }, [query, submittedQuery, tab]);
 
   const synchronizeAccount = useCallback(async (activeSession: Session) => {
@@ -1098,7 +1120,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         try {
           const hydrated = await fetchPrograms(parameters);
           for (const program of hydrated) programByID.set(program.id, program);
-        } catch {
+        } catch (suggestionError) {
+          if (suggestionError instanceof DOMException && suggestionError.name === "AbortError") return;
           // Keep the rest of the account snapshot usable when an old program was retired.
         }
       }
@@ -1729,6 +1752,12 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   }, [mapClusters, center]);
 
   const selectProgram = useCallback(async (program: WebProgram, samePlacePrograms: WebProgram[] = [program]) => {
+    searchAbortRef.current?.abort();
+    searchSuggestionAbortRef.current?.abort();
+    searchRequestIDRef.current += 1;
+    searchSuggestionRequestIDRef.current += 1;
+    setLoading(false);
+    setSearchSuggestionsLoading(false);
     const detailPrograms = samePlacePrograms.some((candidate) => candidate.id === program.id)
       ? samePlacePrograms
       : [program, ...samePlacePrograms];
@@ -2105,13 +2134,21 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     place: WebPlaceSuggestion,
     radius: number,
     requestID = ++searchRequestIDRef.current,
+    signal?: AbortSignal,
   ) => {
+    let requestSignal = signal;
+    if (!requestSignal) {
+      searchAbortRef.current?.abort();
+      const controller = new AbortController();
+      searchAbortRef.current = controller;
+      requestSignal = controller.signal;
+    }
     setSearchAssistant({ kind: "placeSearching", place, radiusKm: radius });
     setSearchWarning("");
     setLoading(true);
     setSearchProgress(82);
     try {
-      const candidates = await fetchProgramsAroundPlace(place, radius);
+      const candidates = await fetchProgramsAroundPlace(place, radius, requestSignal);
       if (requestID !== searchRequestIDRef.current) return;
       const assisted = searchAroundPlacePrograms(candidates, expectedQuery, place, radius);
       const matches = assisted.results.map((item) => item.program);
@@ -2144,7 +2181,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           ? { kind: "placeExpand", place, currentRadiusKm: radius, nextRadiusKm: nextRadius, remoteSucceeded: true }
           : { kind: "idle" });
       }
-    } catch {
+    } catch (placeError) {
+      if (placeError instanceof DOMException && placeError.name === "AbortError") return;
       if (requestID !== searchRequestIDRef.current) return;
       const nextRadius = SEARCH_PLACE_RADIUS_OPTIONS.find((value) => value > radius + 0.01);
       setSearchResults([]);
@@ -2161,6 +2199,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const term = rawTerm.trim();
     if (!term) return;
     queryRef.current = term;
+    searchAbortRef.current?.abort();
+    searchSuggestionAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
     const requestID = ++searchRequestIDRef.current;
     const intent = parseSearchIntent(term);
     let hadLocalResults = false;
@@ -2184,7 +2226,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       let suggestions = searchSuggestions;
       if (shouldRequestPlaceSuggestions(term, intent)) {
         try {
-          suggestions = await fetchSearchSuggestions(searchSuggestionQuery(term, intent));
+          suggestions = await fetchSearchSuggestions(searchSuggestionQuery(term, intent), controller.signal);
           if (requestID !== searchRequestIDRef.current) return;
           setSearchSuggestions(suggestions);
         } catch {
@@ -2218,9 +2260,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       [...new Set([...intent.areaTerms, ...cityScope.candidateAreaTerms])].forEach((value) => params.append("area", value));
       intent.generalTerms.forEach((value) => params.append("general", value));
       const [fetchedCandidates, preferredPrograms] = await Promise.all([
-        fetchPrograms(params),
+        fetchPrograms(params, controller.signal),
         preferredProgramID
-          ? fetchPrograms(new URLSearchParams({ id: preferredProgramID })).catch(() => [] as WebProgram[])
+          ? fetchPrograms(new URLSearchParams({ id: preferredProgramID }), controller.signal).catch(() => [] as WebProgram[])
           : Promise.resolve([] as WebProgram[]),
       ]);
       if (requestID !== searchRequestIDRef.current) return;
@@ -2251,7 +2293,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       if (canCheckNationwideTitle) {
         const nationwideParams = new URLSearchParams();
         intent.generalTerms.forEach((value) => nationwideParams.append("general", value));
-        const nationwideCandidates = await fetchPrograms(nationwideParams);
+        const nationwideCandidates = await fetchPrograms(nationwideParams, controller.signal);
         if (requestID !== searchRequestIDRef.current) return;
         titleSuggestion = strongOutOfAreaTitleSuggestion(term, cityScope, nationwideCandidates);
       }
@@ -2264,7 +2306,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       } else if (place && place.placeKind !== "administrative") {
         const shouldAutomaticallySearch = place.confidence >= 90 || matches.length <= 10;
         if (shouldAutomaticallySearch) {
-          await runPlaceSearch(term, place, 1, requestID);
+          await runPlaceSearch(term, place, 1, requestID, controller.signal);
           return;
         }
         setSearchAssistant({ kind: "placeOffer", place, radiusKm: 1 });
@@ -2276,7 +2318,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         matches.slice(0, 120).forEach((program) => bounds.extend(new maps.LatLng(program.latitude, program.longitude)));
         mapRef.current.setBounds(bounds, 70, 70, 70, 70);
       }
-    } catch {
+    } catch (searchError) {
+      if (searchError instanceof DOMException && searchError.name === "AbortError") return;
       if (requestID !== searchRequestIDRef.current) return;
       setSearchProgress(100);
       setSearchWarning(hadLocalResults
@@ -2288,6 +2331,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   };
 
   const updateSearchQuery = (value: string) => {
+    searchAbortRef.current?.abort();
     queryRef.current = value;
     setQuery(value);
     searchSuggestionRequestIDRef.current += 1;
@@ -2310,6 +2354,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   };
 
   const clearSearch = () => {
+    searchAbortRef.current?.abort();
+    searchSuggestionAbortRef.current?.abort();
     queryRef.current = "";
     searchRequestIDRef.current += 1;
     searchSuggestionRequestIDRef.current += 1;
@@ -2677,6 +2723,14 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       return;
     }
     searchActiveRef.current = nextTab === "search";
+    if (nextTab !== "search") {
+      searchAbortRef.current?.abort();
+      searchSuggestionAbortRef.current?.abort();
+      searchRequestIDRef.current += 1;
+      searchSuggestionRequestIDRef.current += 1;
+      setLoading(false);
+      setSearchSuggestionsLoading(false);
+    }
     if (nextTab === "map") setMobileSheetSnap("hidden");
     setTab(nextTab);
     setSelected(null);
@@ -3051,7 +3105,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         <nav className={!WEB_ACCOUNT_FEATURES_VISIBLE ? "dg-public-nav" : undefined}>
           {TABS.map((item) => (
             <button key={item.id} type="button" className={tab === item.id && !selected ? "active" : ""} onClick={() => changeTab(item.id)}>
-              <span aria-hidden="true">{item.id === "me" ? <Menu /> : item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge}</em>}</span>{item.label}
+              <span aria-hidden="true">{item.id === "me" ? <Menu /> : item.icon}{item.id === "openrun" && openRunBadge > 0 && <em className="dg-tab-badge">{openRunBadge > 9 ? "9+" : openRunBadge}</em>}</span>{item.label}
             </button>
           ))}
         </nav>
@@ -3267,7 +3321,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             <p className="dg-readonly-note">로그인 전에는 이 브라우저에만 저장되고, 로그인 후에는 본인에게만 보이는 Supabase 행으로 동기화됩니다.</p>
           </section>
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "openrun" ? (
-          <OpenRunPanel programs={programs} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
+          <OpenRunPanel programs={openRunPrograms} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
         ) : (
           <>
             <header className="dg-panel-header">
@@ -4757,22 +4811,37 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
 }
 
 function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }: { programs: WebProgram[]; reminders: string[]; onBack: () => void; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const suggestions = ["수영", "요가", "필라테스", "미술", "음악", "서예", "공예", "사진", "무료", "시니어"];
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const upcoming = programs.filter((program) => {
-    if (!program.receiptStart || !isAvailable(program)) return false;
-    const start = new Date(program.receiptStart).getTime();
-    return Number.isFinite(start) && start >= todayStart.getTime();
-  }).filter((program) => !keywords.length || keywords.some((keyword) => `${program.name} ${program.category} ${program.field} ${program.audiences.join(" ")} ${program.isFree ? "무료" : ""}`.includes(keyword))).sort((a, b) => (a.receiptStart ?? "9999").localeCompare(b.receiptStart ?? "9999")).slice(0, 100);
+  const [category, setCategory] = useState<string | null>(null);
+  const [visibleLimit, setVisibleLimit] = useState(80);
+  const [referenceNow] = useState(() => Date.now());
+  const categories = useMemo(() => searchResultCategories(programs), [programs]);
+  const upcoming = useMemo(() => programs
+    .filter((program) => !category || searchResultCategoryIDs(program).includes(category))
+    .sort((a, b) => {
+      const now = referenceNow;
+      const aStart = a.receiptStart ? new Date(a.receiptStart).getTime() : Number.NaN;
+      const bStart = b.receiptStart ? new Date(b.receiptStart).getTime() : Number.NaN;
+      const aNext = Number.isFinite(aStart) && aStart > now ? aStart : (a.receiptEnd ? new Date(a.receiptEnd).getTime() : Infinity);
+      const bNext = Number.isFinite(bStart) && bStart > now ? bStart : (b.receiptEnd ? new Date(b.receiptEnd).getTime() : Infinity);
+      return aNext - bNext || a.name.localeCompare(b.name, "ko");
+    }), [category, programs, referenceNow]);
+  const visible = upcoming.slice(0, visibleLimit);
   const banner = (program: WebProgram) => {
     if (/마감임박/.test(program.status)) return "곧 마감돼요";
-    if (!program.receiptStart) return "접수 일정 확인 중";
+    const now = referenceNow;
+    if (!program.receiptStart || new Date(program.receiptStart).getTime() <= now) {
+      if (!program.receiptEnd) return "접수 일정 확인 중";
+      const end = new Date(program.receiptEnd);
+      return `${end.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} ${end.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })} 접수 마감`;
+    }
     const date = new Date(program.receiptStart);
     return `${date.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" })} ${date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })} 접수 시작`;
   };
-  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong><small>자세히 보기 ›</small></div><p>관심 키워드를 선택하면 해당 프로그램만 알려드려요</p><div>{suggestions.map((keyword) => <button type="button" key={keyword} className={keywords.includes(keyword) ? "active" : ""} onClick={() => setKeywords((current) => current.includes(keyword) ? current.filter((item) => item !== keyword) : [...current, keyword])}>{keywords.includes(keyword) ? `${keyword} ✓` : keyword}</button>)}</div></section>{upcoming.length ? upcoming.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{keywords.length ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{keywords.length > 0 && <button type="button" onClick={() => setKeywords([])}>키워드 해제하기</button>}</div>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
+  const selectCategory = (next: string | null) => {
+    setCategory(next);
+    setVisibleLimit(80);
+  };
+  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>실제 오픈런 프로그램에 있는 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 80)}>{Math.min(80, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
 }
 
 function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {

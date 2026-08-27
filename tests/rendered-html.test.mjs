@@ -330,6 +330,7 @@ test("웹 프로그램 API는 공개 SELECT와 읽기 전용 RPC만 사용하며
   const rpcNames = [...data.matchAll(/rpc\("([^"]+)"/g)].map((match) => match[1]);
   assert.deepEqual(rpcNames.sort(), [
     "get_heat_shelters_in_bounds",
+    "get_open_run_programs_v1",
     "get_program_map_filter_catalog_v3",
     "get_program_map_viewport_v4",
     "get_programs_by_map_cluster_ids",
