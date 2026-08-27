@@ -687,18 +687,19 @@
 .dg-family-panel { position: relative; }
 .dg-family-program-list { min-height: 0; flex: 1; overflow-y: auto; padding: 14px 16px 34px; background: var(--dg-soft); }
 .dg-family-program-card { margin-bottom: 12px; overflow: hidden; border: 1px solid #e1e9e2; border-radius: 21px; background: #fff; box-shadow: 0 5px 16px rgba(31,60,39,.09); }
-.dg-family-program-main { width: 100%; padding: 15px; border: 0; color: var(--dg-ink); background: #fff; text-align: left; cursor: pointer; }
+.dg-family-program-main { width: 100%; padding: 17px 17px 0; color: var(--dg-ink); background: #fff; text-align: left; }
 .dg-family-program-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .dg-family-program-heading > span { display: flex; flex-wrap: wrap; gap: 5px; }
-.dg-family-program-heading img { width: 45px; height: 45px; object-fit: contain; }
-.dg-family-program-card h2 { margin: 8px 0 12px; font-size: 17px; line-height: 1.4; }
-.dg-family-program-card dl { margin: 0; padding: 12px; display: grid; gap: 9px; border-radius: 15px; background: #f4f7f4; }
-.dg-family-program-card dl > div { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 8px; align-items: start; }
-.dg-family-program-card dt { width: 20px; height: 20px; display: grid; place-items: center; color: var(--dg-green); font-size: 14px; font-weight: 900; }
-.dg-family-program-card dt svg { width: 17px; height: 17px; }
-.dg-family-program-card dd { min-width: 0; margin: 0; display: grid; gap: 2px; }
-.dg-family-program-card dd small { color: #939b94; font-size: 10px; font-weight: 800; }
-.dg-family-program-card dd strong { color: #59635b; font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.dg-family-program-heading > div { display: flex; align-items: center; gap: 7px; }
+.dg-family-program-heading img { width: 46px; height: 46px; object-fit: contain; }
+.dg-family-program-heading > div button { width: 46px; height: 46px; display: grid; place-items: center; border: 0; border-radius: 50%; color: #fff; background: var(--dg-green); box-shadow: 0 5px 13px rgba(35,173,76,.23); cursor: pointer; }
+.dg-family-program-heading > div button svg { width: 24px; height: 24px; stroke-width: 2.5; }
+.dg-family-program-open { width: 100%; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.dg-family-program-card h2 { margin: 17px 0 8px; font-size: 19px; line-height: 1.4; }
+.dg-family-program-open > p { overflow: hidden; margin: 0; color: #707972; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.dg-family-program-meta { margin-top: 15px; padding: 13px 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e5ebe6; color: #8d958f; font-size: 12.5px; }
+.dg-family-program-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-family-program-meta strong { flex: none; font-weight: 700; }
 .dg-family-program-actions { padding: 0 15px 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .dg-family-program-actions button, .dg-family-program-actions a { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 14px; color: var(--dg-green-deep); background: #edf8e9; font-size: 12px; font-weight: 900; text-decoration: none; cursor: pointer; }
 .dg-family-program-actions .kakao { color: #3b1e1e; background: #fee500; }

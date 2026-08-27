@@ -596,12 +596,12 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.doesNotMatch(webMapStyle, /dg-selected-marker-shimmer/);
 });
 
-test("가족 추천은 주변 카드 정보와 공유·전화·위로가기 동작을 함께 제공한다", () => {
+test("가족 추천은 간결한 주변 카드와 지도·공유·전화·위로가기 동작을 함께 제공한다", () => {
   assert.match(webMapSource, /dg-family-program-card/);
-  assert.match(webMapSource, /위치·장소/);
-  assert.match(webMapSource, /이용시간/);
-  assert.match(webMapSource, /이용요금/);
+  assert.match(webMapSource, /dg-family-program-meta/);
+  assert.match(webMapSource, /지도에서 위치 보기/);
   assert.match(webMapSource, /카톡공유/);
-  assert.match(webMapSource, /기관전화/);
+  assert.match(webMapSource, /전화걸기/);
   assert.match(webMapSource, /dg-family-scroll-top/);
+  assert.match(webMapStyle, /\.dg-family-program-heading > div button \{[^}]*border-radius: 50%/);
 });
