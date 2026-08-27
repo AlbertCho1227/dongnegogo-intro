@@ -595,3 +595,13 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.match(webMapStyle, /\.dg-map-marker\.is-selected \{ animation:\s*dg-selected-marker-border-blink/);
   assert.doesNotMatch(webMapStyle, /dg-selected-marker-shimmer/);
 });
+
+test("가족 추천은 주변 카드 정보와 공유·전화·위로가기 동작을 함께 제공한다", () => {
+  assert.match(webMapSource, /dg-family-program-card/);
+  assert.match(webMapSource, /위치·장소/);
+  assert.match(webMapSource, /이용시간/);
+  assert.match(webMapSource, /이용요금/);
+  assert.match(webMapSource, /카톡공유/);
+  assert.match(webMapSource, /기관전화/);
+  assert.match(webMapSource, /dg-family-scroll-top/);
+});
