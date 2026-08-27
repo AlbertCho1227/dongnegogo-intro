@@ -63,6 +63,28 @@ import {
 } from "@/lib/web-user-data";
 
 type KakaoLatLng = { getLat: () => number; getLng: () => number };
+const WEB_OPEN_RUN_CACHE_PREFIX = "dongnegogo.web.open-run.v1";
+const WEB_OPEN_RUN_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
+
+type WebOpenRunCachePayload = { savedAt: number; programs: WebProgram[] };
+
+export function readCachedWebOpenRunPrograms(city: string, now = Date.now()): WebProgram[] {
+  try {
+    const payload = JSON.parse(localStorage.getItem(`${WEB_OPEN_RUN_CACHE_PREFIX}:${city}`) ?? "null") as WebOpenRunCachePayload | null;
+    if (!payload || !Array.isArray(payload.programs) || now - payload.savedAt > WEB_OPEN_RUN_CACHE_TTL_MS) return [];
+    return payload.programs.filter((program) => Boolean(program?.id));
+  } catch {
+    return [];
+  }
+}
+
+function cacheWebOpenRunPrograms(city: string, programs: WebProgram[]) {
+  try {
+    localStorage.setItem(`${WEB_OPEN_RUN_CACHE_PREFIX}:${city}`, JSON.stringify({ savedAt: Date.now(), programs } satisfies WebOpenRunCachePayload));
+  } catch {
+    // 브라우저 저장 한도를 넘겨도 현재 응답은 그대로 사용한다.
+  }
+}
 type KakaoBounds = { getSouthWest: () => KakaoLatLng; getNorthEast: () => KakaoLatLng; extend: (position: KakaoLatLng) => void };
 type KakaoMap = {
   getBounds: () => KakaoBounds; getCenter: () => KakaoLatLng; getLevel: () => number;
@@ -1037,11 +1059,15 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
 
   useEffect(() => {
     const controller = new AbortController();
+    const cached = readCachedWebOpenRunPrograms(openRunCity);
+    if (cached.length > 0) setOpenRunPrograms(cached);
     void fetch(`/api/web-openrun?city=${encodeURIComponent(openRunCity)}`, { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json() as { programs?: WebProgram[] };
         if (!response.ok) throw new Error("오픈런 프로그램을 불러오지 못했습니다.");
-        setOpenRunPrograms(payload.programs ?? []);
+        const next = payload.programs ?? [];
+        setOpenRunPrograms(next);
+        cacheWebOpenRunPrograms(openRunCity, next);
       })
       .catch((fetchError) => {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
@@ -2598,7 +2624,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     }
   };
 
-  const saveAlert = async () => {
+  const saveAlert = () => {
     if (!alertDialog) return;
     const parsed = new Date(alertDialog.scheduledAt);
     if (!Number.isFinite(parsed.getTime()) || parsed.getTime() <= Date.now()) {
@@ -2615,39 +2641,37 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     const nextAlerts = [saved, ...userAlerts.filter((item) => item.program_id !== saved.program_id)];
     setUserAlerts(nextAlerts);
     setReminders((previous) => previous.includes(saved.program_id) ? previous : [...previous, saved.program_id]);
+    localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
+    persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
+    // 일정 화면은 로컬 저장 직후 닫고, 계정 동기화와 권한 요청은 UI 뒤에서
+    // 이어서 처리한다. 느린 네트워크가 설정 완료 반응을 막지 않는다.
+    setAlertDialog(null);
     if (session) {
-      try { await upsertWebAlert(session, saved.program_id, saved.scheduled_at); }
-      catch (syncError) {
+      void upsertWebAlert(session, saved.program_id, saved.scheduled_at).catch((syncError) => {
         setAccountError(syncError instanceof Error ? syncError.message : "알림 시간을 동기화하지 못했어요.");
-      }
-    } else {
-      localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
-      persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
+      });
     }
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
-      await Notification.requestPermission().catch(() => "denied");
+      void Notification.requestPermission().catch(() => "denied");
     }
-    setAlertDialog(null);
   };
 
-  const removeAlertForProgram = async (id: string) => {
+  const removeAlertForProgram = (id: string) => {
     const nextAlerts = userAlerts.filter((item) => item.program_id !== id);
     setUserAlerts(nextAlerts);
     setReminders((previous) => previous.filter((item) => item !== id));
+    localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
+    persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
     if (session) {
-      try { await deleteWebAlert(session, id); }
-      catch (syncError) {
+      void deleteWebAlert(session, id).catch((syncError) => {
         setAccountError(syncError instanceof Error ? syncError.message : "알림을 해제하지 못했어요.");
-      }
-    } else {
-      localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
-      persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
+      });
     }
   };
 
-  const removeAlert = async () => {
+  const removeAlert = () => {
     if (!alertDialog) return;
-    await removeAlertForProgram(alertDialog.program.id);
+    removeAlertForProgram(alertDialog.program.id);
     setAlertDialog(null);
   };
 
@@ -4864,16 +4888,18 @@ function OpenRunPanel({ cityName, programs, reminders, onBack, onToggleReminder,
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [referenceNow] = useState(() => Date.now());
   const categories = useMemo(() => searchResultCategories(programs), [programs]);
-  const upcoming = useMemo(() => programs
-    .filter((program) => !category || searchResultCategoryIDs(program).includes(category))
-    .sort((a, b) => {
+  const orderedPrograms = useMemo(() => [...programs].sort((a, b) => {
       const now = referenceNow;
       const aStart = a.receiptStart ? new Date(a.receiptStart).getTime() : Number.NaN;
       const bStart = b.receiptStart ? new Date(b.receiptStart).getTime() : Number.NaN;
       const aNext = Number.isFinite(aStart) && aStart > now ? aStart : (a.receiptEnd ? new Date(a.receiptEnd).getTime() : Infinity);
       const bNext = Number.isFinite(bStart) && bStart > now ? bStart : (b.receiptEnd ? new Date(b.receiptEnd).getTime() : Infinity);
       return aNext - bNext || a.name.localeCompare(b.name, "ko");
-    }), [category, programs, referenceNow]);
+    }), [programs, referenceNow]);
+  const upcoming = useMemo(() => category
+    ? orderedPrograms.filter((program) => searchResultCategoryIDs(program).includes(category))
+    : orderedPrograms,
+  [category, orderedPrograms]);
   const visible = upcoming.slice(0, visibleLimit);
   const banner = (program: WebProgram) => {
     if (/마감임박/.test(program.status)) return "곧 마감돼요";
@@ -5004,7 +5030,7 @@ function PanelHeader({ title, subtitle, onBack }: { title: string; subtitle?: st
   return <header className="dg-subpanel-header"><button type="button" onClick={onBack}>‹</button><div><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</div></header>;
 }
 
-function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { programs: WebProgram[]; alerts: WebUserAlert[]; onBack: () => void; onOpen: (program: WebProgram) => void; onDelete: (programID: string) => Promise<void> }) {
+function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { programs: WebProgram[]; alerts: WebUserAlert[]; onBack: () => void; onOpen: (program: WebProgram) => void; onDelete: (programID: string) => void }) {
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
