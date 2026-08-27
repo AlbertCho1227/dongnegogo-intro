@@ -1709,7 +1709,6 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       });
     }
     if (tab === "saved") return mapVisiblePrograms.filter((program) => favorites.includes(program.id));
-    if (tab === "openrun") return mapVisiblePrograms.filter((program) => program.receiptStart && isAvailable(program));
     return mapVisiblePrograms;
   }, [tab, searchIntent, searchResultCategory, searchResults, searchSort, searchAssistant, location, mapVisiblePrograms, favorites]);
 
@@ -4831,10 +4830,12 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
 
 function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }: { programs: WebProgram[]; reminders: string[]; onBack: () => void; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
   const [category, setCategory] = useState<string | null>(null);
-  const [visibleLimit, setVisibleLimit] = useState(80);
+  const [visibleLimit, setVisibleLimit] = useState(32);
+  const [contentReady, setContentReady] = useState(false);
   const [referenceNow] = useState(() => Date.now());
-  const categories = useMemo(() => searchResultCategories(programs), [programs]);
-  const upcoming = useMemo(() => programs
+  const readyPrograms = useMemo(() => contentReady ? programs : [], [contentReady, programs]);
+  const categories = useMemo(() => searchResultCategories(readyPrograms), [readyPrograms]);
+  const upcoming = useMemo(() => readyPrograms
     .filter((program) => !category || searchResultCategoryIDs(program).includes(category))
     .sort((a, b) => {
       const now = referenceNow;
@@ -4843,8 +4844,12 @@ function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }:
       const aNext = Number.isFinite(aStart) && aStart > now ? aStart : (a.receiptEnd ? new Date(a.receiptEnd).getTime() : Infinity);
       const bNext = Number.isFinite(bStart) && bStart > now ? bStart : (b.receiptEnd ? new Date(b.receiptEnd).getTime() : Infinity);
       return aNext - bNext || a.name.localeCompare(b.name, "ko");
-    }), [category, programs, referenceNow]);
+    }), [category, readyPrograms, referenceNow]);
   const visible = upcoming.slice(0, visibleLimit);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setContentReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const banner = (program: WebProgram) => {
     if (/마감임박/.test(program.status)) return "곧 마감돼요";
     const now = referenceNow;
@@ -4858,9 +4863,9 @@ function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }:
   };
   const selectCategory = (next: string | null) => {
     setCategory(next);
-    setVisibleLimit(80);
+    setVisibleLimit(32);
   };
-  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll"><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>실제 오픈런 프로그램에 있는 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 80)}>{Math.min(80, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div></section>;
+  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll">{!contentReady ? <div className="dg-openrun-loading" role="status"><span /><strong>오픈런 프로그램을 준비하고 있어요</strong></div> : <><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>실제 오픈런 프로그램에 있는 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 32)}>{Math.min(32, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></>}</div></section>;
 }
 
 function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {

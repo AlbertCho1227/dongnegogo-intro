@@ -480,3 +480,12 @@ test("메인 지도에서 찾기 화면은 이전 결과와 지도 마커를 다
   assert.match(source, /renderedResults\.length < visibleResults\.length/);
   assert.doesNotMatch(source, /visibleResults\.slice\(0, 300\)/);
 });
+
+test("오픈런 화면은 지도 마커를 다시 만들지 않고 목록을 다음 프레임부터 나눠 표시한다", async () => {
+  const source = await readFile(new URL("app/web/web-map-app.tsx", projectRoot), "utf8");
+  assert.doesNotMatch(source, /tab === "openrun"\) return mapVisiblePrograms\.filter/);
+  assert.match(source, /const \[visibleLimit, setVisibleLimit\] = useState\(32\)/);
+  assert.match(source, /requestAnimationFrame\(\(\) => setContentReady\(true\)\)/);
+  assert.match(source, /className="dg-openrun-loading" role="status"/);
+  assert.match(source, /setVisibleLimit\(\(current\) => current \+ 32\)/);
+});
