@@ -10,6 +10,7 @@ import { officialProgramAccess } from "@/lib/official-program-access";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, toggleSingleWebDetailFilter, webProgramMatchesFilters } from "@/lib/web-program-filters";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
+import { familyProgramsForProfile, type WebFamilyProgramResult } from "@/lib/web-family-programs";
 import { spreadMarkerCollisions } from "@/lib/marker-collision";
 import {
   hasAmbiguousAdministrativeSuggestions,
@@ -748,6 +749,14 @@ async function fetchPrograms(params: URLSearchParams, signal?: AbortSignal): Pro
   const payload = await response.json() as { programs?: WebProgram[]; message?: string };
   if (!response.ok) throw new Error(payload.message ?? "프로그램을 불러오지 못했습니다.");
   return payload.programs ?? [];
+}
+
+async function fetchFamilyRegionPrograms(region: string, signal?: AbortSignal): Promise<WebFamilyProgramResult> {
+  const params = new URLSearchParams({ region });
+  const response = await fetch(`/api/web-family-programs?${params}`, { signal, cache: "no-store" });
+  const payload = await response.json() as WebFamilyProgramResult & { message?: string };
+  if (!response.ok) throw new Error(payload.message ?? "가족 프로그램을 불러오지 못했습니다.");
+  return payload;
 }
 
 async function fetchMapFilterCatalog(body: MapFilterRequest, signal?: AbortSignal): Promise<MapFilterResponse> {
@@ -3218,7 +3227,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             onDelete={(programID) => removeAlertForProgram(programID)}
           />
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && auxiliaryPanel === "family" ? (
-          <FamilyPanel programs={programs} members={familyMembers} signedIn={Boolean(session)} origin={location}
+          <FamilyPanel members={familyMembers} signedIn={Boolean(session)} origin={location}
             onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }}
             onMap={(program) => { setAuxiliaryPanel(null); focusFilteredClusterProgram(program); }}
             onShare={share} onSave={saveFamily} onRemove={removeFamily} />
@@ -4934,11 +4943,14 @@ function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { program
   return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={[day && eventDays.has(day) ? "has-event" : "", day && alertDays.has(day) ? "has-alert" : ""].filter(Boolean).join(" ")}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list dg-calendar-event-list">{events.length ? events.map(({ program, date, kind }) => <article className="dg-calendar-event-group" key={`${kind}:${program.id}:${date.toISOString()}`}><button className="dg-calendar-program-card" type="button" onClick={() => onOpen(program)} aria-label={`${program.name} 자세히 보기`}><img src={`/markers/${programIconName(program)}.png`} alt=""/><span><small>{program.status}</small><strong>{program.name}</strong><em>{program.facility}</em></span><ChevronRight aria-hidden="true"/></button><div className="dg-calendar-schedule-card"><span className="dg-date-badge">{date.getDate()}</span><span><small>{kind === "alert" ? "알림 일정" : "접수 일정"}</small><strong>{date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</strong><em>{date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}</em></span>{kind === "alert" && <button type="button" onClick={() => { void onDelete(program.id); }} aria-label={`${program.name} 알림 일정 삭제`}><Trash2 aria-hidden="true"/>삭제</button>}</div></article>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
 }
 
-function FamilyPanel({ programs, members, signedIn, origin, onBack, onOpen, onMap, onShare, onSave, onRemove }: { programs: WebProgram[]; members: WebFamilyMember[]; signedIn: boolean; origin: Coordinate; onBack: () => void; onOpen: (program: WebProgram) => void; onMap: (program: WebProgram) => void; onShare: (program: WebProgram) => Promise<void>; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {
+function FamilyPanel({ members, signedIn, origin, onBack, onOpen, onMap, onShare, onSave, onRemove }: { members: WebFamilyMember[]; signedIn: boolean; origin: Coordinate; onBack: () => void; onOpen: (program: WebProgram) => void; onMap: (program: WebProgram) => void; onShare: (program: WebProgram) => Promise<void>; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {
   const [role, setRole] = useState<WebFamilyMember["role"]>("어머니");
   const [name, setName] = useState("");
   const [ageGroup, setAgeGroup] = useState("60대");
   const [region, setRegion] = useState("서울특별시 성북구");
+  const [regionResult, setRegionResult] = useState<WebFamilyProgramResult>({ programs: [], region: "", radiusMeters: null, regionProgramCount: 0 });
+  const [regionLoading, setRegionLoading] = useState(false);
+  const [regionError, setRegionError] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const selectedMember = members.find((member) => member.role === role && (role !== "아이" || member.name === name)) ?? members.find((member) => member.role === role);
@@ -4953,23 +4965,65 @@ function FamilyPanel({ programs, members, signedIn, origin, onBack, onOpen, onMa
     return () => window.cancelAnimationFrame(frame);
   }, [members, role]);
 
-  const familyPrograms = programs.filter((program) => {
-    const audienceMatch = role === "아이"
-      ? program.audiences.some((value) => /아이|아동|어린이|청소년|유아/.test(value))
-      : role === "나" ? true
-        : program.isSeniorRecommended || program.audiences.some((value) => /시니어|어르신|성인/.test(value));
-    const regionTokens = region.split(/\s+/).filter((token) => token.length > 1);
-    const regionMatch = !regionTokens.length || regionTokens.some((token) => `${program.area} ${program.address ?? ""}`.includes(token));
-    return audienceMatch && regionMatch;
-  }).slice(0, 60);
-  const canSave = Boolean(ageGroup.trim() && region.trim() && (role !== "아이" || name.trim()));
+  useEffect(() => {
+    const requestedRegion = region.trim();
+    if (!requestedRegion) {
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setRegionLoading(true);
+      setRegionError(null);
+      void fetchFamilyRegionPrograms(requestedRegion, controller.signal)
+        .then((result) => {
+          if (!controller.signal.aborted) setRegionResult(result);
+        })
+        .catch((reason: unknown) => {
+          if (!controller.signal.aborted) {
+            setRegionResult({ programs: [], region: requestedRegion, radiusMeters: null, regionProgramCount: 0 });
+            setRegionError(reason instanceof Error ? reason.message : "저장된 동네의 프로그램을 불러오지 못했습니다.");
+          }
+        })
+        .finally(() => { if (!controller.signal.aborted) setRegionLoading(false); });
+    }, 220);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [region]);
 
-  return <section className="dg-aux-panel dg-family-panel"><PanelHeader title="가족 모드" subtitle="가족 프로필과 찜 대상을 앱과 같은 계정으로 이어요" onBack={onBack} /><div className="dg-family-tabs">{(["어머니", "아버지", "나", "아이"] as WebFamilyMember["role"][]).map((item) => <button key={item} type="button" className={role === item ? "active" : ""} onClick={() => setRole(item)}>{item}</button>)}</div><div className="dg-family-editor">{role === "아이" && <label>이름<input value={name} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="아이 별명" /></label>}<label>연령대<select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)}>{["10대 미만", "10대", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상"].map((value) => <option key={value}>{value}</option>)}</select></label><label>관심 지역<input value={region} maxLength={80} onChange={(event) => setRegion(event.target.value)} placeholder="예: 서울특별시 성북구" /></label><div><button type="button" disabled={!canSave} onClick={() => onSave({ role, name: role === "아이" ? name.trim() : null, age_group: ageGroup, region: region.trim() })}>{selectedMember ? "가족 정보 수정" : "가족 정보 저장"}</button>{selectedMember && <button type="button" className="danger" onClick={() => onRemove(selectedMember)}>삭제</button>}</div><p>{signedIn ? "본인 계정에만 보이도록 Supabase RLS로 동기화됩니다." : "로그인 전에는 이 브라우저에만 저장됩니다."}</p></div><div className="dg-family-profile"><strong>{selectedMember?.name || role}를 위한 추천</strong><span>{selectedMember?.region ?? region} · {familyPrograms.length}개</span></div><div ref={listRef} className="dg-family-program-list" onScroll={(event) => setShowTop(event.currentTarget.scrollTop > 140)}>{familyPrograms.length ? familyPrograms.map((program) => {
-    const phone = program.phone?.split(/[\/,;|\n]/).map((value) => value.trim()).find((value) => value.replace(/\D/g, "").length >= 7) ?? null;
-    const place = [...new Set([program.facility, program.room, program.address].filter(Boolean))].join(" · ");
-    const schedule = program.scheduleText ?? program.periodText ?? "일정 확인";
-    return <article className="dg-family-program-card" key={program.id}><div className="dg-family-program-main"><div className="dg-family-program-heading"><span><span className="dg-status">{program.isFree ? "무료" : program.feeText || "유료"}</span><span className={`dg-status ${statusClass(program)}`}>{program.status}</span></span><div><img src={`/markers/${programIconName(program)}.png`} alt={`${program.name} 대표 마커`} /><button type="button" onClick={() => onMap(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" /></button></div></div><button className="dg-family-program-open" type="button" onClick={() => onOpen(program)}><h2>{program.name}</h2><p>{place || "장소 확인"}</p><div className="dg-family-program-meta"><span>{schedule}</span><strong>{distanceLabel(distanceMeters(origin, program))}</strong></div></button></div><div className="dg-family-program-actions"><button className="kakao" type="button" onClick={() => { void onShare(program); }}><MessageCircle aria-hidden="true" />카톡공유</button>{phone ? <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}><Phone aria-hidden="true" />전화걸기</a> : <button type="button" disabled><Phone aria-hidden="true" />전화걸기</button>}</div></article>;
-  }) : <div className="dg-empty"><strong>이 지역과 연령에 맞는 프로그램이 현재 지도에 없어요.</strong><p>지도를 관심 지역으로 이동한 뒤 다시 확인해 주세요.</p></div>}</div>{showTop && <button className="dg-family-scroll-top" type="button" aria-label="가족 프로그램 목록 맨 위로 이동" onClick={() => listRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ChevronUp aria-hidden="true" /></button>}</section>;
+  const familyPrograms = familyProgramsForProfile(regionResult.programs, role, ageGroup).slice(0, 60);
+  const canSave = Boolean(ageGroup.trim() && region.trim() && (role !== "아이" || name.trim()));
+  const radiusLabel = regionResult.radiusMeters === null
+    ? "저장 지역"
+    : `생활권 ${regionResult.radiusMeters >= 1_000 ? `${(regionResult.radiusMeters / 1_000).toFixed(regionResult.radiusMeters % 1_000 ? 1 : 0)}km` : `${regionResult.radiusMeters}m`}`;
+
+  return <section className="dg-aux-panel dg-family-panel">
+    <PanelHeader title="가족 모드" subtitle="가족 프로필과 찜 대상을 앱과 같은 계정으로 이어요" onBack={onBack} />
+    <div className="dg-family-tabs">{(["어머니", "아버지", "나", "아이"] as WebFamilyMember["role"][]).map((item) => <button key={item} type="button" className={role === item ? "active" : ""} onClick={() => setRole(item)}>{item}</button>)}</div>
+    <div className="dg-family-editor">
+      {role === "아이" && <label>이름<input value={name} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="아이 별명" /></label>}
+      <label>연령대<select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)}>{["10대 미만", "10대", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상"].map((value) => <option key={value}>{value}</option>)}</select></label>
+      <label>관심 지역<input value={region} maxLength={80} onChange={(event) => setRegion(event.target.value)} placeholder="예: 서울특별시 성북구" /></label>
+      <div><button type="button" disabled={!canSave} onClick={() => onSave({ role, name: role === "아이" ? name.trim() : null, age_group: ageGroup, region: region.trim() })}>{selectedMember ? "가족 정보 수정" : "가족 정보 저장"}</button>{selectedMember && <button type="button" className="danger" onClick={() => onRemove(selectedMember)}>삭제</button>}</div>
+      <p>{signedIn ? "본인 계정에만 보이도록 Supabase RLS로 동기화됩니다." : "로그인 전에는 이 브라우저에만 저장됩니다."}</p>
+    </div>
+    <div className="dg-family-profile"><strong>{selectedMember?.name || role}를 위한 추천</strong><span>{region} · 추천 {familyPrograms.length}개 · {radiusLabel} 전체 {regionResult.regionProgramCount}개</span></div>
+    <div ref={listRef} className="dg-family-program-list" onScroll={(event) => setShowTop(event.currentTarget.scrollTop > 140)}>
+      {regionError ? <div className="dg-empty"><strong>저장된 동네의 프로그램을 불러오지 못했어요.</strong><p>{regionError}</p></div>
+        : regionLoading ? <div className="dg-empty"><strong>저장된 동네의 프로그램을 찾고 있어요.</strong><p>현재 지도 위치와 관계없이 {region} 기준으로 확인 중이에요.</p></div>
+          : familyPrograms.length ? familyPrograms.map((program) => {
+            const phone = program.phone?.split(/[\/,;|\n]/).map((value) => value.trim()).find((value) => value.replace(/\D/g, "").length >= 7) ?? null;
+            const place = [...new Set([program.facility, program.room, program.address].filter(Boolean))].join(" · ");
+            const schedule = program.scheduleText ?? program.periodText ?? "일정 확인";
+            return <article className="dg-family-program-card" key={program.id}>
+              <div className="dg-family-program-main">
+                <div className="dg-family-program-heading"><span><span className="dg-status">{program.isFree ? "무료" : program.feeText || "유료"}</span><span className={`dg-status ${statusClass(program)}`}>{program.status}</span></span><div><img src={`/markers/${programIconName(program)}.png`} alt={`${program.name} 대표 마커`} /><button type="button" onClick={() => onMap(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" /></button></div></div>
+                <button className="dg-family-program-open" type="button" onClick={() => onOpen(program)}><h2>{program.name}</h2><p>{place || "장소 확인"}</p><div className="dg-family-program-meta"><span>{schedule}</span><strong>{distanceLabel(distanceMeters(origin, program))}</strong></div></button>
+              </div>
+              <div className="dg-family-program-actions"><button className="kakao" type="button" onClick={() => { void onShare(program); }}><MessageCircle aria-hidden="true" />카톡공유</button>{phone ? <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}><Phone aria-hidden="true" />전화걸기</a> : <button type="button" disabled><Phone aria-hidden="true" />전화걸기</button>}</div>
+            </article>;
+          }) : <div className="dg-empty"><strong>이 지역과 연령에 맞는 프로그램이 없어요.</strong><p>현재 지도와 관계없이 저장한 동네 전체를 확인한 결과예요.</p></div>}
+    </div>
+    {showTop && <button className="dg-family-scroll-top" type="button" aria-label="가족 프로그램 목록 맨 위로 이동" onClick={() => listRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ChevronUp aria-hidden="true" /></button>}
+  </section>;
 }
 
 function HistoryPanel({ history, onBack, onOpen }: { history: Array<{ program: WebProgram; viewedAt: string }>; onBack: () => void; onOpen: (program: WebProgram) => void }) {
