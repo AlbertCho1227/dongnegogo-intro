@@ -3575,13 +3575,21 @@ function SearchExperience({
     || assistant.kind === "placeFound" || assistant.kind === "placeExpand";
   const displayedProgress = useSmoothSearchProgress(progress, loading);
   const [visibleLimit, setVisibleLimit] = useState(48);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const resultScrollRef = useRef<HTMLDivElement>(null);
   const renderedResults = visibleResults.slice(0, visibleLimit);
+  const resetResultScroll = () => {
+    resultScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    setShowScrollTop(false);
+  };
   const chooseCategory = (category: string | null) => {
     setVisibleLimit(48);
+    resetResultScroll();
     onCategory(category);
   };
   const chooseSort = (nextSort: SearchSort) => {
     setVisibleLimit(48);
+    resetResultScroll();
     onSort(nextSort);
   };
 
@@ -3629,7 +3637,7 @@ function SearchExperience({
     </div><section className="dg-search-radius-card"><header><span>⌖</span><span><strong>검색 반경 조절</strong><small>원하는 거리를 누르면 같은 장소에서 바로 다시 찾아요</small></span><em>{searchRadiusLabel(assistant.radiusKm)} 이내</em></header><div>{SEARCH_PLACE_RADIUS_OPTIONS.map((radius) => <button type="button" key={radius} className={radius === assistant.radiusKm ? "active" : ""} onClick={() => radius !== assistant.radiusKm && onPlaceRadius(assistant.place, radius)}>{radius === assistant.radiusKm && "✓ "}{searchRadiusLabel(radius)}</button>)}</div></section></section>;
   })();
 
-  return <div className="dg-search-results-panel">
+  return <><div ref={resultScrollRef} className="dg-search-results-panel" onScroll={(event) => setShowScrollTop(renderedResults.length > 0 && event.currentTarget.scrollTop > 140)}>
     {assistantCard}
     {warning && <p className="dg-search-warning" role="status"><span>!</span><strong>{warning}</strong><button type="button" onClick={onRetry}>다시 검색</button></p>}
     {alternativeNotice && assistant.kind !== "alternativeFound" && <p className="dg-search-alternative-notice">✓ {alternativeNotice}</p>}
@@ -3651,7 +3659,7 @@ function SearchExperience({
     {!loading && !allResults.length && assistant.kind === "idle" && !relaxations.length && <div className="dg-search-empty-state"><div className="dg-search-assistant-card"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>버들이가 함께 찾아볼게요</small><strong>‘{submittedQuery}’에 꼭 맞는 결과가 아직 없어요. 표현이나 조건을 한 가지만 바꾸면 더 잘 찾을 수 있어요.</strong></div><section><strong>이렇게 바꿔보세요</strong><p>💡 더 짧게: ‘{parseSearchIntent(submittedQuery).generalTerms[0] ?? submittedQuery}’</p><p>💡 시설명으로: ‘정릉복지관’, ‘성북구민수영장’</p><p>💡 분야로: ‘수영’, ‘요가’, ‘스마트폰’</p></section></div>}
     <div className="dg-search-program-list">{renderedResults.map((program) => <button className="dg-program-card" type="button" key={program.id} onClick={() => onOpen(program)}><img src={`/markers/${programIconName(program)}.png`} alt="" /><span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.isFree ? "무료" : program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small><em>{program.scheduleText ?? program.periodText ?? (program.isFree ? "무료" : program.feeText)}</em></span><span className="dg-card-arrow" aria-hidden="true">›</span></button>)}</div>
     {renderedResults.length < visibleResults.length && <button type="button" className="dg-search-more" onClick={() => setVisibleLimit((current) => current + 48)}>{Math.min(48, visibleResults.length - renderedResults.length)}개 더 보기</button>}
-  </div>;
+  </div>{showScrollTop && <button type="button" className="dg-search-scroll-top" aria-label="찾기 프로그램 목록 맨 위로 이동" onClick={() => resultScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ChevronUp aria-hidden="true" /></button>}</>;
 }
 
 function Preference({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {

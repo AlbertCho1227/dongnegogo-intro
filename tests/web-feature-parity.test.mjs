@@ -120,6 +120,15 @@ test("iOS 찾기의 입력·도시·장소·대안 상태를 웹에 유지한다
   assert.match(webMapStyle, /\.dg-search-filter-card/);
 });
 
+test("찾기 프로그램 목록은 스크롤 후 초록색 위로 가기 버튼을 제공한다", () => {
+  assert.match(webMapSource, /className="dg-search-results-panel" onScroll=/);
+  assert.match(webMapSource, /event\.currentTarget\.scrollTop > 140/);
+  assert.match(webMapSource, /className="dg-search-scroll-top"/);
+  assert.match(webMapSource, /찾기 프로그램 목록 맨 위로 이동/);
+  assert.match(webMapSource, /resultScrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+  assert.match(webMapStyle, /\.dg-search-scroll-top[^}]*position:\s*absolute;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--dg-green\);/);
+});
+
 test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   for (const copy of [
     "같은 장소 프로그램",
