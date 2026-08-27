@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dominantProgram, programIconName } from "../lib/web-icon-mapper.ts";
 import { parseSearchIntent, searchPrograms } from "../lib/web-search-engine.ts";
+import { openRunCityLabel, openRunCityName, openRunProgramMatchesCity } from "../lib/open-run-city.ts";
 
 const webMapSource = readFileSync(new URL("../app/web/web-map-app.tsx", import.meta.url), "utf8");
 const webPageSource = readFileSync(new URL("../app/web/page.tsx", import.meta.url), "utf8");
@@ -26,6 +27,15 @@ function program(overrides = {}) {
     ...overrides,
   };
 }
+
+test("오픈런은 현재 위치의 광역시 또는 도 지역 시·군으로 제한한다", () => {
+  assert.equal(openRunCityName("서울특별시 성북구 정릉동"), "서울");
+  assert.equal(openRunCityLabel("서울"), "서울시");
+  assert.equal(openRunCityName("경기도 성남시 분당구"), "성남");
+  assert.equal(openRunCityLabel("성남"), "성남시");
+  assert.equal(openRunProgramMatchesCity(program(), "서울"), true);
+  assert.equal(openRunProgramMatchesCity(program({ address: "부산광역시 해운대구 우동", area: "해운대구" }), "서울"), false);
+});
 
 test("iOS 자연어 검색의 비용·거리·종목 조건을 AND로 해석한다", () => {
   const intent = parseSearchIntent("가까운 무료 수영 강좌");
@@ -455,7 +465,7 @@ test("웹 로그인과 계정 종속 기능은 단일 활성화 경계로 모두
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("openrun"\)\}/);
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("saved"\)\}/);
   assert.match(webMapSource, /className="dg-mobile-map-account-tool" onClick=\{\(\) => changeTab\("me"\)\}/);
-  assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick=\{\(\) => openMapTool\("family"\)\}/);
+  assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick=\{\(\) => \{ setFamilyPanelInitialRole\("어머니"\); openMapTool\("family"\); \}\}/);
   assert.match(webMapSource, /WEB_ACCOUNT_FEATURES_VISIBLE && showAuthDialog && !session && <WebAuthDialog/);
   assert.match(webMapSource, /accountFeaturesVisible && <button type="button" className=\{`dg-ios-action-button favorite/);
   assert.match(webMapSource, /accountFeaturesVisible && <button type="button" className=\{reminderIDs\.includes\(program\.id\)/);

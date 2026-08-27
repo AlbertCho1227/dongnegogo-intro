@@ -648,6 +648,7 @@
 .dg-filter-apply { position: sticky; bottom: 0; width: 100%; height: 54px; margin-top: 24px; border: 0; border-radius: 16px; color: #fff; background: linear-gradient(100deg,var(--dg-lime),var(--dg-green)); font-size: 16px; font-weight: 900; box-shadow: 0 8px 22px rgba(34,177,76,.25); cursor: pointer; }
 
 .dg-aux-panel, .dg-openrun-panel { min-height: 0; height: 100%; display: flex; flex-direction: column; background: #fff; }
+.dg-openrun-panel { position: relative; }
 .dg-subpanel-header { flex: none; padding: 20px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--dg-line); }
 .dg-subpanel-header > button { width: 40px; height: 40px; border: 0; border-radius: 50%; color: var(--dg-ink); background: #f1f4f1; font-size: 28px; cursor: pointer; }
 .dg-subpanel-header h1 { margin: 0; font-size: 24px; }
@@ -694,6 +695,9 @@
 .dg-family-program-heading > div { display: flex; align-items: center; gap: 7px; }
 .dg-family-program-heading img { width: 46px; height: 46px; object-fit: contain; }
 .dg-family-program-heading > div button { width: 46px; height: 46px; display: grid; place-items: center; border: 0; border-radius: 50%; color: #fff; background: var(--dg-green); box-shadow: 0 5px 13px rgba(35,173,76,.23); cursor: pointer; }
+.dg-family-program-heading > div button.dg-family-favorite { border: 1px solid rgba(35,173,76,.2); color: var(--dg-green); background: #fff; box-shadow: 0 5px 13px rgba(31,60,39,.12); }
+.dg-family-program-heading > div button.dg-family-favorite.active { background: #edf8e8; }
+.dg-family-program-heading > div button.dg-family-favorite.active svg { fill: currentColor; }
 .dg-family-program-heading > div button svg { width: 24px; height: 24px; stroke-width: 2.5; }
 .dg-family-program-open { width: 100%; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
 .dg-family-program-card h2 { margin: 17px 0 8px; font-size: 19px; line-height: 1.4; }
@@ -736,6 +740,8 @@
 .dg-openrun-more { width: 100%; min-height: 46px; margin-top: 14px; border: 1px solid #ccebd5; border-radius: 14px; color: #168f41; background: #f1fbf4; font-weight: 850; cursor: pointer; }
 .dg-openrun-loading { min-height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; color: #56715d; text-align: center; }
 .dg-openrun-loading span { width: 28px; height: 28px; border: 3px solid #d9eddd; border-top-color: var(--dg-green); border-radius: 50%; animation: dg-search-spin .75s linear infinite; }
+.dg-openrun-scroll-top { position: absolute; z-index: 5; right: 22px; bottom: 22px; width: 52px; height: 52px; display: grid; place-items: center; border: 2px solid #fff; border-radius: 50%; color: #fff; background: var(--dg-green); box-shadow: 0 7px 18px rgba(23,72,34,.28); cursor: pointer; }
+.dg-openrun-scroll-top svg { width: 25px; height: 25px; stroke-width: 3; }
 .dg-heat-hero { background: linear-gradient(145deg,#edf8ff,#d9effc); }
 
 /* iOS parity: route, roadview, nearby places, account sync, family and alerts */

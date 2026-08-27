@@ -7,6 +7,7 @@ import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, Calendar
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
+import { nearestOpenRunCityName, openRunCityLabel, openRunCityName } from "@/lib/open-run-city";
 import { dominantProgram, programIconName } from "@/lib/web-icon-mapper";
 import { WEB_DETAIL_FILTER_GROUPS, WEB_DETAIL_FILTERS, WEB_PROGRAM_PERSONA_GROUPS, toggleSingleWebDetailFilter, webProgramMatchesFilters } from "@/lib/web-program-filters";
 import { nearbyKakaoMapURL, nearbyNaverMapURL, nearbyPlaceDisplayName as nearbyDisplayName } from "@/lib/web-map-links";
@@ -852,6 +853,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [routePanelSnap, setRoutePanelSnap] = useState<RoutePanelSnap>("collapsed");
   const [routePanelDragHeight, setRoutePanelDragHeight] = useState<number | null>(null);
   const [auxiliaryPanel, setAuxiliaryPanel] = useState<AuxiliaryPanel>(null);
+  const [familyPanelInitialRole, setFamilyPanelInitialRole] = useState<WebFamilyMember["role"]>("어머니");
   const [showFilter, setShowFilter] = useState(false);
   const [filterFitRequestId, setFilterFitRequestId] = useState(0);
   const [filterFitAppliedSignature, setFilterFitAppliedSignature] = useState<string | null>(null);
@@ -888,6 +890,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [locationRequestMessage, setLocationRequestMessage] = useState("");
   const [center, setCenter] = useState<Coordinate>(FALLBACK);
   const [centeredArea, setCenteredArea] = useState("서울특별시 종로구 세종로");
+  const [currentLocationRegion, setCurrentLocationRegion] = useState("서울특별시 종로구 세종로");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [reminders, setReminders] = useState<string[]>([]);
   const [viewHistory, setViewHistory] = useState<Array<{ program: WebProgram; viewedAt: string }>>([]);
@@ -921,7 +924,21 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [familyMembers, setFamilyMembers] = useState<WebFamilyMember[]>([]);
   const [alertDialog, setAlertDialog] = useState<AlertDialogState | null>(null);
 
-  const openRunBadge = openRunPrograms.length;
+  const immediateOpenRunPrograms = useMemo(() => {
+    if (openRunPrograms.length > 0) return openRunPrograms;
+    const now = Date.now();
+    return programs.filter((program) => {
+      const start = program.receiptStart ? new Date(program.receiptStart).getTime() : Number.NaN;
+      const end = program.receiptEnd ? new Date(program.receiptEnd).getTime() : Number.NaN;
+      return (Number.isFinite(start) && start >= now)
+        || (Number.isFinite(end) && end >= now && /접수|신청|마감임박/u.test(program.status));
+    });
+  }, [openRunPrograms, programs]);
+  const openRunCity = useMemo(() => currentLocationRegion
+    ? openRunCityName(currentLocationRegion)
+    : nearestOpenRunCityName(immediateOpenRunPrograms, location),
+  [currentLocationRegion, immediateOpenRunPrograms, location]);
+  const openRunBadge = immediateOpenRunPrograms.length;
   const activeConditionCount = useMemo(() => {
     let count = subjectFilters.length + personaFilters.length;
     if (fieldFilter !== "전체") count += 1;
@@ -1020,7 +1037,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/web-openrun", { signal: controller.signal })
+    void fetch(`/api/web-openrun?city=${encodeURIComponent(openRunCity)}`, { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json() as { programs?: WebProgram[] };
         if (!response.ok) throw new Error("오픈런 프로그램을 불러오지 못했습니다.");
@@ -1028,10 +1045,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       })
       .catch((fetchError) => {
         if (fetchError instanceof DOMException && fetchError.name === "AbortError") return;
-        setOpenRunPrograms([]);
+        // 직전 도시의 정상 목록은 유지해 탭 재진입 때 빈 화면으로 되돌리지 않는다.
       });
     return () => controller.abort();
-  }, []);
+  }, [openRunCity]);
 
   useEffect(() => {
     if (tab !== "search") return;
@@ -1280,14 +1297,16 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     });
   }, [session]);
 
-  const resolveCenteredArea = useCallback((coordinate: Coordinate) => {
+  const resolveCenteredArea = useCallback((coordinate: Coordinate, onResolved?: (region: string) => void) => {
     const services = window.kakao?.maps.services;
     if (!services) return;
     const geocoder = new services.Geocoder();
     geocoder.coord2RegionCode(coordinate.longitude, coordinate.latitude, (result, status) => {
       if (status !== services.Status.OK || !result.length) return;
       const region = result.find((item) => item.region_type === "H") ?? result[0];
-      setCenteredArea(region.address_name || [region.region_2depth_name, region.region_3depth_name].filter(Boolean).join(" "));
+      const regionName = region.address_name || [region.region_2depth_name, region.region_3depth_name].filter(Boolean).join(" ");
+      setCenteredArea(regionName);
+      onResolved?.(regionName);
     });
   }, []);
 
@@ -2491,7 +2510,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       setLocationRequestState("granted");
       setLocationRequestMessage("현재 위치를 확인했어요. 실제 경로를 불러옵니다.");
       setError("");
-      resolveCenteredArea(next);
+      resolveCenteredArea(next, setCurrentLocationRegion);
       if (mapRef.current && window.kakao?.maps) {
         mapRef.current.setCenter(new window.kakao.maps.LatLng(next.latitude, next.longitude));
         mapRef.current.setLevel(4);
@@ -3267,8 +3286,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           />
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && auxiliaryPanel === "family" ? (
           <FamilyPanel programs={programs} members={familyMembers} signedIn={Boolean(session)} origin={location}
+            initialRole={familyPanelInitialRole} favorites={favorites} favoriteTargets={favoriteTargets}
             onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }}
             onMap={(program) => { setAuxiliaryPanel(null); focusFilteredClusterProgram(program); }}
+            onFavorite={(program, target) => toggleFavoriteTarget(program.id, target)}
             onShare={share} onSave={saveFamily} onRemove={removeFamily} />
         ) : auxiliaryPanel === "history" ? (
           <HistoryPanel history={viewHistory} onBack={() => setAuxiliaryPanel(null)} onOpen={(program) => { void selectProgram(program); }} />
@@ -3292,18 +3313,18 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             </div>
             <div className="dg-profile-card dg-profile-menu-card">
               <small>나의 프로그램</small>
-              <button type="button" className="dg-profile-row" onClick={() => { setSeniorOnly(false); setPersonaFilters([]); changeTab("search"); }}><span>◎</span><strong>나를 위한 프로그램 찾기</strong><em>›</em></button>
+              <button type="button" className="dg-profile-row" onClick={() => { setFamilyPanelInitialRole("나"); setAuxiliaryPanel("family"); }}><span>◎</span><strong>나를 위한 프로그램 찾기</strong><em>›</em></button>
               <button type="button" className="dg-profile-row" onClick={() => openMapTool("calendar")}><span>▦</span><strong>내 일정 달력</strong><em>›</em></button>
             </div>
             <div className="dg-profile-card dg-profile-menu-card">
               <small>가족을 위한 프로그램</small>
               <button type="button" className="dg-profile-row" onClick={() => {
                 if (!session && window.matchMedia("(max-width: 820px)").matches) { openAccountSignIn(); return; }
-                setSeniorOnly(true); setPersonaFilters(["시니어"]); changeTab("search");
+                setFamilyPanelInitialRole("어머니"); setAuxiliaryPanel("family");
               }}><span>♧</span><strong>부모님을 위한 프로그램 찾기</strong><em>›</em></button>
               <button type="button" className="dg-profile-row" onClick={() => {
                 if (!session && window.matchMedia("(max-width: 820px)").matches) { openAccountSignIn(); return; }
-                setSeniorOnly(false); setPersonaFilters(["어린이"]); changeTab("search");
+                setFamilyPanelInitialRole("아이"); setAuxiliaryPanel("family");
               }}><span>♧</span><strong>아이를 위한 프로그램 찾기</strong><em>›</em></button>
             </div>
             <div className="dg-profile-card">
@@ -3328,7 +3349,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             <p className="dg-readonly-note">로그인 전에는 이 브라우저에만 저장되고, 로그인 후에는 본인에게만 보이는 Supabase 행으로 동기화됩니다.</p>
           </section>
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "openrun" ? (
-          <OpenRunPanel programs={openRunPrograms} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
+          <OpenRunPanel cityName={openRunCityLabel(openRunCity)} programs={immediateOpenRunPrograms} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
         ) : (
           <>
             <header className="dg-panel-header">
@@ -3411,7 +3432,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         <div className="dg-mobile-map-chrome">
           <div className="dg-mobile-map-header">
             <button type="button" className="dg-mobile-search-pill" onClick={() => { clearSearch(); changeTab("search"); }}><span>⌕</span><strong>{centeredArea.split(" ").at(-1) ?? "우리 동네"} 프로그램 찾기</strong><em><MapIcon aria-hidden="true" /></em></button>
-            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className={`dg-mobile-profile${session ? " signed-in" : ""}`} onClick={() => { setSeniorOnly(false); setPersonaFilters([]); changeTab("search"); }} aria-label={session ? "나를 위한 프로그램 찾기" : "로그인 전 나를 위한 프로그램 찾기"}><User aria-hidden="true" /></button>}
+            {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" className={`dg-mobile-profile${session ? " signed-in" : ""}`} onClick={() => { setFamilyPanelInitialRole("나"); setAuxiliaryPanel("family"); }} aria-label={session ? "나를 위한 프로그램 찾기" : "로그인 전 나를 위한 프로그램 찾기"}><User aria-hidden="true" /></button>}
           </div>
           <div className="dg-mobile-map-filters" aria-label="지도 빠른 조건">
             <ConditionFilterButton count={activeConditionCount} onClick={() => setShowFilter(true)} />
@@ -3426,7 +3447,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           <button type="button" onClick={moveToCurrentLocation}><span className="dg-map-tool-current"><UserRound aria-hidden="true" /></span>내 위치</button>
           <button type="button" onClick={openNearbyProgramCarousel}><span><MapIcon aria-hidden="true" /></span>주변</button>
           <button type="button" onClick={() => openMapTool("calendar")}><span><CalendarDays aria-hidden="true" /></span>일정</button>
-          {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick={() => openMapTool("family")}><span><UsersRound aria-hidden="true" /></span>가족</button>}
+          {WEB_ACCOUNT_FEATURES_VISIBLE && <button type="button" onClick={() => { setFamilyPanelInitialRole("어머니"); openMapTool("family"); }}><span><UsersRound aria-hidden="true" /></span>가족</button>}
           <button type="button" onClick={() => openMapTool("history")}><span><Archive aria-hidden="true" /></span>보관함</button>
           {WEB_ACCOUNT_FEATURES_VISIBLE && <>
             <button type="button" className="dg-mobile-map-account-tool" onClick={() => changeTab("openrun")}><span className="dg-map-tool-account-icon"><Bell aria-hidden="true" />{openRunBadge > 0 && <em className="dg-map-tool-badge">{openRunBadge > 9 ? "9+" : openRunBadge}</em>}</span>오픈런</button>
@@ -4828,14 +4849,14 @@ function ProgramPlaceSheet({ state, current, accountFeaturesVisible, reminderIDs
   </section>;
 }
 
-function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }: { programs: WebProgram[]; reminders: string[]; onBack: () => void; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
+function OpenRunPanel({ cityName, programs, reminders, onBack, onToggleReminder, onOpen }: { cityName: string; programs: WebProgram[]; reminders: string[]; onBack: () => void; onToggleReminder: (program: WebProgram) => void; onOpen: (program: WebProgram) => void }) {
   const [category, setCategory] = useState<string | null>(null);
   const [visibleLimit, setVisibleLimit] = useState(32);
-  const [contentReady, setContentReady] = useState(false);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [referenceNow] = useState(() => Date.now());
-  const readyPrograms = useMemo(() => contentReady ? programs : [], [contentReady, programs]);
-  const categories = useMemo(() => searchResultCategories(readyPrograms), [readyPrograms]);
-  const upcoming = useMemo(() => readyPrograms
+  const categories = useMemo(() => searchResultCategories(programs), [programs]);
+  const upcoming = useMemo(() => programs
     .filter((program) => !category || searchResultCategoryIDs(program).includes(category))
     .sort((a, b) => {
       const now = referenceNow;
@@ -4844,12 +4865,8 @@ function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }:
       const aNext = Number.isFinite(aStart) && aStart > now ? aStart : (a.receiptEnd ? new Date(a.receiptEnd).getTime() : Infinity);
       const bNext = Number.isFinite(bStart) && bStart > now ? bStart : (b.receiptEnd ? new Date(b.receiptEnd).getTime() : Infinity);
       return aNext - bNext || a.name.localeCompare(b.name, "ko");
-    }), [category, readyPrograms, referenceNow]);
+    }), [category, programs, referenceNow]);
   const visible = upcoming.slice(0, visibleLimit);
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setContentReady(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
   const banner = (program: WebProgram) => {
     if (/마감임박/.test(program.status)) return "곧 마감돼요";
     const now = referenceNow;
@@ -4864,8 +4881,9 @@ function OpenRunPanel({ programs, reminders, onBack, onToggleReminder, onOpen }:
   const selectCategory = (next: string | null) => {
     setCategory(next);
     setVisibleLimit(32);
+    scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
-  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div className="dg-openrun-scroll">{!contentReady ? <div className="dg-openrun-loading" role="status"><span /><strong>오픈런 프로그램을 준비하고 있어요</strong></div> : <><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>실제 오픈런 프로그램에 있는 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 32)}>{Math.min(32, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></>}</div></section>;
+  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>{cityName} 기준 오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div ref={scrollRef} className="dg-openrun-scroll" onScroll={(event) => setShowScrollTop(event.currentTarget.scrollTop > 140)}><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>현재 지역의 오픈런 프로그램 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 32)}>{Math.min(32, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div>{showScrollTop && <button type="button" className="dg-openrun-scroll-top" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })} aria-label="오픈런 목록 맨 위로 이동"><ChevronUp aria-hidden="true" /></button>}</section>;
 }
 
 function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {
@@ -5014,8 +5032,8 @@ function CalendarPanel({ programs, alerts, onBack, onOpen, onDelete }: { program
   return <section className="dg-aux-panel"><PanelHeader title="일정" subtitle="접수 시작과 저장한 알림을 날짜순으로 모았어요" onBack={onBack} /><div className="dg-month-card"><button type="button" aria-label="이전 달" onClick={() => moveMonth(-1)}>‹</button><strong>{monthCursor.getFullYear()}년 {monthCursor.getMonth() + 1}월</strong><button type="button" aria-label="다음 달" onClick={() => moveMonth(1)}>›</button><div className="dg-week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="dg-calendar-grid">{cells.map((day, index) => <span key={`${day ?? "empty"}-${index}`} className={[day && eventDays.has(day) ? "has-event" : "", day && alertDays.has(day) ? "has-alert" : ""].filter(Boolean).join(" ")}>{day ?? ""}</span>)}</div></div><div className="dg-aux-list dg-calendar-event-list">{events.length ? events.map(({ program, date, kind }) => <article className="dg-calendar-event-group" key={`${kind}:${program.id}:${date.toISOString()}`}><button className="dg-calendar-program-card" type="button" onClick={() => onOpen(program)} aria-label={`${program.name} 자세히 보기`}><img src={`/markers/${programIconName(program)}.png`} alt=""/><span><small>{program.status}</small><strong>{program.name}</strong><em>{program.facility}</em></span><ChevronRight aria-hidden="true"/></button><div className="dg-calendar-schedule-card"><span className="dg-date-badge">{date.getDate()}</span><span><small>{kind === "alert" ? "알림 일정" : "접수 일정"}</small><strong>{date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}</strong><em>{date.toLocaleTimeString("ko-KR", { hour: "numeric", minute: "2-digit" })}</em></span>{kind === "alert" && <button type="button" onClick={() => { void onDelete(program.id); }} aria-label={`${program.name} 알림 일정 삭제`}><Trash2 aria-hidden="true"/>삭제</button>}</div></article>) : <div className="dg-empty"><strong>이 달에 표시할 일정이 없어요.</strong><p>다른 달을 확인하거나 프로그램에서 알림 받기를 선택해 보세요.</p></div>}</div></section>;
 }
 
-function FamilyPanel({ programs, members, signedIn, origin, onBack, onOpen, onMap, onShare, onSave, onRemove }: { programs: WebProgram[]; members: WebFamilyMember[]; signedIn: boolean; origin: Coordinate; onBack: () => void; onOpen: (program: WebProgram) => void; onMap: (program: WebProgram) => void; onShare: (program: WebProgram) => Promise<void>; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {
-  const [role, setRole] = useState<WebFamilyMember["role"]>("어머니");
+function FamilyPanel({ programs, members, signedIn, origin, initialRole, favorites, favoriteTargets, onBack, onOpen, onMap, onFavorite, onShare, onSave, onRemove }: { programs: WebProgram[]; members: WebFamilyMember[]; signedIn: boolean; origin: Coordinate; initialRole: WebFamilyMember["role"]; favorites: string[]; favoriteTargets: Record<string, string[]>; onBack: () => void; onOpen: (program: WebProgram) => void; onMap: (program: WebProgram) => void; onFavorite: (program: WebProgram, target: string) => void; onShare: (program: WebProgram) => Promise<void>; onSave: (member: WebFamilyMember) => void; onRemove: (member: WebFamilyMember) => void }) {
+  const [role, setRole] = useState<WebFamilyMember["role"]>(initialRole);
   const [name, setName] = useState("");
   const [ageGroup, setAgeGroup] = useState("60대");
   const [region, setRegion] = useState("서울특별시 성북구");
@@ -5043,12 +5061,15 @@ function FamilyPanel({ programs, members, signedIn, origin, onBack, onOpen, onMa
     return audienceMatch && regionMatch;
   }).slice(0, 60);
   const canSave = Boolean(ageGroup.trim() && region.trim() && (role !== "아이" || name.trim()));
+  const panelTitle = role === "나" ? "나를 위한 프로그램 찾기" : role === "아이" ? "아이를 위한 프로그램 찾기" : "부모님을 위한 프로그램 찾기";
+  const favoriteTarget = role === "나" ? "personal" : selectedMember?.id ?? "personal";
 
-  return <section className="dg-aux-panel dg-family-panel"><PanelHeader title="가족 모드" subtitle="가족 프로필과 찜 대상을 앱과 같은 계정으로 이어요" onBack={onBack} /><div className="dg-family-tabs">{(["어머니", "아버지", "나", "아이"] as WebFamilyMember["role"][]).map((item) => <button key={item} type="button" className={role === item ? "active" : ""} onClick={() => setRole(item)}>{item}</button>)}</div><div className="dg-family-editor">{role === "아이" && <label>이름<input value={name} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="아이 별명" /></label>}<label>연령대<select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)}>{["10대 미만", "10대", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상"].map((value) => <option key={value}>{value}</option>)}</select></label><label>관심 지역<input value={region} maxLength={80} onChange={(event) => setRegion(event.target.value)} placeholder="예: 서울특별시 성북구" /></label><div><button type="button" disabled={!canSave} onClick={() => onSave({ role, name: role === "아이" ? name.trim() : null, age_group: ageGroup, region: region.trim() })}>{selectedMember ? "가족 정보 수정" : "가족 정보 저장"}</button>{selectedMember && <button type="button" className="danger" onClick={() => onRemove(selectedMember)}>삭제</button>}</div><p>{signedIn ? "본인 계정에만 보이도록 Supabase RLS로 동기화됩니다." : "로그인 전에는 이 브라우저에만 저장됩니다."}</p></div><div className="dg-family-profile"><strong>{selectedMember?.name || role}를 위한 추천</strong><span>{selectedMember?.region ?? region} · {familyPrograms.length}개</span></div><div ref={listRef} className="dg-family-program-list" onScroll={(event) => setShowTop(event.currentTarget.scrollTop > 140)}>{familyPrograms.length ? familyPrograms.map((program) => {
+  return <section className="dg-aux-panel dg-family-panel"><PanelHeader title={panelTitle} subtitle="연령대와 저장한 동네에 맞는 프로그램을 모아보세요" onBack={onBack} /><div className="dg-family-tabs">{(["어머니", "아버지", "나", "아이"] as WebFamilyMember["role"][]).map((item) => <button key={item} type="button" className={role === item ? "active" : ""} onClick={() => setRole(item)}>{item}</button>)}</div><div className="dg-family-editor">{role === "아이" && <label>이름<input value={name} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="아이 별명" /></label>}<label>연령대<select value={ageGroup} onChange={(event) => setAgeGroup(event.target.value)}>{["10대 미만", "10대", "20대", "30대", "40대", "50대", "60대", "70대", "80대 이상"].map((value) => <option key={value}>{value}</option>)}</select></label><label>관심 지역<input value={region} maxLength={80} onChange={(event) => setRegion(event.target.value)} placeholder="예: 서울특별시 성북구" /></label><div><button type="button" disabled={!canSave} onClick={() => onSave({ role, name: role === "아이" ? name.trim() : null, age_group: ageGroup, region: region.trim() })}>{selectedMember ? "가족 정보 수정" : "가족 정보 저장"}</button>{selectedMember && <button type="button" className="danger" onClick={() => onRemove(selectedMember)}>삭제</button>}</div><p>{signedIn ? "본인 계정에만 보이도록 Supabase RLS로 동기화됩니다." : "로그인 전에는 이 브라우저에만 저장됩니다."}</p></div><div className="dg-family-profile"><strong>{selectedMember?.name || role}를 위한 추천</strong><span>{selectedMember?.region ?? region} · {familyPrograms.length}개</span></div><div ref={listRef} className="dg-family-program-list" onScroll={(event) => setShowTop(event.currentTarget.scrollTop > 140)}>{familyPrograms.length ? familyPrograms.map((program) => {
     const phone = program.phone?.split(/[\/,;|\n]/).map((value) => value.trim()).find((value) => value.replace(/\D/g, "").length >= 7) ?? null;
     const place = [...new Set([program.facility, program.room, program.address].filter(Boolean))].join(" · ");
     const schedule = program.scheduleText ?? program.periodText ?? "일정 확인";
-    return <article className="dg-family-program-card" key={program.id}><div className="dg-family-program-main"><div className="dg-family-program-heading"><span><span className="dg-status">{program.isFree ? "무료" : program.feeText || "유료"}</span><span className={`dg-status ${statusClass(program)}`}>{program.status}</span></span><div><img src={`/markers/${programIconName(program)}.png`} alt={`${program.name} 대표 마커`} /><button type="button" onClick={() => onMap(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" /></button></div></div><button className="dg-family-program-open" type="button" onClick={() => onOpen(program)}><h2>{program.name}</h2><p>{place || "장소 확인"}</p><div className="dg-family-program-meta"><span>{schedule}</span><strong>{distanceLabel(distanceMeters(origin, program))}</strong></div></button></div><div className="dg-family-program-actions"><button className="kakao" type="button" onClick={() => { void onShare(program); }}><MessageCircle aria-hidden="true" />카톡공유</button>{phone ? <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}><Phone aria-hidden="true" />전화걸기</a> : <button type="button" disabled><Phone aria-hidden="true" />전화걸기</button>}</div></article>;
+    const favorite = (favoriteTargets[program.id] ?? (favorites.includes(program.id) ? ["personal"] : [])).includes(favoriteTarget);
+    return <article className="dg-family-program-card" key={program.id}><div className="dg-family-program-main"><div className="dg-family-program-heading"><span><span className="dg-status">{program.isFree ? "무료" : program.feeText || "유료"}</span><span className={`dg-status ${statusClass(program)}`}>{program.status}</span></span><div><img src={`/markers/${programIconName(program)}.png`} alt={`${program.name} 대표 마커`} /><button type="button" onClick={() => onMap(program)} aria-label={`${program.name} 지도에서 위치 보기`}><MapIcon aria-hidden="true" /></button><button type="button" className={`dg-family-favorite${favorite ? " active" : ""}`} onClick={() => onFavorite(program, favoriteTarget)} aria-label={favorite ? `${program.name} 찜 해제` : `${program.name} 찜하기`}><Heart aria-hidden="true" /></button></div></div><button className="dg-family-program-open" type="button" onClick={() => onOpen(program)}><h2>{program.name}</h2><p>{place || "장소 확인"}</p><div className="dg-family-program-meta"><span>{schedule}</span><strong>{distanceLabel(distanceMeters(origin, program))}</strong></div></button></div><div className="dg-family-program-actions"><button className="kakao" type="button" onClick={() => { void onShare(program); }}><MessageCircle aria-hidden="true" />카톡공유</button>{phone ? <a href={`tel:${phone.replace(/[^\d+]/g, "")}`}><Phone aria-hidden="true" />전화걸기</a> : <button type="button" disabled><Phone aria-hidden="true" />전화걸기</button>}</div></article>;
   }) : <div className="dg-empty"><strong>이 지역과 연령에 맞는 프로그램이 현재 지도에 없어요.</strong><p>지도를 관심 지역으로 이동한 뒤 다시 확인해 주세요.</p></div>}</div>{showTop && <button className="dg-family-scroll-top" type="button" aria-label="가족 프로그램 목록 맨 위로 이동" onClick={() => listRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ChevronUp aria-hidden="true" /></button>}</section>;
 }
 
