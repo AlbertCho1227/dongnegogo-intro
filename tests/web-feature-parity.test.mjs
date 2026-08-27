@@ -74,6 +74,8 @@ test("지도 이동 후에도 개별 마커는 실제 프로그램 좌표에 고
   assert.match(webMapSource, /grouped\.set\(markerPlaceKey\(program\)/);
   assert.match(webMapSource, /Array\.from\(grouped\.values\(\)\)\.slice\(0, 1_200\)\.forEach/);
   assert.match(webMapSource, /position:\s*new maps\.LatLng\(representative\.latitude, representative\.longitude\)/);
+  assert.match(webMapSource, /content:\s*button,\s*xAnchor:\s*0\.5,\s*yAnchor:\s*0\.5/);
+  assert.doesNotMatch(webMapStyle, /\.dg-map-marker:hover, \.dg-map-marker\.is-selected \{[^}]*transform:/);
 });
 
 test("조건 수영은 사물놀이를 제외하고 실제 물놀이만 포함한다", () => {

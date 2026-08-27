@@ -78,7 +78,7 @@ type KakaoMaps = {
   Map: new (element: HTMLDivElement, options: { center: KakaoLatLng; level: number }) => KakaoMap;
   LatLng: new (latitude: number, longitude: number) => KakaoLatLng;
   LatLngBounds: new () => KakaoBounds;
-  CustomOverlay: new (options: { map: KakaoMap; position: KakaoLatLng; content: HTMLElement; yAnchor: number; zIndex: number }) => KakaoOverlay;
+  CustomOverlay: new (options: { map: KakaoMap; position: KakaoLatLng; content: HTMLElement; xAnchor?: number; yAnchor: number; zIndex: number }) => KakaoOverlay;
   Polyline: new (options: { map: KakaoMap; path: KakaoLatLng[]; strokeWeight: number; strokeColor: string; strokeOpacity: number; strokeStyle?: string }) => KakaoMapItem;
   Circle: new (options: { map: KakaoMap; center: KakaoLatLng; radius: number; strokeWeight: number; strokeColor: string; strokeOpacity: number; strokeStyle?: string; fillColor: string; fillOpacity: number }) => KakaoMapItem;
   Roadview: new (element: HTMLDivElement) => KakaoRoadview;
@@ -1952,7 +1952,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       button.addEventListener("click", () => { void openProgramSheet(group, count); });
       const overlay = new maps.CustomOverlay({
         map, position: new maps.LatLng(representative.latitude, representative.longitude),
-        content: button, yAnchor: 1.15, zIndex: isFocused ? 10 : 2,
+        content: button, xAnchor: 0.5, yAnchor: 0.5, zIndex: isFocused ? 10 : 2,
       });
       overlaysRef.current.push(overlay);
     });
