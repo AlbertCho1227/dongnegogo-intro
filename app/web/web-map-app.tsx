@@ -4051,8 +4051,48 @@ function ProgramPoster({ program }: { program: WebProgram }) {
   return <section><h2>프로그램 포스터</h2><div className="dg-poster"><img src={imageURL} alt={`${program.name} 포스터`} onError={() => setFailedImageURL(imageURL)} /></div></section>;
 }
 
+function webProgramOverviewStory(program: WebProgram) {
+  const category = program.rawCategory?.trim() || program.category?.trim() || program.field?.trim() || "공공";
+  const venue = program.facility?.trim() || "운영기관";
+  const area = program.area?.trim() || program.region?.trim() || "우리 동네";
+  const audience = program.requirement?.trim() || program.audiences.join(" · ") || "누구나 신청할 수 있어요.";
+  const receipt = [program.receiptStart?.slice(0, 10), program.receiptEnd?.slice(0, 10)].filter(Boolean).join(" ~ ");
+  const schedule = program.periodText?.trim() || program.scheduleText?.trim();
+  const fee = program.isFree
+    ? `완전 무료예요. ${program.preparation?.trim() || "준비물도 없어요."}`
+    : [program.feeText?.trim() || "요금 확인", program.preparation?.trim()].filter(Boolean).join(" · ");
+  return {
+    takeaway: `${venue}에서 만나는 ${category} 프로그램이에요. 현재 ${program.status || "일정 확인"} 상태이며, 참여 전에 일정과 신청 조건을 함께 확인해 보세요.`,
+    activityHeading: `${category} 프로그램, 이렇게 활용해 보세요`,
+    activityBody: `${program.name} 참여 전 일정과 장소를 함께 메모해 두면 방문 준비가 쉬워요. 참여 후에는 기억에 남은 내용이나 다음에 확인할 점을 짧게 남겨 보세요.`,
+    checklist: [
+      `신청 대상: ${audience}`,
+      `접수 상태: ${program.status || "일정 확인"}`,
+      receipt ? `접수 일정: ${receipt}` : null,
+      schedule ? `운영 일정: ${schedule}` : null,
+      `비용과 준비물: ${fee}`,
+      `장소: ${venue}`,
+    ].filter((item): item is string => Boolean(item)).slice(0, 6),
+    searchHeading: `${area} ${category} 프로그램을 구체적으로 찾는 법`,
+    searchBody: `찾기에서 ‘${area} ${category}’처럼 지역과 분야를 함께 입력하면 비슷한 프로그램을 더 빠르게 찾을 수 있어요. 최종 일정과 신청 조건은 운영기관의 최신 안내를 기준으로 확인해 주세요.`,
+  };
+}
+
 function ProgramSummary({ program }: { program: WebProgram }) {
-  return <section className="dg-easy-summary"><h2>이 프로그램은요</h2><div className="dg-program-summary-card"><span aria-hidden="true"><Sparkles /></span><div><strong>공식 내용을 쉽게 정리했어요</strong><p>{program.summary || "우리 동네에서 만날 수 있는 프로그램이에요."}</p></div></div></section>;
+  const story = webProgramOverviewStory(program);
+  const paragraphs = (program.summary || "우리 동네에서 만날 수 있는 프로그램이에요.")
+    .split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  return <section className="dg-easy-summary"><h2>이 프로그램은요</h2><div className="dg-program-summary-card">
+    <div className="dg-program-summary-intro"><span aria-hidden="true"><Sparkles /></span><div><strong>프로그램 안내</strong>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div></div>
+    <div className="dg-program-story-divider" />
+    <aside className="dg-program-story-takeaway"><strong>핵심 요약</strong><p>{story.takeaway}</p></aside>
+    <div className="dg-program-story-divider" />
+    <section><h3>{story.activityHeading}</h3><p>{story.activityBody}</p></section>
+    <div className="dg-program-story-divider" />
+    <section><h3>신청 전 체크리스트</h3><ul>{story.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
+    <div className="dg-program-story-divider" />
+    <section><h3>{story.searchHeading}</h3><p>{story.searchBody}</p></section>
+  </div></section>;
 }
 
 function ProgramParkingSection({ program }: { program: WebProgram }) {

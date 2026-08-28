@@ -15,6 +15,8 @@ const webUserSource = readFileSync(new URL("../lib/web-user-data.ts", import.met
 const webProgramDataSource = readFileSync(new URL("../lib/web-program-data.ts", import.meta.url), "utf8");
 const webParkingRouteSource = readFileSync(new URL("../app/api/web-program-parking/route.ts", import.meta.url), "utf8");
 const webProgramFiltersSource = readFileSync(new URL("../lib/web-program-filters.ts", import.meta.url), "utf8");
+const programShareSource = readFileSync(new URL("../app/program/[id]/page.tsx", import.meta.url), "utf8");
+const programShareStyle = readFileSync(new URL("../app/program/[id]/program-share.module.css", import.meta.url), "utf8");
 
 function program(overrides = {}) {
   return {
@@ -514,7 +516,12 @@ test("웹 로그인은 iOS와 같은 동의 확인 뒤 제공자를 선택한다
 
 test("프로그램 상세는 iOS형 쉬운 설명 카드와 시설 우선 주차정보를 제공한다", () => {
   assert.match(webMapSource, /function ProgramSummary/);
-  assert.match(webMapSource, /공식 내용을 쉽게 정리했어요/);
+  assert.match(webMapSource, /function webProgramOverviewStory/);
+  assert.match(webMapSource, /신청 전 체크리스트/);
+  assert.match(webMapSource, /프로그램을 구체적으로 찾는 법/);
+  assert.match(programShareSource, /function sharedProgramOverviewStory/);
+  assert.match(programShareSource, /신청 전 체크리스트/);
+  assert.match(programShareStyle, /\.storyDivider/);
   assert.match(webMapSource, /function ProgramParkingSection/);
   assert.match(webMapSource, /근처 발견된 주차장/);
   assert.match(webMapStyle, /\.dg-program-summary-card/);
