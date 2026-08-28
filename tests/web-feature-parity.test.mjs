@@ -140,6 +140,14 @@ test("오픈런 프로그램 목록도 넘칠 때 같은 위로 가기 동작을
   assert.match(webMapStyle, /\.dg-openrun-scroll-top[^}]*position:\s*absolute;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--dg-green\);/);
 });
 
+test("오픈런에서 저장한 알림 프로그램을 일정 카탈로그에 유지한다", () => {
+  assert.match(webMapSource, /const calendarPrograms = useMemo\(\(\) => \[\.\.\.new Map\(/);
+  assert.match(webMapSource, /\[\.\.\.programs, \.\.\.alertPrograms\]/);
+  assert.match(webMapSource, /<CalendarPanel[\s\S]*?programs=\{calendarPrograms\}/);
+  assert.match(webMapSource, /setAlertPrograms\(\(previous\) =>/);
+  assert.match(webMapSource, /WEB_ALERT_PROGRAM_CACHE_KEY/);
+});
+
 test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   for (const copy of [
     "같은 장소 프로그램",

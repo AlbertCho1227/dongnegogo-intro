@@ -66,6 +66,7 @@ import {
 type KakaoLatLng = { getLat: () => number; getLng: () => number };
 const WEB_OPEN_RUN_CACHE_PREFIX = "dongnegogo.web.open-run.v2";
 const WEB_OPEN_RUN_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
+const WEB_ALERT_PROGRAM_CACHE_KEY = "dongnegogo.web.alert-programs.v1";
 
 type WebOpenRunCachePayload = { savedAt: number; programs: WebProgram[] };
 
@@ -88,6 +89,23 @@ function cacheWebOpenRunPrograms(city: string, programs: WebProgram[]) {
       // 브라우저 저장 한도를 넘겨도 현재 응답은 그대로 사용한다.
     }
   }, 0);
+}
+
+function readCachedWebAlertPrograms(): WebProgram[] {
+  try {
+    const programs = JSON.parse(localStorage.getItem(WEB_ALERT_PROGRAM_CACHE_KEY) ?? "[]") as WebProgram[];
+    return Array.isArray(programs) ? programs.filter((program) => Boolean(program?.id)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function cacheWebAlertPrograms(programs: WebProgram[]) {
+  try {
+    localStorage.setItem(WEB_ALERT_PROGRAM_CACHE_KEY, JSON.stringify(programs));
+  } catch {
+    // 계정 동기화로 다시 복원할 수 있으므로 저장 공간 부족은 화면을 막지 않는다.
+  }
 }
 type KakaoBounds = { getSouthWest: () => KakaoLatLng; getNorthEast: () => KakaoLatLng; extend: (position: KakaoLatLng) => void };
 type KakaoMap = {
@@ -947,6 +965,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const [authConsentAccepted, setAuthConsentAccepted] = useState(false);
   const [favoriteTargets, setFavoriteTargets] = useState<Record<string, string[]>>({});
   const [userAlerts, setUserAlerts] = useState<WebUserAlert[]>([]);
+  const [alertPrograms, setAlertPrograms] = useState<WebProgram[]>([]);
   const [familyMembers, setFamilyMembers] = useState<WebFamilyMember[]>([]);
   const [alertDialog, setAlertDialog] = useState<AlertDialogState | null>(null);
 
@@ -960,6 +979,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         || (Number.isFinite(end) && end >= now && /접수|신청|마감임박/u.test(program.status));
     });
   }, [openRunPrograms, programs]);
+  const calendarPrograms = useMemo(() => [...new Map(
+    [...programs, ...alertPrograms]
+      .map((program) => [program.id, program] as const),
+  ).values()], [alertPrograms, programs]);
   const openRunCity = useMemo(() => currentLocationRegion
     ? openRunCityName(currentLocationRegion)
     : nearestOpenRunCityName(immediateOpenRunPrograms, location),
@@ -1039,6 +1062,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               : alert.scheduled_at ? [alert.scheduled_at] : [],
           })));
         } catch { setUserAlerts([]); }
+        setAlertPrograms(readCachedWebAlertPrograms());
         try {
           const family = JSON.parse(localStorage.getItem("dongnegogo.web.family") ?? "[]") as WebFamilyMember[];
           setFamilyMembers(family.filter((member) => member?.role && member.age_group && member.region));
@@ -1151,6 +1175,25 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           });
         }
       }
+      const alertProgramByID = new Map(readCachedWebAlertPrograms().map((program) => [program.id, program]));
+      const missingAlertProgramIDs = snapshot.alerts
+        .map((alert) => alert.program_id)
+        .filter((programID) => !alertProgramByID.has(programID));
+      for (let start = 0; start < missingAlertProgramIDs.length; start += 80) {
+        const parameters = new URLSearchParams();
+        for (const programID of missingAlertProgramIDs.slice(start, start + 80)) parameters.append("id", programID);
+        try {
+          const hydrated = await fetchPrograms(parameters);
+          for (const program of hydrated) alertProgramByID.set(program.id, program);
+        } catch {
+          // 삭제된 과거 프로그램 한 건이 있어도 나머지 계정 일정은 계속 표시한다.
+        }
+      }
+      const nextAlertPrograms = snapshot.alerts
+        .map((alert) => alertProgramByID.get(alert.program_id))
+        .filter((program): program is WebProgram => program != null);
+      setAlertPrograms(nextAlertPrograms);
+      cacheWebAlertPrograms(nextAlertPrograms);
       await upsertWebProgramHistoryBatch(activeSession, localHistory.map((item) => ({
         program_id: item.program.id,
         viewed_at: item.viewedAt,
@@ -1224,6 +1267,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       else {
         setFavoriteTargets({});
         setUserAlerts([]);
+        setAlertPrograms([]);
+        localStorage.removeItem(WEB_ALERT_PROGRAM_CACHE_KEY);
         setFamilyMembers([]);
       }
     });
@@ -2615,12 +2660,14 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
       setReminders([]);
       setFavoriteTargets({});
       setUserAlerts([]);
+      setAlertPrograms([]);
       setFamilyMembers([]);
       setViewHistory([]);
       localStorage.removeItem("dongnegogo.web.viewHistory");
       localStorage.removeItem("dongnegogo.web.favorites");
       localStorage.removeItem("dongnegogo.web.reminders");
       localStorage.removeItem("dongnegogo.web.alerts");
+      localStorage.removeItem(WEB_ALERT_PROGRAM_CACHE_KEY);
     } catch (authError) {
       setAccountError(authError instanceof Error ? authError.message : "로그아웃하지 못했어요.");
     } finally {
@@ -2644,6 +2691,11 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     };
     const nextAlerts = [saved, ...userAlerts.filter((item) => item.program_id !== saved.program_id)];
     setUserAlerts(nextAlerts);
+    setAlertPrograms((previous) => {
+      const next = [...new Map([...previous, alertDialog.program].map((program) => [program.id, program])).values()];
+      cacheWebAlertPrograms(next);
+      return next;
+    });
     setReminders((previous) => previous.includes(saved.program_id) ? previous : [...previous, saved.program_id]);
     localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
     persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
@@ -2663,6 +2715,11 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
   const removeAlertForProgram = (id: string) => {
     const nextAlerts = userAlerts.filter((item) => item.program_id !== id);
     setUserAlerts(nextAlerts);
+    setAlertPrograms((previous) => {
+      const next = previous.filter((program) => program.id !== id);
+      cacheWebAlertPrograms(next);
+      return next;
+    });
     setReminders((previous) => previous.filter((item) => item !== id));
     localStorage.setItem("dongnegogo.web.alerts", JSON.stringify(nextAlerts));
     persistList("dongnegogo.web.reminders", nextAlerts.map((item) => item.program_id));
@@ -3306,7 +3363,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           />
         ) : auxiliaryPanel === "calendar" ? (
           <CalendarPanel
-            programs={programs}
+            programs={calendarPrograms}
             alerts={userAlerts}
             onBack={() => setAuxiliaryPanel(null)}
             onOpen={(program) => { void selectProgram(program); }}
