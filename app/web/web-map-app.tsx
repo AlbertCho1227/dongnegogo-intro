@@ -269,17 +269,18 @@ function useSmoothSearchProgress(target: number, active: boolean) {
   return Math.round(displayed);
 }
 
-function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDown, canPrevious = true, canNext = true, animatePages = false }: {
+function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDown, canDismissDown = () => true, canPrevious = true, canNext = true, animatePages = false }: {
   enabled: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onDismissDown?: () => void;
+  canDismissDown?: () => boolean;
   canPrevious?: boolean;
   canNext?: boolean;
   animatePages?: boolean;
 }) {
-  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, width: 1, axis: "pending" as "pending" | "horizontal" | "vertical" });
-  const touchGestureRef = useRef({ identifier: -1, startX: 0, startY: 0, lastX: 0, lastY: 0 });
+  const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, width: 1, axis: "pending" as "pending" | "horizontal" | "vertical", canDismissDownAtStart: false });
+  const touchGestureRef = useRef({ identifier: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, canDismissDownAtStart: false });
   const dismissInFlightRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
   const transitionTimersRef = useRef<number[]>([]);
@@ -302,8 +303,8 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     setOffsetY(0);
     transitionTimersRef.current.push(window.setTimeout(() => setSwipePhase("idle"), 220));
   };
-  const dismissDownward = (deltaX: number, deltaY: number, surfaceHeight: number) => {
-    if (!onDismissDown || deltaY < 64 || deltaY <= Math.abs(deltaX) * 1.15 || dismissInFlightRef.current) return false;
+  const dismissDownward = (deltaX: number, deltaY: number, surfaceHeight: number, canDismissDownAtStart: boolean) => {
+    if (!onDismissDown || !canDismissDownAtStart || deltaY < 64 || deltaY <= Math.abs(deltaX) * 1.15 || dismissInFlightRef.current) return false;
     dismissInFlightRef.current = true;
     clearTransitionTimers();
     suppressClickUntilRef.current = performance.now() + 420;
@@ -318,7 +319,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     const deltaX = gesture.lastX - gesture.startX;
     const deltaY = gesture.lastY - gesture.startY;
     reset();
-    if (dismissDownward(deltaX, deltaY, event.currentTarget.getBoundingClientRect().height)) {
+    if (dismissDownward(deltaX, deltaY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart)) {
       event.preventDefault();
       return;
     }
@@ -367,6 +368,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
         lastY: event.clientY,
         width: Math.max(event.currentTarget.getBoundingClientRect().width, window.innerWidth, 1),
         axis: "pending",
+        canDismissDownAtStart: canDismissDown(),
       };
       if (animatePages) setSwipePhase("dragging");
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
@@ -382,7 +384,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
         gesture.axis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? "horizontal" : "vertical";
       }
       if (!animatePages) return;
-      if (gesture.axis === "vertical" && onDismissDown && deltaY > 0) {
+      if (gesture.axis === "vertical" && onDismissDown && gesture.canDismissDownAtStart && deltaY > 0) {
         setOffsetY(Math.round(deltaY));
         return;
       }
@@ -403,7 +405,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     onTouchStartCapture: (event: ReactTouchEvent<HTMLElement>) => {
       if (!enabled || !onDismissDown || event.touches.length !== 1 || swipePhase === "dismissing") return;
       const touch = event.touches[0];
-      touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY };
+      touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, canDismissDownAtStart: canDismissDown() };
     },
     onTouchMoveCapture: (event: ReactTouchEvent<HTMLElement>) => {
       const gesture = touchGestureRef.current;
@@ -414,7 +416,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
       gesture.lastY = touch.clientY;
       const deltaX = gesture.lastX - gesture.startX;
       const deltaY = gesture.lastY - gesture.startY;
-      if (deltaY > 0 && deltaY > Math.abs(deltaX) * .8) setOffsetY(Math.round(deltaY));
+      if (gesture.canDismissDownAtStart && deltaY > 0 && deltaY > Math.abs(deltaX) * .8) setOffsetY(Math.round(deltaY));
     },
     onTouchEndCapture: (event: ReactTouchEvent<HTMLElement>) => {
       const gesture = touchGestureRef.current;
@@ -425,7 +427,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
         gesture.lastY = touch.clientY;
       }
       touchGestureRef.current.identifier = -1;
-      if (dismissDownward(gesture.lastX - gesture.startX, gesture.lastY - gesture.startY, event.currentTarget.getBoundingClientRect().height)) {
+      if (dismissDownward(gesture.lastX - gesture.startX, gesture.lastY - gesture.startY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart)) {
         event.preventDefault();
         return;
       }
@@ -3940,6 +3942,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
       .map((candidate) => candidate.id === program.id ? program : candidate);
   }, [program, samePlacePrograms]);
   const detailIndex = Math.max(0, detailPrograms.findIndex((candidate) => candidate.id === program.id));
+  const detailScrollRef = useRef<HTMLDivElement>(null);
   const showPreviousProgram = useCallback(() => {
     if (detailIndex <= 0) return;
     onProgramChange(detailPrograms[detailIndex - 1]);
@@ -3953,6 +3956,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
     onPrevious: showPreviousProgram,
     onNext: showNextProgram,
     onDismissDown: onBack,
+    canDismissDown: () => (detailScrollRef.current?.scrollTop ?? 0) <= 1,
     canPrevious: detailIndex > 0,
     canNext: detailIndex < detailPrograms.length - 1,
     animatePages: true,
@@ -4032,7 +4036,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
         <div className="dg-detail-badges"><span>{program.status}</span>{program.applyUrl && <span>✓ 신청 링크 확인됨</span>}</div>
         <h1>{program.name}</h1><p>▥ {program.facility}</p>
       </header>
-      <div className="dg-detail-scroll" onScroll={(event) => {
+      <div ref={detailScrollRef} className="dg-detail-scroll" onScroll={(event) => {
         if (!showSamePlaceBottomPanel && detailPrograms.length > 1 && event.currentTarget.scrollTop > 180) {
           setShowSamePlaceBottomPanel(true);
         }
