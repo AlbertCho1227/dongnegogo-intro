@@ -3361,7 +3361,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               setNearbyWalkingRoute(null);
               setRoutePanelActive(true);
               setRoutePanelMode("nearby");
-              setRoutePanelSnap("collapsed");
+              setRoutePanelSnap("expanded");
               setRoutePanelDragHeight(null);
               setRouteSheetCollapsed(false);
               setRouteSheetDragOffset(null);
