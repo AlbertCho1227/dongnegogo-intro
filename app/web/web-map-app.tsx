@@ -3350,6 +3350,18 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             }}
             onShare={() => share(selected)}
             onNearby={() => { setNearbyCategory("all"); void loadNearbyPlaces(selected, 100); }}
+            onShowNearbyOnMap={() => {
+              setNearbyCategory("all");
+              setSelectedNearbyPlace(null);
+              setNearbyWalkingRoute(null);
+              setRoutePanelActive(true);
+              setRoutePanelMode("nearby");
+              setRoutePanelSnap("collapsed");
+              setRoutePanelDragHeight(null);
+              setRouteSheetCollapsed(false);
+              setRouteSheetDragOffset(null);
+              void loadRouteNearbyPlaces(selected, 100);
+            }}
           />
         ) : auxiliaryPanel === "nearby" && nearbyDestination ? (
           <NearbyPlacesPanel
@@ -3941,12 +3953,12 @@ function RouteInfoPanel({ program, current, usesFallbackLocation, locationReques
   </article>;
 }
 
-function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, session, mapReady, onBack, onProgramChange, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby, onRequireAuth }: {
+function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocation, locationRequestState, locationRequestMessage, accountFeaturesVisible, favorite, favoriteTargets, familyMembers, reminder, transport, easyFirst, session, mapReady, onBack, onProgramChange, onFavorite, onFavoriteTarget, onReminder, onTransport, onRouteChange, onRequestLocation, onShowRouteOnMap, onShare, onNearby, onShowNearbyOnMap, onRequireAuth }: {
   program: WebProgram; samePlacePrograms: WebProgram[]; current: Coordinate; usesFallbackLocation: boolean; accountFeaturesVisible: boolean; favorite: boolean; favoriteTargets: string[]; familyMembers: WebFamilyMember[]; reminder: boolean; transport: Transport; easyFirst: boolean;
   session: Session | null;
   mapReady: boolean;
   locationRequestState: LocationRequestState; locationRequestMessage: string;
-  onBack: () => void; onProgramChange: (program: WebProgram) => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onRequireAuth: () => void;
+  onBack: () => void; onProgramChange: (program: WebProgram) => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onShowNearbyOnMap: () => void; onRequireAuth: () => void;
 }) {
   const detailPrograms = useMemo(() => {
     const source = samePlacePrograms.length ? samePlacePrograms : [program];
@@ -4109,7 +4121,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
         <section>
           <h2>주변가게</h2>
           <p className="dg-detail-section-subtitle">목적지 주변에서 걸어서 갈 만한 곳을 지도와 함께 살펴보세요.</p>
-          <ProgramDetailNearbyPlaces program={program} mapReady={mapReady} />
+          <ProgramDetailNearbyPlaces program={program} mapReady={mapReady} onOpenMainMap={onShowNearbyOnMap} />
         </section>
         {accountFeaturesVisible && <ProgramReviews program={program} session={session} onRequireAuth={onRequireAuth} />}
         <p className="dg-source">공공데이터 출처: {program.source ?? "제공기관 공개 데이터"}</p>
@@ -4309,7 +4321,7 @@ function ReviewComments({ review, session, saving, onRequireAuth, onChanged, onE
   </div>;
 }
 
-function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram; mapReady: boolean }) {
+function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { program: WebProgram; mapReady: boolean; onOpenMainMap: () => void }) {
   const [summary, setSummary] = useState<WebNearbyPlacesSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [radius, setRadius] = useState(100);
@@ -4342,6 +4354,7 @@ function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram;
     .slice(0, 80), [category, summary?.mapPlaces]);
 
   return <div className="dg-detail-nearby-card" data-detail-interaction-zone="nearby-stores">
+    <p className="dg-detail-nearby-map-guide"><span aria-hidden="true">☝</span> 아래 지도를 선택하시면, 메인 지도 화면에 가게 정보가 표시됩니다</p>
     <KakaoNearbyPlacesPreview
       program={program}
       radius={radius}
@@ -4349,6 +4362,7 @@ function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram;
       selected={selected}
       mapReady={mapReady}
       onSelect={setSelected}
+      onOpen={onOpenMainMap}
     />
     {summary || loading ? <NearbyPlacesPanel
       program={program}
@@ -4369,13 +4383,14 @@ function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram;
   </div>;
 }
 
-function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady, onSelect }: {
+function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady, onSelect, onOpen }: {
   program: WebProgram;
   radius: number;
   places: WebNearbyPlace[];
   selected: WebNearbyPlace | null;
   mapReady: boolean;
   onSelect: (place: WebNearbyPlace) => void;
+  onOpen: () => void;
 }) {
   const elementRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable">("loading");
@@ -4450,6 +4465,7 @@ function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady,
   return <div className="dg-detail-nearby-map">
     <div ref={elementRef} className="dg-detail-nearby-map-canvas" />
     {status !== "ready" && <div className="dg-route-preview-loading">{status === "loading" ? "지도를 준비하고 있어요" : "지도 배경을 불러오지 못했어요"}</div>}
+    <button type="button" className="dg-detail-nearby-map-open" onClick={onOpen} aria-label="메인 지도에서 도착지 주변 가게 보기" />
   </div>;
 }
 
