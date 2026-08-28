@@ -258,9 +258,10 @@ test("같은 장소 프로그램은 패널과 상세 전체 영역에서 좌우�
   assert.match(webMapSource, /onPointerDownCapture/);
   assert.match(webMapSource, /animatePages:\s*true/);
   assert.match(webMapSource, /onDismissDown:\s*onBack/);
-  assert.match(webMapSource, /canDismissDown:\s*\(\) => \(detailScrollRef\.current\?\.scrollTop \?\? 0\) <= 1/);
+  assert.match(webMapSource, /dismissStartSelector:\s*"\.dg-detail-drag-region"/);
+  assert.match(webMapSource, /className="dg-detail-drag-region" data-testid="program-detail-drag-region"/);
   assert.match(webMapSource, /ref=\{detailScrollRef\} className="dg-detail-scroll"/);
-  assert.match(webMapSource, /canDismissDownAtStart:\s*canDismissDown\(\)/);
+  assert.match(webMapSource, /canDismissDownAtStart:\s*canStartDismissDown\(event\.target\)/);
   assert.match(webMapSource, /gesture\.canDismissDownAtStart && canDismissDown\(\)/);
   assert.match(webMapSource, /deltaY < 64/);
   assert.match(webMapSource, /onTouchEndCapture/);
@@ -576,6 +577,7 @@ test("모바일 웹은 하단 탭 없이 iOS형 지도 도구와 시트를 사�
   assert.match(webMapSource, /dg-place-sheet-\$\{snap\}/);
   assert.match(webMapSource, /onDismissDown:\s*onBack/);
   assert.match(webMapSource, /aria-label="같은 장소 프로그램 상세 페이지"/);
+  assert.match(webMapStyle, /\.dg-detail-drag-region \{[^}]*touch-action:\s*none/);
   assert.match(webMapStyle, /\.dg-detail-place-nav \{[^}]*touch-action:\s*none/);
   assert.match(webMapSource, /setDragHeight\(Math\.max\(heights\.hidden, Math\.min\(heights\.expanded/);
   assert.match(webMapSource, /if \(nextSnap === "hidden"\) dismiss\(\)/);

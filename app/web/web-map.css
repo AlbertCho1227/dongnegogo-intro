@@ -217,7 +217,10 @@
 .dg-detail[data-horizontal-swipe-phase="dragging"] { transition: none; }
 .dg-detail[data-horizontal-swipe-phase="dismissing"] { transition: transform .24s cubic-bezier(.22,.82,.24,1); }
 .dg-detail[data-horizontal-swipe-phase="animating"] { transition: transform .2s cubic-bezier(.2,.8,.2,1); }
-.dg-detail-place-nav { flex: none; min-height: 54px; padding: 7px 14px; display: grid; grid-template-columns: 40px minmax(0,1fr) 40px; align-items: center; gap: 8px; border-bottom: 1px solid var(--dg-line); background: #fff; touch-action: none; }
+.dg-detail-drag-region { flex: none; background: #fff; touch-action: none; }
+.dg-detail-drag-handle { height: 25px; display: flex; align-items: center; justify-content: center; }
+.dg-detail-drag-handle span { width: 44px; height: 5px; border-radius: 999px; background: #dde1dd; }
+.dg-detail-place-nav { flex: none; min-height: 54px; padding: 0 14px 7px; display: grid; grid-template-columns: 40px minmax(0,1fr) 40px; align-items: center; gap: 8px; border-bottom: 1px solid var(--dg-line); background: #fff; touch-action: none; }
 .dg-detail-place-nav button { width: 38px; height: 38px; border: 0; border-radius: 50%; color: #fff; background: var(--dg-green); font-size: 28px; font-weight: 800; line-height: 1; cursor: pointer; }
 .dg-detail-place-nav button:disabled { opacity: .2; cursor: default; }
 .dg-detail-place-nav span { display: flex; align-items: center; justify-content: center; gap: 9px; text-align: center; }

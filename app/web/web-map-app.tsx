@@ -269,18 +269,21 @@ function useSmoothSearchProgress(target: number, active: boolean) {
   return Math.round(displayed);
 }
 
-function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDown, canDismissDown = () => true, canPrevious = true, canNext = true, animatePages = false }: {
+function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDown, canDismissDown = () => true, dismissStartSelector, canPrevious = true, canNext = true, animatePages = false }: {
   enabled: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onDismissDown?: () => void;
   canDismissDown?: () => boolean;
+  dismissStartSelector?: string;
   canPrevious?: boolean;
   canNext?: boolean;
   animatePages?: boolean;
 }) {
   const gestureRef = useRef({ pointerID: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, width: 1, axis: "pending" as "pending" | "horizontal" | "vertical", canDismissDownAtStart: false });
   const touchGestureRef = useRef({ identifier: -1, startX: 0, startY: 0, lastX: 0, lastY: 0, canDismissDownAtStart: false });
+  const canStartDismissDown = (target: EventTarget | null) => canDismissDown()
+    && (!dismissStartSelector || (target instanceof Element && target.closest(dismissStartSelector) != null));
   const dismissInFlightRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
   const transitionTimersRef = useRef<number[]>([]);
@@ -368,7 +371,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
         lastY: event.clientY,
         width: Math.max(event.currentTarget.getBoundingClientRect().width, window.innerWidth, 1),
         axis: "pending",
-        canDismissDownAtStart: canDismissDown(),
+        canDismissDownAtStart: canStartDismissDown(event.target),
       };
       if (animatePages) setSwipePhase("dragging");
       try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* Browser fallback */ }
@@ -405,7 +408,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     onTouchStartCapture: (event: ReactTouchEvent<HTMLElement>) => {
       if (!enabled || !onDismissDown || event.touches.length !== 1 || swipePhase === "dismissing") return;
       const touch = event.touches[0];
-      touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, canDismissDownAtStart: canDismissDown() };
+      touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, canDismissDownAtStart: canStartDismissDown(event.target) };
     },
     onTouchMoveCapture: (event: ReactTouchEvent<HTMLElement>) => {
       const gesture = touchGestureRef.current;
@@ -3956,7 +3959,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
     onPrevious: showPreviousProgram,
     onNext: showNextProgram,
     onDismissDown: onBack,
-    canDismissDown: () => (detailScrollRef.current?.scrollTop ?? 0) <= 1,
+    dismissStartSelector: ".dg-detail-drag-region",
     canPrevious: detailIndex > 0,
     canNext: detailIndex < detailPrograms.length - 1,
     animatePages: true,
@@ -4020,11 +4023,14 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   const distanceMetricLabel = route ? "이동 거리" : "예상 이동 거리";
   return (
     <article className="dg-detail" data-testid="program-detail-swipe-surface" {...detailSwipeHandlers} style={detailStyle}>
-      {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
-        <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 프로그램">‹</button>
-        <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
-        <button type="button" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 프로그램">›</button>
-      </nav>}
+      <div className="dg-detail-drag-region" data-testid="program-detail-drag-region">
+        <div className="dg-detail-drag-handle" aria-hidden="true"><span /></div>
+        {detailPrograms.length > 1 && <nav className="dg-detail-place-nav" aria-label="같은 장소 프로그램 상세 페이지">
+          <button type="button" onClick={showPreviousProgram} disabled={detailIndex <= 0} aria-label="이전 프로그램">‹</button>
+          <span><small>같은 장소 프로그램</small><strong>{detailIndex + 1} / {detailPrograms.length}</strong></span>
+          <button type="button" onClick={showNextProgram} disabled={detailIndex >= detailPrograms.length - 1} aria-label="다음 프로그램">›</button>
+        </nav>}
+      </div>
       <header className="dg-detail-hero">
         <div className="dg-detail-actions">
           <button type="button" onClick={onBack} aria-label="목록으로 돌아가기"><span className="dg-ios-back-icon" aria-hidden="true">‹</span></button>
