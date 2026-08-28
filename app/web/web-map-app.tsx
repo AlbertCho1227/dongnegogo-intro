@@ -319,7 +319,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     const deltaX = gesture.lastX - gesture.startX;
     const deltaY = gesture.lastY - gesture.startY;
     reset();
-    if (dismissDownward(deltaX, deltaY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart)) {
+    if (dismissDownward(deltaX, deltaY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart && canDismissDown())) {
       event.preventDefault();
       return;
     }
@@ -427,7 +427,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
         gesture.lastY = touch.clientY;
       }
       touchGestureRef.current.identifier = -1;
-      if (dismissDownward(gesture.lastX - gesture.startX, gesture.lastY - gesture.startY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart)) {
+      if (dismissDownward(gesture.lastX - gesture.startX, gesture.lastY - gesture.startY, event.currentTarget.getBoundingClientRect().height, gesture.canDismissDownAtStart && canDismissDown())) {
         event.preventDefault();
         return;
       }

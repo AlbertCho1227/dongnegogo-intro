@@ -261,6 +261,7 @@ test("같은 장소 프로그램은 패널과 상세 전체 영역에서 좌우�
   assert.match(webMapSource, /canDismissDown:\s*\(\) => \(detailScrollRef\.current\?\.scrollTop \?\? 0\) <= 1/);
   assert.match(webMapSource, /ref=\{detailScrollRef\} className="dg-detail-scroll"/);
   assert.match(webMapSource, /canDismissDownAtStart:\s*canDismissDown\(\)/);
+  assert.match(webMapSource, /gesture\.canDismissDownAtStart && canDismissDown\(\)/);
   assert.match(webMapSource, /deltaY < 64/);
   assert.match(webMapSource, /onTouchEndCapture/);
   assert.match(webMapSource, /disabled=\{detailIndex <= 0\}/);
