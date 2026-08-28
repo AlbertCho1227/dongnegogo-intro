@@ -110,7 +110,7 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   const rss = await rssResponse.text();
   assert.equal(rssResponse.status, 200);
   assert.match(rssResponse.headers.get("content-type") ?? "", /application\/rss\+xml/);
-  assert.equal((rss.match(/<item>/g) ?? []).length, 29);
+  assert.equal((rss.match(/<item>/g) ?? []).length, 34);
   assert.match(rss, /content:encoded/);
   assert.match(rss, /이 강좌가 첫 코딩에 잘 맞는 이유/);
   assert.match(rss, /그림책 전시는 어떻게 보면 좋을까요/);
@@ -139,6 +139,11 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   assert.equal(sitemapResponse.status, 200);
   assert.match(sitemap, /https:\/\/www\.dongnegogo\.com\/blog<\/loc>/);
   for (const slug of [
+    "geumcheon-memory-archive-adult-class-guide",
+    "ansan-september-online-breastfeeding-class-guide",
+    "chuncheon-sugna-animation-museum-exhibition-guide",
+    "gumi-carmen-suite-free-orchestra-guide",
+    "sacheon-womens-choir-free-concert-guide",
     "bupyeong-free-kids-ai-coding-class",
     "cheongju-picture-book-garden-exhibition-guide",
     "seoul-junggu-chungmu-swimming-pool-checklist",
@@ -170,6 +175,32 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
     "busan-neophilharmonic-87th-concert-guide",
   ]) {
     assert.match(sitemap, new RegExp(`https://www\\.dongnegogo\\.com/blog/${slug}`));
+  }
+});
+
+test("2026년 8월 29일 편집형 5편은 지역·유형·실제 이미지 출처와 확인된 날짜만 구조화한다", async () => {
+  const datedSlugs = new Set([
+    "geumcheon-memory-archive-adult-class-guide",
+    "chuncheon-sugna-animation-museum-exhibition-guide",
+    "gumi-carmen-suite-free-orchestra-guide",
+    "sacheon-womens-choir-free-concert-guide",
+  ]);
+  for (const slug of [
+    "geumcheon-memory-archive-adult-class-guide",
+    "ansan-september-online-breastfeeding-class-guide",
+    "chuncheon-sugna-animation-museum-exhibition-guide",
+    "gumi-carmen-suite-free-orchestra-guide",
+    "sacheon-womens-choir-free-concert-guide",
+  ]) {
+    const response = await render(`/blog/${slug}`);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /사진 출처:.*(?:서울시 문화행사 정보|공유누리|한국문화정보원 한눈에 보는 문화정보)/);
+    assert.match(html, /"@type":"BlogPosting"/);
+    assert.match(html, /"@type":"FAQPage"/);
+    assert.match(html, /2026-08-29T06:3[5-9]:00\+09:00/);
+    if (datedSlugs.has(slug)) assert.match(html, /"@type":"Event"/);
+    else assert.doesNotMatch(html, /"@type":"Event"/);
   }
 });
 
