@@ -2196,7 +2196,15 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           `dg-nearby-map-marker dg-nearby-${place.placeType}${selectedPlace ? " selected" : ""}`,
           `${nearbyDisplayName(place)}, ${distanceLabel(place.distanceMeters)}`,
           icon,
-          () => { void selectNearbyPlace(place); },
+          () => {
+            void selectNearbyPlace(place);
+            if (routePanelActive) {
+              // 상세의 주변가게 지도에서 진입한 뒤 마커를 선택해도 복원 바나
+              // 축소 패널로 바뀌지 않고 선택 가게 대표 카드가 바로 보인다.
+              setRoutePanelSnap("expanded");
+              setRoutePanelDragHeight(null);
+            }
+          },
         );
       });
       if (nearbyWalkingRoute) {

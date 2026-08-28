@@ -188,6 +188,7 @@ test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
   assert.match(webMapSource, /className="dg-nearby-focus-button"[\s\S]*?<MapIcon aria-hidden="true"/);
   assert.match(webMapSource, /\[selected, \.\.\.filteredPlaces\.filter\(\(place\) => place\.id !== selected\.id\)\]/);
   assert.match(webMapSource, /onShowNearbyOnMap=\{\(place\) => \{\s*void selectNearbyPlace\(place\);\s*setRoutePanelSnap\("expanded"\)/);
+  assert.match(webMapSource, /void selectNearbyPlace\(place\);\s*if \(routePanelActive\) \{\s*\/\/[^\n]*\n(?:\s*\/\/[^\n]*\n)?\s*setRoutePanelSnap\("expanded"\);\s*setRoutePanelDragHeight\(null\)/);
   assert.match(webMapSource, /네이버 지도에서 \$\{displayName\} 검색/);
   assert.match(webMapSource, /카카오 지도에서 \$\{displayName\} 검색/);
   assert.match(webMapStyle, /\.dg-nearby-map-actions > \* \{[^}]*height:\s*30px;[^}]*padding:\s*0 7px/);
