@@ -3320,7 +3320,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             onSelectNearby={(place) => { void selectNearbyPlace(place); }}
             onShowNearbyOnMap={(place) => {
               void selectNearbyPlace(place);
-              setRoutePanelSnap("collapsed");
+              setRoutePanelSnap("expanded");
               setRoutePanelDragHeight(null);
             }}
           />
@@ -3390,7 +3390,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               setSelected(nearbyDestination);
               setRoutePanelActive(true);
               setRoutePanelMode("nearby");
-              setRoutePanelSnap("collapsed");
+              setRoutePanelSnap("expanded");
               setRoutePanelDragHeight(null);
               void selectNearbyPlace(place);
             }}
