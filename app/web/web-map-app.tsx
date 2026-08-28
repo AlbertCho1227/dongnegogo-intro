@@ -4330,6 +4330,14 @@ function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { progr
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    setRadius(100);
+    setCategory("all");
+    setSummary(null);
+    setSelected(null);
+    setLoading(true);
+  }, [program.id]);
+
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     const params = new URLSearchParams({
@@ -5481,7 +5489,7 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
       <div className="dg-nearby-card-top">
         {explicitlyOpen ? <span>영업중</span> : <i />}
         <div className="dg-nearby-map-actions">
-          <button type="button" aria-label={`동네고고 지도에서 ${displayName} 마커 강조`} onClick={() => (onShowOnMap ?? onSelect)(place)}><span className="dg-nearby-dongne-map-icon" aria-hidden="true">🗺️</span><span>동네고고 지도</span></button>
+          <button type="button" className="dg-nearby-focus-button" title="지도에서 마커 강조" aria-label={`동네고고 지도에서 ${displayName} 마커 강조`} onClick={() => (onShowOnMap ?? onSelect)(place)}><MapIcon aria-hidden="true" /></button>
           <a href={nearbyNaverMapURL(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
           <a href={nearbyKakaoMapURL(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
         </div>

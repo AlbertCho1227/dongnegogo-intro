@@ -1164,3 +1164,27 @@
   .dg-detail { animation: none; }
   .dg-map-skeleton img { animation: none; }
 }
+
+/* 상세 주변가게: 100m 지도와 최대 10개 카드 높이의 독립 스크롤 */
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-aux-list {
+  max-height: 1960px;
+  padding-right: 7px;
+  scrollbar-width: thin;
+  scrollbar-color: #81cf66 #eef4ec;
+}
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-aux-list::-webkit-scrollbar { width: 6px; }
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-aux-list::-webkit-scrollbar-thumb { border-radius: 999px; background: #81cf66; }
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-aux-list::-webkit-scrollbar-track { border-radius: 999px; background: #eef4ec; }
+.dg-nearby-map-actions > .dg-nearby-focus-button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  flex: none;
+  color: var(--dg-green);
+  border-color: rgba(34,177,76,.26);
+  background: #eef9e9;
+  box-shadow: 0 3px 9px rgba(32,145,69,.14);
+}
+.dg-nearby-map-actions > .dg-nearby-focus-button svg { width: 17px; height: 17px; stroke-width: 2.6; }
+.dg-nearby-map-marker.selected { animation-duration: 1.4s; }

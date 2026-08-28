@@ -37,11 +37,11 @@ test("iOS와 같은 가게명·도로명 검색어를 만들고 층·호수 설�
   assert.equal(nearbyMapSearchQuery(place({ name: "하남돼지집 정릉점" })), "하남돼지집 정릉점 서울특별시 성북구 정릉로 250");
 });
 
-test("네이버 지도는 업체 색인 유무와 무관하게 도로명 주소를 우선 검색한다", () => {
+test("네이버 지도는 장소명을 검색하고 실제 좌표로 화면 중심을 고정한다", () => {
   const url = new URL(nearbyNaverMapURL(place()));
   assert.equal(url.origin, "https://map.naver.com");
-  assert.equal(decodeURIComponent(url.pathname), "/p/search/서울특별시 성북구 정릉로 250");
-  assert.equal(url.search, "");
+  assert.equal(decodeURIComponent(url.pathname), "/p/search/하남돼지집 정릉점");
+  assert.equal(url.searchParams.get("c"), "127.011370025917,37.6042618458543,17,0,0,0,dh");
   assert.equal(decodeURIComponent(new URL(nearbyNaverMapURL(place({ address: null }))).pathname), "/p/search/하남돼지집 정릉점");
 });
 

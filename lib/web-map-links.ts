@@ -27,8 +27,10 @@ export function nearbyMapSearchQuery(place: WebNearbyPlace) {
 }
 
 export function nearbyNaverMapURL(place: WebNearbyPlace) {
-  const query = normalizedNearbyMapAddress(place.address) || nearbyPlaceDisplayName(place);
-  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+  // 긴 도로명 주소만 검색하면 네이버 장소 색인에서 결과가 비는 경우가 있다.
+  // 장소명으로 찾고 실제 좌표로 화면 중심을 고정해 목적지까지 함께 보장한다.
+  const query = nearbyPlaceDisplayName(place) || normalizedNearbyMapAddress(place.address);
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}?c=${place.longitude},${place.latitude},17,0,0,0,dh`;
 }
 
 export function nearbyKakaoMapURL(place: WebNearbyPlace) {
