@@ -1186,5 +1186,5 @@
   background: #eef9e9;
   box-shadow: 0 3px 9px rgba(32,145,69,.14);
 }
-.dg-nearby-map-actions > .dg-nearby-focus-button svg { width: 17px; height: 17px; stroke-width: 2.6; }
+.dg-nearby-map-actions > .dg-nearby-focus-button .dg-nearby-brand { width: 25px; height: 25px; border-radius: 50%; }
 .dg-nearby-map-marker.selected { animation-duration: 1.4s; }

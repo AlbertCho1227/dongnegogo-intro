@@ -2097,8 +2097,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     };
   }, [visiblePrograms, visibleClusters, selected, selectedHeatShelter, heatShelterMode, heatShelters, mapLevel, mapMode, programCounts, fieldFilter, freeOnly, paidOnly, seniorOnly, personaFilters, subjectFilters, statusFilter, todayOnly, radiusKm, openProgramSheet, routePanelActive, auxiliaryPanel, nearbyDestination, nearbySummary, activeConditionCount, filteredClusterFocusedProgramID, filteredClusterCarouselPrograms, loadBounds, openFilteredMapCluster]);
 
-  const selectNearbyPlace = useCallback(async (place: WebNearbyPlace) => {
-    if (!nearbyDestination) return;
+  const selectNearbyPlace = useCallback(async (place: WebNearbyPlace, destinationProgram?: WebProgram) => {
+    const routeDestination = destinationProgram ?? nearbyDestination;
+    if (!routeDestination) return;
+    setNearbyDestination(routeDestination);
     setSelectedNearbyPlace(place);
     setNearbyWalkingRoute(null);
     document.getElementById(`nearby-place-${place.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -2108,7 +2110,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           mode: "WALKING",
-          origin: { latitude: nearbyDestination.latitude, longitude: nearbyDestination.longitude },
+          origin: { latitude: routeDestination.latitude, longitude: routeDestination.longitude },
           destination: { latitude: place.latitude, longitude: place.longitude },
           destinationName: place.name,
         }),
@@ -2180,7 +2182,10 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
           fillOpacity: radarFillOpacities[index] ?? 0.012,
         }));
       });
-      const mapPlaces = nearbySummary.mapPlaces.filter((place) => nearbyCategory === "all" || place.placeType === nearbyCategory);
+      const filteredNearbyMapPlaces = nearbySummary.mapPlaces.filter((place) => nearbyCategory === "all" || place.placeType === nearbyCategory);
+      const mapPlaces = selectedNearbyPlace && !filteredNearbyMapPlaces.some((place) => place.id === selectedNearbyPlace.id)
+        ? [selectedNearbyPlace, ...filteredNearbyMapPlaces]
+        : filteredNearbyMapPlaces;
       marker(location, `dg-route-endpoint dg-route-origin${usesFallbackLocation ? " fallback" : ""}`, usesFallbackLocation ? "기본 출발 위치" : "현재 위치", routeEndpointElement("origin"));
       marker(nearbyMapProgram, "dg-route-endpoint dg-route-destination", `${nearbyMapProgram.facility} 목적지`, routeEndpointElement("destination"));
       mapPlaces.slice(0, 400).forEach((place) => {
@@ -3350,7 +3355,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             }}
             onShare={() => share(selected)}
             onNearby={() => { setNearbyCategory("all"); void loadNearbyPlaces(selected, 100); }}
-            onShowNearbyOnMap={() => {
+            onShowNearbyOnMap={(place) => {
               setNearbyCategory("all");
               setSelectedNearbyPlace(null);
               setNearbyWalkingRoute(null);
@@ -3361,6 +3366,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               setRouteSheetCollapsed(false);
               setRouteSheetDragOffset(null);
               void loadRouteNearbyPlaces(selected, 100);
+              if (place) void selectNearbyPlace(place, selected);
             }}
           />
         ) : auxiliaryPanel === "nearby" && nearbyDestination ? (
@@ -3958,7 +3964,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
   session: Session | null;
   mapReady: boolean;
   locationRequestState: LocationRequestState; locationRequestMessage: string;
-  onBack: () => void; onProgramChange: (program: WebProgram) => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onShowNearbyOnMap: () => void; onRequireAuth: () => void;
+  onBack: () => void; onProgramChange: (program: WebProgram) => void; onFavorite: () => void; onFavoriteTarget: (target: string) => void; onReminder: () => void; onTransport: (value: Transport) => void; onRouteChange: (route: WebRouteResult | null) => void; onRequestLocation: () => void; onShowRouteOnMap: () => void; onShare: () => void; onNearby: () => void; onShowNearbyOnMap: (place?: WebNearbyPlace) => void; onRequireAuth: () => void;
 }) {
   const detailPrograms = useMemo(() => {
     const source = samePlacePrograms.length ? samePlacePrograms : [program];
@@ -4321,7 +4327,7 @@ function ReviewComments({ review, session, saving, onRequireAuth, onChanged, onE
   </div>;
 }
 
-function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { program: WebProgram; mapReady: boolean; onOpenMainMap: () => void }) {
+function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { program: WebProgram; mapReady: boolean; onOpenMainMap: (place?: WebNearbyPlace) => void }) {
   const [summary, setSummary] = useState<WebNearbyPlacesSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [radius, setRadius] = useState(100);
@@ -4370,7 +4376,7 @@ function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { progr
       selected={selected}
       mapReady={mapReady}
       onSelect={setSelected}
-      onOpen={onOpenMainMap}
+      onOpen={() => onOpenMainMap()}
     />
     {summary || loading ? <NearbyPlacesPanel
       program={program}
@@ -4385,7 +4391,7 @@ function ProgramDetailNearbyPlaces({ program, mapReady, onOpenMainMap }: { progr
       onRadius={(value) => { setSelected(null); setRadius(value); }}
       onCategory={(value) => { setSelected(null); setCategory(value); }}
       onSelect={setSelected}
-      onShowOnMap={setSelected}
+      onShowOnMap={(place) => { setSelected(place); onOpenMainMap(place); }}
     /> : <div className="dg-loading"><strong>주변 가게를 불러오지 못했어요.</strong><button type="button" onClick={() => setRetryKey((value) => value + 1)}>다시 불러오기</button></div>}
     <p className="dg-detail-nearby-note">가게 정보와 영업·주차 현황은 제공 기관 사정에 따라 실제와 다를 수 있어요.</p>
   </div>;
@@ -5489,7 +5495,7 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
       <div className="dg-nearby-card-top">
         {explicitlyOpen ? <span>영업중</span> : <i />}
         <div className="dg-nearby-map-actions">
-          <button type="button" className="dg-nearby-focus-button" title="지도에서 마커 강조" aria-label={`동네고고 지도에서 ${displayName} 마커 강조`} onClick={() => (onShowOnMap ?? onSelect)(place)}><MapIcon aria-hidden="true" /></button>
+          <button type="button" className="dg-nearby-focus-button" title="메인 지도에서 보기" aria-label={`메인 지도에서 ${displayName} 주변 가게 보기`} onClick={() => (onShowOnMap ?? onSelect)(place)}><span className="dg-nearby-brand naver" aria-hidden="true" /></button>
           <a href={nearbyNaverMapURL(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
           <a href={nearbyKakaoMapURL(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
         </div>
