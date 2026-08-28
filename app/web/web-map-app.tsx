@@ -371,6 +371,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
   const handlers = {
     onPointerDownCapture: (event: ReactPointerEvent<HTMLElement>) => {
       if (!enabled || swipePhase === "animating" || swipePhase === "dismissing" || (event.pointerType === "mouse" && event.button !== 0)) return;
+      if (event.target instanceof Element && event.target.closest("[data-detail-interaction-zone]")) return;
       clearTransitionTimers();
       gestureRef.current = {
         pointerID: event.pointerId,
@@ -416,6 +417,7 @@ function useHorizontalSwipeNavigation({ enabled, onPrevious, onNext, onDismissDo
     },
     onTouchStartCapture: (event: ReactTouchEvent<HTMLElement>) => {
       if (!enabled || !onDismissDown || event.touches.length !== 1 || swipePhase === "dismissing") return;
+      if (event.target instanceof Element && event.target.closest("[data-detail-interaction-zone]")) return;
       const touch = event.touches[0];
       touchGestureRef.current = { identifier: touch.identifier, startX: touch.clientX, startY: touch.clientY, lastX: touch.clientX, lastY: touch.clientY, canDismissDownAtStart: canStartDismissDown(event.target) };
     },
@@ -4339,7 +4341,7 @@ function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram;
     .filter((place) => category === "all" || place.placeType === category)
     .slice(0, 80), [category, summary?.mapPlaces]);
 
-  return <div className="dg-detail-nearby-card">
+  return <div className="dg-detail-nearby-card" data-detail-interaction-zone="nearby-stores">
     <KakaoNearbyPlacesPreview
       program={program}
       radius={radius}
@@ -4387,6 +4389,10 @@ function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady,
     }
     setStatus("loading");
     const map = new maps.Map(element, { center: new maps.LatLng(program.latitude, program.longitude), level: 4 });
+    // 거리정보 미니 지도와 동일하게 카메라를 고정한다. 가게 마커 버튼은
+    // 계속 선택할 수 있어 레이더 UI와 상위 상세 스크롤이 충돌하지 않는다.
+    map.setDraggable?.(false);
+    map.setZoomable?.(false);
     const overlays: KakaoOverlay[] = [];
     const items: KakaoMapItem[] = [];
     const destination = document.createElement("div");
@@ -4407,7 +4413,7 @@ function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady,
         fillOpacity: [0.07, 0.045, 0.025, 0.012][index] ?? 0.012,
       }));
     });
-    (selected ? [selected] : places).forEach((place) => {
+    places.forEach((place) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `dg-nearby-map-marker dg-nearby-${place.placeType}${selected?.id === place.id ? " selected" : ""}`;
