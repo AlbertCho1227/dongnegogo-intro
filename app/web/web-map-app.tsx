@@ -5485,8 +5485,18 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
   embedded?: boolean;
   onBack: () => void; onRadius: (value: number) => void; onCategory: (value: NearbyCategory) => void; onSelect: (place: WebNearbyPlace) => void; onShowOnMap?: (place: WebNearbyPlace) => void;
 }) {
-  const places = (summary?.places ?? []).filter((place) => category === "all" || place.placeType === category);
+  const filteredPlaces = (summary?.places ?? []).filter((place) => category === "all" || place.placeType === category);
+  const places = selected && (category === "all" || selected.placeType === category)
+    ? [selected, ...filteredPlaces.filter((place) => place.id !== selected.id)]
+    : filteredPlaces;
   const categoryTitle: Record<NearbyCategory, string> = { all: "전체", restaurant: "음식점", cafe: "카페", fast_food: "패스트푸드", convenience_store: "편의점", other_food: "분식" };
+  useEffect(() => {
+    if (!selected) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(`nearby-place-${selected.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [places.length, selected]);
   return <section className={`dg-aux-panel${embedded ? " dg-route-nearby-panel" : ""}`}>{!embedded && <PanelHeader title="주변 가게" subtitle={`${program.facility}에서 걸어서 갈 만한 곳`} onBack={onBack} />}<NearbyRadiusSelector radius={radius} onRadius={onRadius} /><div className="dg-nearby-categories">{(Object.keys(categoryTitle) as NearbyCategory[]).map((value) => <button type="button" key={value} className={category === value ? "active" : ""} onClick={() => onCategory(value)}>{categoryTitle[value]} {value === "all" ? summary?.totalCount ?? 0 : summary?.categoryCounts[value] ?? 0}</button>)}</div>{selected && <div className="dg-nearby-route-summary"><strong>{nearbyDisplayName(selected)}</strong><span>{walkingRoute ? `도보 약 ${walkingRoute.totalMinutes}분 · ${distanceLabel(walkingRoute.totalDistanceMeters)}` : `직선 ${distanceLabel(selected.distanceMeters)} · 도보 경로 계산 중`}</span></div>}<div className="dg-aux-list dg-nearby-list">{loading ? <div className="dg-loading"><strong>목적지 주변을 찾고 있어요</strong></div> : places.length ? <>{places.map((place) => {
     const displayName = nearbyDisplayName(place);
     const explicitlyOpen = /^(?:영업|영업중|정상)$/.test(cleanMapText(place.businessStatusName));
@@ -5495,7 +5505,7 @@ function NearbyPlacesPanel({ program, summary, loading, radius, category, select
       <div className="dg-nearby-card-top">
         {explicitlyOpen ? <span>영업중</span> : <i />}
         <div className="dg-nearby-map-actions">
-          <button type="button" className="dg-nearby-focus-button" title="메인 지도에서 보기" aria-label={`메인 지도에서 ${displayName} 주변 가게 보기`} onClick={() => (onShowOnMap ?? onSelect)(place)}><span className="dg-nearby-brand naver" aria-hidden="true" /></button>
+          <button type="button" className="dg-nearby-focus-button" title="동네고고 지도에서 보기" aria-label={`메인 지도에서 ${displayName} 주변 가게 보기`} onClick={() => (onShowOnMap ?? onSelect)(place)}><MapIcon aria-hidden="true" /></button>
           <a href={nearbyNaverMapURL(place)} target="_blank" rel="noreferrer" aria-label={`네이버 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand naver" aria-hidden="true" /><span>네이버 지도</span></a>
           <a href={nearbyKakaoMapURL(place)} target="_blank" rel="noreferrer" aria-label={`카카오 지도에서 ${displayName} 검색`}><span className="dg-nearby-brand kakao" aria-hidden="true" /><span>카카오 지도</span></a>
         </div>
