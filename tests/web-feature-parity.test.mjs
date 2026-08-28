@@ -122,11 +122,20 @@ test("iOS 찾기의 입력·도시·장소·대안 상태를 웹에 유지한다
 
 test("찾기 프로그램 목록은 스크롤 후 초록색 위로 가기 버튼을 제공한다", () => {
   assert.match(webMapSource, /className="dg-search-results-panel" onScroll=/);
-  assert.match(webMapSource, /event\.currentTarget\.scrollTop > 140/);
+  assert.match(webMapSource, /event\.currentTarget\.scrollHeight > event\.currentTarget\.clientHeight \+ 1/);
+  assert.match(webMapSource, /event\.currentTarget\.scrollTop > 24/);
   assert.match(webMapSource, /className="dg-search-scroll-top"/);
   assert.match(webMapSource, /찾기 프로그램 목록 맨 위로 이동/);
   assert.match(webMapSource, /resultScrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
   assert.match(webMapStyle, /\.dg-search-scroll-top[^}]*position:\s*absolute;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--dg-green\);/);
+});
+
+test("오픈런 프로그램 목록도 넘칠 때 같은 위로 가기 동작을 제공한다", () => {
+  assert.match(webMapSource, /className="dg-openrun-scroll" onScroll=/);
+  assert.match(webMapSource, /className="dg-openrun-scroll-top"/);
+  assert.match(webMapSource, /오픈런 목록 맨 위로 이동/);
+  assert.match(webMapSource, /scrollRef\.current\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/);
+  assert.match(webMapStyle, /\.dg-openrun-scroll-top[^}]*position:\s*absolute;[^}]*border-radius:\s*50%;[^}]*background:\s*var\(--dg-green\);/);
 });
 
 test("iOS 지도 핵심 반응 UI를 웹 회귀 경계에 포함한다", () => {
@@ -597,7 +606,7 @@ test("조건·주변 프로그램은 같은 카드를 쓰되 주변은 단일 �
   assert.match(webMapSource, /className="dg-filtered-cluster-page-arrow is-down"/);
   assert.match(webMapSource, /aria-label="다음 프로그램 카드"/);
   assert.match(webMapSource, /const moveCard = \(direction: -1 \| 1\)/);
-  assert.match(webMapSource, /searchResultCategoryIDs\(program\)\.includes\(category\)/);
+  assert.match(webMapSource, /categoryIndex\.get\(program\.id\)\?\.includes\(category\)/);
   assert.match(webMapSource, /const offset = dragOffsetRef\.current/);
   assert.match(webMapSource, /if \(offset > 84\)/);
   assert.match(webMapSource, /setClosing\(true\)/);

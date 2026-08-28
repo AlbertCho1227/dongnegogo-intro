@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode, TouchEvent as ReactTouchEvent } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Phone, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, ArrowUpToLine, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Phone, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
@@ -25,6 +25,7 @@ import {
   searchAroundPlacePrograms,
   searchPrograms,
   searchResultCategories,
+  searchResultCategoryIndex,
   searchResultCategoryIDs,
   searchSuggestionQuery,
   shouldRequestPlaceSuggestions,
@@ -63,7 +64,7 @@ import {
 } from "@/lib/web-user-data";
 
 type KakaoLatLng = { getLat: () => number; getLng: () => number };
-const WEB_OPEN_RUN_CACHE_PREFIX = "dongnegogo.web.open-run.v1";
+const WEB_OPEN_RUN_CACHE_PREFIX = "dongnegogo.web.open-run.v2";
 const WEB_OPEN_RUN_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
 
 type WebOpenRunCachePayload = { savedAt: number; programs: WebProgram[] };
@@ -79,11 +80,14 @@ export function readCachedWebOpenRunPrograms(city: string, now = Date.now()): We
 }
 
 function cacheWebOpenRunPrograms(city: string, programs: WebProgram[]) {
-  try {
-    localStorage.setItem(`${WEB_OPEN_RUN_CACHE_PREFIX}:${city}`, JSON.stringify({ savedAt: Date.now(), programs } satisfies WebOpenRunCachePayload));
-  } catch {
-    // 브라우저 저장 한도를 넘겨도 현재 응답은 그대로 사용한다.
-  }
+  // 큰 JSON 직렬화/Storage 쓰기가 오픈런 첫 프레임을 막지 않게 양보한다.
+  window.setTimeout(() => {
+    try {
+      localStorage.setItem(`${WEB_OPEN_RUN_CACHE_PREFIX}:${city}`, JSON.stringify({ savedAt: Date.now(), programs } satisfies WebOpenRunCachePayload));
+    } catch {
+      // 브라우저 저장 한도를 넘겨도 현재 응답은 그대로 사용한다.
+    }
+  }, 0);
 }
 type KakaoBounds = { getSouthWest: () => KakaoLatLng; getNorthEast: () => KakaoLatLng; extend: (position: KakaoLatLng) => void };
 type KakaoMap = {
@@ -1286,8 +1290,8 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
     setFavoriteForTargets(id, next);
   }, [favoriteTargets, favorites, setFavoriteForTargets]);
 
-  const toggleReminder = useCallback((id: string) => {
-    const program = selected?.id === id ? selected : programs.find((item) => item.id === id);
+  const toggleReminder = useCallback((id: string, preferredProgram?: WebProgram) => {
+    const program = preferredProgram ?? (selected?.id === id ? selected : programs.find((item) => item.id === id));
     if (!program) return;
     const alert = userAlerts.find((item) => item.program_id === id);
     const suggested = alert?.scheduled_at
@@ -3373,7 +3377,7 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
             <p className="dg-readonly-note">로그인 전에는 이 브라우저에만 저장되고, 로그인 후에는 본인에게만 보이는 Supabase 행으로 동기화됩니다.</p>
           </section>
         ) : WEB_ACCOUNT_FEATURES_VISIBLE && tab === "openrun" ? (
-          <OpenRunPanel cityName={openRunCityLabel(openRunCity)} programs={immediateOpenRunPrograms} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id)} onOpen={(program) => { void selectProgram(program); }} />
+          <OpenRunPanel cityName={openRunCityLabel(openRunCity)} programs={immediateOpenRunPrograms} reminders={reminders} onBack={() => changeTab("map")} onToggleReminder={(program) => toggleReminder(program.id, program)} onOpen={(program) => { void selectProgram(program); }} />
         ) : (
           <>
             <header className="dg-panel-header">
@@ -3602,6 +3606,14 @@ function SearchExperience({
   const [showScrollTop, setShowScrollTop] = useState(false);
   const resultScrollRef = useRef<HTMLDivElement>(null);
   const renderedResults = visibleResults.slice(0, visibleLimit);
+  useEffect(() => {
+    const target = resultScrollRef.current;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      setShowScrollTop(target.scrollHeight > target.clientHeight + 1 && target.scrollTop > 24);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [renderedResults.length]);
   const resetResultScroll = () => {
     resultScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     setShowScrollTop(false);
@@ -3661,7 +3673,7 @@ function SearchExperience({
     </div><section className="dg-search-radius-card"><header><span>⌖</span><span><strong>검색 반경 조절</strong><small>원하는 거리를 누르면 같은 장소에서 바로 다시 찾아요</small></span><em>{searchRadiusLabel(assistant.radiusKm)} 이내</em></header><div>{SEARCH_PLACE_RADIUS_OPTIONS.map((radius) => <button type="button" key={radius} className={radius === assistant.radiusKm ? "active" : ""} onClick={() => radius !== assistant.radiusKm && onPlaceRadius(assistant.place, radius)}>{radius === assistant.radiusKm && "✓ "}{searchRadiusLabel(radius)}</button>)}</div></section></section>;
   })();
 
-  return <><div ref={resultScrollRef} className="dg-search-results-panel" onScroll={(event) => setShowScrollTop(renderedResults.length > 0 && event.currentTarget.scrollTop > 140)}>
+  return <><div ref={resultScrollRef} className="dg-search-results-panel" onScroll={(event) => setShowScrollTop(renderedResults.length > 0 && event.currentTarget.scrollHeight > event.currentTarget.clientHeight + 1 && event.currentTarget.scrollTop > 24)}>
     {assistantCard}
     {warning && <p className="dg-search-warning" role="status"><span>!</span><strong>{warning}</strong><button type="button" onClick={onRetry}>다시 검색</button></p>}
     {alternativeNotice && assistant.kind !== "alternativeFound" && <p className="dg-search-alternative-notice">✓ {alternativeNotice}</p>}
@@ -3683,7 +3695,7 @@ function SearchExperience({
     {!loading && !allResults.length && assistant.kind === "idle" && !relaxations.length && <div className="dg-search-empty-state"><div className="dg-search-assistant-card"><img src="/web-assets/beodeuli-search-assistant.png" alt="" /><small>버들이가 함께 찾아볼게요</small><strong>‘{submittedQuery}’에 꼭 맞는 결과가 아직 없어요. 표현이나 조건을 한 가지만 바꾸면 더 잘 찾을 수 있어요.</strong></div><section><strong>이렇게 바꿔보세요</strong><p>💡 더 짧게: ‘{parseSearchIntent(submittedQuery).generalTerms[0] ?? submittedQuery}’</p><p>💡 시설명으로: ‘정릉복지관’, ‘성북구민수영장’</p><p>💡 분야로: ‘수영’, ‘요가’, ‘스마트폰’</p></section></div>}
     <div className="dg-search-program-list">{renderedResults.map((program) => <button className="dg-program-card" type="button" key={program.id} onClick={() => onOpen(program)}><img src={`/markers/${programIconName(program)}.png`} alt="" /><span className="dg-card-copy"><span className={`dg-status ${statusClass(program)}`}>{program.isFree ? "무료" : program.status}</span><strong>{program.name}</strong><small>{distanceLabel(distanceMeters(origin, program))} · {program.facility}</small><em>{program.scheduleText ?? program.periodText ?? (program.isFree ? "무료" : program.feeText)}</em></span><span className="dg-card-arrow" aria-hidden="true">›</span></button>)}</div>
     {renderedResults.length < visibleResults.length && <button type="button" className="dg-search-more" onClick={() => setVisibleLimit((current) => current + 48)}>{Math.min(48, visibleResults.length - renderedResults.length)}개 더 보기</button>}
-  </div>{showScrollTop && <button type="button" className="dg-search-scroll-top" aria-label="찾기 프로그램 목록 맨 위로 이동" onClick={() => resultScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ChevronUp aria-hidden="true" /></button>}</>;
+  </div>{showScrollTop && <button type="button" className="dg-search-scroll-top" aria-label="찾기 프로그램 목록 맨 위로 이동" onClick={() => resultScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}><ArrowUpToLine aria-hidden="true" /></button>}</>;
 }
 
 function Preference({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
@@ -4575,16 +4587,17 @@ function FilteredClusterProgramCarousel({ title, singleCardMode = false, program
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [closing, setClosing] = useState(false);
-  const categories = useMemo(() => searchResultCategories(programs), [programs]);
+  const categoryIndex = useMemo(() => searchResultCategoryIndex(programs), [programs]);
+  const categories = useMemo(() => searchResultCategories(programs, categoryIndex), [programs, categoryIndex]);
   const visiblePrograms = useMemo(() => {
-    const filtered = category ? programs.filter((program) => searchResultCategoryIDs(program).includes(category)) : programs;
+    const filtered = category ? programs.filter((program) => categoryIndex.get(program.id)?.includes(category)) : programs;
     if (sort === "relevance") return filtered;
     return [...filtered].sort((left, right) => {
       if (sort === "free" && left.isFree !== right.isFree) return left.isFree ? -1 : 1;
       if (sort === "available" && isAvailable(left) !== isAvailable(right)) return isAvailable(left) ? -1 : 1;
       return distanceMeters(origin, left) - distanceMeters(origin, right);
     });
-  }, [category, origin, programs, sort]);
+  }, [category, categoryIndex, origin, programs, sort]);
   const programSignature = visiblePrograms.map((program) => program.id).join("|");
   const selectedIndex = Math.max(0, visiblePrograms.findIndex((program) => program.id === focusedProgramID));
 
@@ -4887,7 +4900,8 @@ function OpenRunPanel({ cityName, programs, reminders, onBack, onToggleReminder,
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [referenceNow] = useState(() => Date.now());
-  const categories = useMemo(() => searchResultCategories(programs), [programs]);
+  const categoryIndex = useMemo(() => searchResultCategoryIndex(programs), [programs]);
+  const categories = useMemo(() => searchResultCategories(programs, categoryIndex), [programs, categoryIndex]);
   const orderedPrograms = useMemo(() => [...programs].sort((a, b) => {
       const now = referenceNow;
       const aStart = a.receiptStart ? new Date(a.receiptStart).getTime() : Number.NaN;
@@ -4897,10 +4911,18 @@ function OpenRunPanel({ cityName, programs, reminders, onBack, onToggleReminder,
       return aNext - bNext || a.name.localeCompare(b.name, "ko");
     }), [programs, referenceNow]);
   const upcoming = useMemo(() => category
-    ? orderedPrograms.filter((program) => searchResultCategoryIDs(program).includes(category))
+    ? orderedPrograms.filter((program) => categoryIndex.get(program.id)?.includes(category))
     : orderedPrograms,
-  [category, orderedPrograms]);
+  [category, categoryIndex, orderedPrograms]);
   const visible = upcoming.slice(0, visibleLimit);
+  useEffect(() => {
+    const target = scrollRef.current;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      setShowScrollTop(target.scrollHeight > target.clientHeight + 1 && target.scrollTop > 24);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [visible.length]);
   const banner = (program: WebProgram) => {
     if (/마감임박/.test(program.status)) return "곧 마감돼요";
     const now = referenceNow;
@@ -4917,7 +4939,7 @@ function OpenRunPanel({ cityName, programs, reminders, onBack, onToggleReminder,
     setVisibleLimit(32);
     scrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   };
-  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>{cityName} 기준 오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div ref={scrollRef} className="dg-openrun-scroll" onScroll={(event) => setShowScrollTop(event.currentTarget.scrollTop > 140)}><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>현재 지역의 오픈런 프로그램 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 32)}>{Math.min(32, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div>{showScrollTop && <button type="button" className="dg-openrun-scroll-top" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })} aria-label="오픈런 목록 맨 위로 이동"><ChevronUp aria-hidden="true" /></button>}</section>;
+  return <section className="dg-openrun-panel"><header><button type="button" className="dg-mobile-panel-back" onClick={onBack}>‹ 지도</button><div><h1>{cityName} 기준 오픈런 알림 <span>⚡</span></h1><p>접수 시작·마감 전에 알려드릴게요</p></div></header><div ref={scrollRef} className="dg-openrun-scroll" onScroll={(event) => setShowScrollTop(event.currentTarget.scrollHeight > event.currentTarget.clientHeight + 1 && event.currentTarget.scrollTop > 24)}><section className="dg-keyword-card"><div><strong>🔔 알림 키워드</strong></div><p>현재 지역의 오픈런 프로그램 분류만 보여드려요</p><div><button type="button" className={category === null ? "active" : ""} onClick={() => selectCategory(null)}>✨ 전체 {programs.length}</button>{categories.map((item) => <button type="button" key={item.id} className={category === item.id ? "active" : ""} onClick={() => selectCategory(item.id)}>{item.emoji} {item.label} {item.count}</button>)}</div></section>{visible.length ? visible.map((program) => <article className="dg-openrun-card" key={program.id}><div className="dg-openrun-banner"><span>{banner(program)}</span>{reminders.includes(program.id) && <strong>✓ 알림 켜짐</strong>}</div><button type="button" className="dg-openrun-copy" onClick={() => onOpen(program)}><strong>{program.name}</strong><span>{program.facility} · {program.scheduleText ?? "일정 확인"} · {program.isFree ? "무료" : program.feeText}</span></button><div><button type="button" className={reminders.includes(program.id) ? "is-off" : ""} onClick={() => onToggleReminder(program)}>{reminders.includes(program.id) ? "⏰ 알림 변경" : "🔔 알림 켜기"}</button><button type="button" onClick={() => onOpen(program)}>신청하러 가기</button></div></article>) : <div className="dg-empty"><strong>{category ? "선택한 키워드에 해당하는 프로그램이 없어요" : "현재 접수가 임박한 프로그램이 없어요"}</strong>{category && <button type="button" onClick={() => selectCategory(null)}>키워드 해제하기</button>}</div>}{visible.length < upcoming.length && <button type="button" className="dg-openrun-more" onClick={() => setVisibleLimit((current) => current + 32)}>{Math.min(32, upcoming.length - visible.length)}개 더 보기</button>}<p className="dg-openrun-tip">▦ 프로그램의 알림 받기 버튼에서 원하는 날짜와 시간을 직접 선택할 수 있어요.</p></div>{showScrollTop && <button type="button" className="dg-openrun-scroll-top" onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })} aria-label="오픈런 목록 맨 위로 이동"><ArrowUpToLine aria-hidden="true" /></button>}</section>;
 }
 
 function FullFilterDialog({ personas, subjects, status, freeOnly, paidOnly, radiusKm, count, onPersonas, onSubjects, onStatus, onFree, onPaid, onRadius, onReset, onApply, onClose }: {

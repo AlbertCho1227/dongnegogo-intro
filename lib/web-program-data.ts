@@ -302,9 +302,10 @@ async function readBindings() {
   return { projectUrl, publishableKey };
 }
 
-async function rpc(functionName: string, body: Record<string, unknown>): Promise<unknown> {
+async function rpc(functionName: string, body: Record<string, unknown>, select?: string): Promise<unknown> {
   const { projectUrl, publishableKey } = await readBindings();
   const endpoint = new URL(`/rest/v1/rpc/${functionName}`, projectUrl);
+  if (select) endpoint.searchParams.set("select", select);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -787,7 +788,7 @@ export async function fetchWebSearchCandidates(input: Pick<ProgramQuery, "subjec
 export async function fetchWebOpenRunPrograms(limit = 1_000): Promise<WebProgram[]> {
   const rows = await rpc("get_open_run_programs_v1", {
     p_limit: Math.max(1, Math.min(1_000, Math.round(limit))),
-  });
+  }, "id,source,name,category,field,facility,room,address,area,region,latitude,longitude,is_free,fee_text,status,audiences,schedule_text,period_text,receipt_start,receipt_end,lecture_start,lecture_end,record_type,apply_url,phone,is_senior_recommended,max_class_nm,min_class_nm,primary_image_url,is_active,map_region_name,map_admin_area,map_local_name");
   if (!Array.isArray(rows)) return [];
   const seen = new Set<string>();
   return rows.map((value) => value && typeof value === "object"

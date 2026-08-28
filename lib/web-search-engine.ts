@@ -370,9 +370,16 @@ export function searchResultCategoryIDs(program: WebProgram) {
   return ids.length ? ids : ["other"];
 }
 
-export function searchResultCategories(programs: WebProgram[]): SearchResultCategory[] {
+export function searchResultCategoryIndex(programs: WebProgram[]) {
+  return new Map(programs.map((program) => [program.id, searchResultCategoryIDs(program)]));
+}
+
+export function searchResultCategories(
+  programs: WebProgram[],
+  index = searchResultCategoryIndex(programs),
+): SearchResultCategory[] {
   const counts = new Map<string, number>();
-  programs.forEach((program) => searchResultCategoryIDs(program).forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1)));
+  programs.forEach((program) => index.get(program.id)?.forEach((id) => counts.set(id, (counts.get(id) ?? 0) + 1)));
   const ordered = RESULT_CATEGORY_RULES.map(([id, label, emoji]) => ({ id, label, emoji, count: counts.get(id) ?? 0 })).filter((item) => item.count > 0);
   if (counts.get("other")) ordered.push({ id: "other", label: "기타", emoji: "⭐️", count: counts.get("other")! });
   return ordered;
