@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode, TouchEvent as ReactTouchEvent } from "react";
 import Link from "next/link";
-import { Archive, ArrowLeftRight, ArrowUpToLine, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Phone, Reply, Route, Search, Share, SlidersHorizontal, Sparkles, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
+import { Archive, ArrowLeftRight, ArrowUpToLine, Bell, Building2, BusFront, CakeSlice, CalendarDays, CarFront, ChevronRight, ChevronUp, CircleAlert, Clock, Coffee, Crosshair, CupSoda, Heart, Info, Map as MapIcon, MapPin, Menu, MessageCircle, Navigation, ParkingCircle, PersonStanding, Phone, Reply, Route, Search, Share, SlidersHorizontal, Store, Trash2, TrainFront, TramFront, Undo2, User, UserRound, UsersRound, Utensils, X } from "lucide-react";
 import type { WebHeatShelter, WebMapCluster, WebMapViewportResult, WebNearbyPlace, WebNearbyPlacesSummary, WebParkingLot, WebPlaceSuggestion, WebProgram } from "@/lib/web-program-data";
 import { clusterDisplayAreaName, resolvedClusterAreaName, WEB_MAP_CLUSTER_DISPLAY_LIMIT, webMapScopeForRadius, type WebMapAggregationScope } from "@/lib/web-map-cluster";
 import { officialProgramAccess } from "@/lib/official-program-access";
@@ -4043,7 +4043,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
       }}>
         <ProgramPoster program={program} />
         {easyFirst && <ProgramSummary program={program} />}
-        <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><small>누가 신청할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><small>언제 하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><small>어디서 하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><small>비용과 준비물</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
+        <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><em>참여 대상</em><small>누가 참여할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><em>신청·운영 일정</em><small>언제 신청하고 참여하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><em>진행 장소</em><small>어디에서 진행하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><em>비용·준비물</em><small>무엇을 준비해야 하나요?</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
         {!easyFirst && <ProgramSummary program={program} />}
         <ProgramParkingSection key={program.id} program={program} />
         {accountFeaturesVisible && favorite && <section className="dg-favorite-targets"><h2>누구의 찜으로 저장할까요?</h2><div>{targetOptions.map((target) => <button type="button" key={target.id} className={favoriteTargets.includes(target.id) ? "active" : ""} onClick={() => onFavoriteTarget(target.id)}>{target.label}{favoriteTargets.includes(target.id) ? " ✓" : ""}</button>)}</div></section>}
@@ -4123,7 +4123,6 @@ function webProgramOverviewStory(program: WebProgram) {
     ? `완전 무료예요. ${program.preparation?.trim() || "준비물도 없어요."}`
     : [program.feeText?.trim() || "요금 확인", program.preparation?.trim()].filter(Boolean).join(" · ");
   return {
-    takeaway: `${venue}에서 만나는 ${category} 프로그램이에요. 현재 ${program.status || "일정 확인"} 상태이며, 참여 전에 일정과 신청 조건을 함께 확인해 보세요.`,
     activityHeading: `${category} 프로그램, 이렇게 활용해 보세요`,
     activityBody: `${program.name} 참여 전 일정과 장소를 함께 메모해 두면 방문 준비가 쉬워요. 참여 후에는 기억에 남은 내용이나 다음에 확인할 점을 짧게 남겨 보세요.`,
     checklist: [
@@ -4144,9 +4143,7 @@ function ProgramSummary({ program }: { program: WebProgram }) {
   const paragraphs = (program.summary || "우리 동네에서 만날 수 있는 프로그램이에요.")
     .split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
   return <section className="dg-easy-summary"><h2>이 프로그램은요</h2><div className="dg-program-summary-card">
-    <div className="dg-program-summary-intro"><span aria-hidden="true"><Sparkles /></span><div><strong>프로그램 안내</strong>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div></div>
-    <div className="dg-program-story-divider" />
-    <aside className="dg-program-story-takeaway"><strong>핵심 요약</strong><p>{story.takeaway}</p></aside>
+    <div className="dg-program-summary-intro"><strong>프로그램 안내</strong>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
     <div className="dg-program-story-divider" />
     <section><h3>{story.activityHeading}</h3><p>{story.activityBody}</p></section>
     <div className="dg-program-story-divider" />

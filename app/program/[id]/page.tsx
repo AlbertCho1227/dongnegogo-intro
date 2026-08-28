@@ -76,7 +76,6 @@ function sharedProgramOverviewStory(program: SharedProgram) {
     ? `완전 무료예요. ${program.preparation?.trim() || "준비물도 없어요."}`
     : [program.feeText?.trim() || "요금 확인", program.preparation?.trim()].filter(Boolean).join(" · ");
   return {
-    takeaway: `${venue}에서 만나는 ${category} 프로그램이에요. 현재 ${program.status || "일정 확인"} 상태이며, 참여 전에 일정과 신청 조건을 함께 확인해 보세요.`,
     activityHeading: `${category} 프로그램, 이렇게 활용해 보세요`,
     activityBody: `${program.name} 참여 전 일정과 장소를 함께 메모해 두면 방문 준비가 쉬워요. 참여 후에는 기억에 남은 내용이나 다음에 확인할 점을 짧게 남겨 보세요.`,
     checklist: [
@@ -163,9 +162,7 @@ export default async function ProgramSharePage({ params }: PageProps) {
 
           <div className={styles.about}>
             <h2>이 프로그램은요</h2>
-            <div className={styles.storyIntro}>{program.description.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
-            <div className={styles.storyDivider} />
-            <aside className={styles.storyTakeaway}><strong>핵심 요약</strong><p>{story.takeaway}</p></aside>
+            <div className={styles.storyIntro}><strong>프로그램 안내</strong>{program.description.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
             <div className={styles.storyDivider} />
             <section className={styles.storySection}><h3>{story.activityHeading}</h3><p>{story.activityBody}</p></section>
             <div className={styles.storyDivider} />
