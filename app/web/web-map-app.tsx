@@ -3369,7 +3369,9 @@ export default function WebMapApp({ kakaoMapKey, supabaseUrl, supabasePublishabl
               setNearbyWalkingRoute(null);
               setRoutePanelActive(true);
               setRoutePanelMode("nearby");
-              setRoutePanelSnap("expanded");
+              // 상세 페이지에서 주변가게 지도를 열면 레이더와 가게 마커는
+              // 즉시 표시하고, 하단은 지도를 가리지 않는 복원 바로 시작한다.
+              setRoutePanelSnap("hidden");
               setRoutePanelDragHeight(null);
               setRouteSheetCollapsed(false);
               setRouteSheetDragOffset(null);
