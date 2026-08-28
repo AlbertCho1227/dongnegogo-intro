@@ -162,18 +162,18 @@ export default async function ProgramSharePage({ params }: PageProps) {
 
           <div className={styles.about}>
             <h2>이 프로그램은요</h2>
-            <div className={styles.storyIntro}><strong>프로그램 안내</strong>{program.description.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+            <div className={styles.storyIntro}><h3><img src="/icons/program-detail/2a-book.svg" alt="" />프로그램 안내</h3>{program.description.split(/\n+/).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
             <div className={styles.storyDivider} />
-            <section className={styles.storySection}><h3>{story.activityHeading}</h3><p>{story.activityBody}</p></section>
+            <section className={styles.storySection}><h3><img src="/icons/program-detail/2a-bulb.svg" alt="" />{story.activityHeading}</h3><p>{story.activityBody}</p></section>
             <div className={styles.storyDivider} />
-            <section className={styles.storySection}><h3>신청 전 체크리스트</h3><ul>{story.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
+            <section className={styles.storySection}><h3><img src="/icons/program-detail/2a-checklist.svg" alt="" />신청 전 체크리스트</h3><ul>{story.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
             <div className={styles.storyDivider} />
-            <section className={styles.storySection}><h3>{story.searchHeading}</h3><p>{story.searchBody}</p></section>
+            <section className={styles.storySection}><h3><img src="/icons/program-detail/2a-search.svg" alt="" />{story.searchHeading}</h3><p>{story.searchBody}</p></section>
           </div>
 
           <dl className={styles.placeFacts}>
-            <div><dt>📍</dt><dd>{program.address ?? place}</dd></div>
-            <div><dt>🗓️</dt><dd>{receiptEnd ? `${receiptEnd} 접수 마감` : "신청 일정은 앱에서 확인해 주세요"}</dd></div>
+            <div><dt><img src="/icons/program-detail/1c-pin.svg" alt="" /></dt><dd>{program.address ?? place}</dd></div>
+            <div><dt><img src="/icons/program-detail/1c-calendar.svg" alt="" /></dt><dd>{receiptEnd ? `${receiptEnd} 접수 마감` : "신청 일정은 앱에서 확인해 주세요"}</dd></div>
           </dl>
         </section>
 

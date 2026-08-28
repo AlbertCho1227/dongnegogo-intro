@@ -78,16 +78,18 @@
 .about h2 { margin: 0 0 6px; color: #0b7040; font-size: 17px; line-height: 1.2; letter-spacing: -.04em; }
 .about p { margin: 0; color: #20352a; font-size: 13px; line-height: 1.58; white-space: pre-line; word-break: keep-all; }
 .storyIntro { display: grid; gap: 8px; }
-.storyIntro strong { color: #14884d; font-size: 15px; font-weight: 900; line-height: 1.35; }
+.storyIntro h3 { margin: 0; display: flex; align-items: center; gap: 7px; color: #14884d; font-size: 15px; font-weight: 900; line-height: 1.35; }
+.storyIntro h3 img, .storySection h3 img { flex: none; width: 22px; height: 22px; }
 .storyDivider { height: 1px; margin: 13px 0; background: #e6ebe6; }
 .storySection { display: grid; gap: 6px; }
-.storySection h3 { margin: 0; color: #14884d; font-size: 15px; font-weight: 900; line-height: 1.35; }
+.storySection h3 { margin: 0; display: flex; align-items: center; gap: 7px; color: #14884d; font-size: 15px; font-weight: 900; line-height: 1.35; }
 .storySection ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .storySection li { position: relative; padding-left: 12px; color: #394b40; font-size: 12px; font-weight: 700; line-height: 1.45; }
 .storySection li::before { position: absolute; top: .6em; left: 1px; width: 4px; height: 4px; border-radius: 50%; background: #1caf61; content: ""; }
 .placeFacts { display: grid; gap: 8px; margin: 14px 0 0; padding-top: 13px; border-top: 1px solid #e6ebe6; }
-.placeFacts div { display: grid; grid-template-columns: 19px 1fr; align-items: start; gap: 5px; }
+.placeFacts div { display: grid; grid-template-columns: 24px 1fr; align-items: start; gap: 7px; }
 .placeFacts dt, .placeFacts dd { margin: 0; }
+.placeFacts dt img { display: block; width: 24px; height: 24px; }
 .placeFacts dd { color: #394b40; font-size: 12px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
 
 .deadline {

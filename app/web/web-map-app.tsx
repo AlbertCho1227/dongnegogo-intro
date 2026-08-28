@@ -63,6 +63,15 @@ import {
   type WebUserAlert,
 } from "@/lib/web-user-data";
 
+type ProgramDetailAssetName =
+  | "1c-people" | "1c-calendar" | "1c-pin" | "1c-bag" | "1c-clipboard"
+  | "2a-book" | "2a-bulb" | "2a-checklist" | "2a-search"
+  | "2b-building" | "2b-map" | "2b-phone" | "2b-car";
+
+function ProgramDetailAssetIcon({ name, className }: { name: ProgramDetailAssetName; className?: string }) {
+  return <img className={className} src={`/icons/program-detail/${name}.svg`} alt="" aria-hidden="true" draggable={false} />;
+}
+
 type KakaoLatLng = { getLat: () => number; getLng: () => number };
 const WEB_OPEN_RUN_CACHE_PREFIX = "dongnegogo.web.open-run.v2";
 const WEB_OPEN_RUN_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
@@ -4049,7 +4058,7 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
       }}>
         <ProgramPoster program={program} />
         {easyFirst && <ProgramSummary program={program} />}
-        <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt>♙</dt><dd><em>참여 대상</em><small>누가 참여할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt>◷</dt><dd><em>신청·운영 일정</em><small>언제 신청하고 참여하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt>⌖</dt><dd><em>진행 장소</em><small>어디에서 진행하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt>₩</dt><dd><em>비용·준비물</em><small>무엇을 준비해야 하나요?</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
+        <section><h2>프로그램 정보</h2><dl className="dg-info-list"><div><dt><ProgramDetailAssetIcon name="1c-people" /></dt><dd><em>참여 대상</em><small>누가 참여할 수 있나요?</small><strong>{program.requirement ?? (program.audiences.join(" · ") || "신청 페이지에서 확인")}</strong></dd></div><div><dt><ProgramDetailAssetIcon name="1c-calendar" /></dt><dd><em>신청·운영 일정</em><small>언제 신청하고 참여하나요?</small><strong>{program.periodText ?? program.scheduleText ?? "일정은 신청 페이지에서 확인"}</strong>{program.scheduleText && <span>{program.scheduleText}</span>}</dd></div><div><dt><ProgramDetailAssetIcon name="1c-pin" /></dt><dd><em>진행 장소</em><small>어디에서 진행하나요?</small><strong>{program.facility}{program.room ? ` · ${program.room}` : ""}</strong><span>{program.address ?? program.area}</span></dd></div><div><dt><ProgramDetailAssetIcon name="1c-bag" /></dt><dd><em>비용·준비물</em><small>무엇을 준비해야 하나요?</small><strong>{program.isFree ? "무료" : program.feeText}</strong>{program.preparation && <span>{program.preparation}</span>}</dd></div></dl></section>
         {!easyFirst && <ProgramSummary program={program} />}
         <ProgramParkingSection key={program.id} program={program} />
         {accountFeaturesVisible && favorite && <section className="dg-favorite-targets"><h2>누구의 찜으로 저장할까요?</h2><div>{targetOptions.map((target) => <button type="button" key={target.id} className={favoriteTargets.includes(target.id) ? "active" : ""} onClick={() => onFavoriteTarget(target.id)}>{target.label}{favoriteTargets.includes(target.id) ? " ✓" : ""}</button>)}</div></section>}
@@ -4094,6 +4103,11 @@ function ProgramDetail({ program, samePlacePrograms, current, usesFallbackLocati
             {showRoadview && <KakaoRoadviewPreview coordinate={program} facilityName={program.facility} />}
             <button className="dg-nearby-button" type="button" onClick={onNearby}>☕ 목적지 주변 가게 보기</button>
           </div>
+        </section>
+        <section>
+          <h2>주변가게</h2>
+          <p className="dg-detail-section-subtitle">목적지 주변에서 걸어서 갈 만한 곳을 지도와 함께 살펴보세요.</p>
+          <ProgramDetailNearbyPlaces program={program} mapReady={mapReady} />
         </section>
         {accountFeaturesVisible && <ProgramReviews program={program} session={session} onRequireAuth={onRequireAuth} />}
         <p className="dg-source">공공데이터 출처: {program.source ?? "제공기관 공개 데이터"}</p>
@@ -4149,13 +4163,13 @@ function ProgramSummary({ program }: { program: WebProgram }) {
   const paragraphs = (program.summary || "우리 동네에서 만날 수 있는 프로그램이에요.")
     .split(/\n+/).map((paragraph) => paragraph.trim()).filter(Boolean);
   return <section className="dg-easy-summary"><h2>이 프로그램은요</h2><div className="dg-program-summary-card">
-    <div className="dg-program-summary-intro"><strong>프로그램 안내</strong>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
+    <div className="dg-program-summary-intro"><h3><ProgramDetailAssetIcon name="2a-book" />프로그램 안내</h3>{paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}</div>
     <div className="dg-program-story-divider" />
-    <section><h3>{story.activityHeading}</h3><p>{story.activityBody}</p></section>
+    <section><h3><ProgramDetailAssetIcon name="2a-bulb" />{story.activityHeading}</h3><p>{story.activityBody}</p></section>
     <div className="dg-program-story-divider" />
-    <section><h3>신청 전 체크리스트</h3><ul>{story.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
+    <section><h3><ProgramDetailAssetIcon name="2a-checklist" />신청 전 체크리스트</h3><ul>{story.checklist.map((item) => <li key={item}>{item}</li>)}</ul></section>
     <div className="dg-program-story-divider" />
-    <section><h3>{story.searchHeading}</h3><p>{story.searchBody}</p></section>
+    <section><h3><ProgramDetailAssetIcon name="2a-search" />{story.searchHeading}</h3><p>{story.searchBody}</p></section>
   </div></section>;
 }
 
@@ -4180,10 +4194,10 @@ function ProgramParkingSection({ program }: { program: WebProgram }) {
   }, [program.id]);
 
   return <section className="dg-program-parking-section"><h2>시설정보</h2><div className="dg-program-parking-card">
-    <div className="dg-facility-info-rows"><div><span aria-hidden="true">📍</span><small>시설</small><strong>{program.facility}</strong></div>{(program.address || program.area) && <div><span aria-hidden="true">🗺️</span><small>주소</small><strong>{program.address || program.area}</strong></div>}{program.phone && <div><span aria-hidden="true">📞</span><small>전화</small><strong><a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>{program.phone}</a></strong></div>}</div>
+    <div className="dg-facility-info-rows"><div><ProgramDetailAssetIcon name="2b-building" /><small>시설</small><strong>{program.facility}</strong></div>{(program.address || program.area) && <div><ProgramDetailAssetIcon name="2b-map" /><small>주소</small><strong>{program.address || program.area}</strong></div>}{program.phone && <div><ProgramDetailAssetIcon name="2b-phone" /><small>전화</small><strong><a href={`tel:${program.phone.replace(/[^\d+]/g, "")}`}>{program.phone}</a></strong></div>}</div>
     {(loading || parkingLots.length > 0) && <div className="dg-parking-information"><header><span className="dg-parking-title-icon"><ParkingCircle aria-hidden="true" /></span><strong>주차정보</strong><em>{loading ? "확인 중" : `근처 발견된 주차장 ${parkingLots.length}곳`}</em>{!loading && <button type="button" className={expanded ? "active" : ""} onClick={() => setExpanded((value) => !value)} aria-label="주차장 상세정보" aria-expanded={expanded}><i />{expanded ? "ON" : "OFF"}</button>}</header>
     {loading ? <div className="dg-parking-loading" role="status">시설 주변 공식 주차장을 확인하고 있어요.</div> : expanded ? <div className="dg-parking-lot-list">{parkingLots.map((lot) => <article key={lot.id}>
-      <div className="dg-parking-lot-heading"><strong>{lot.name}</strong>{lot.distanceMeters !== null && <span>{distanceLabel(lot.distanceMeters)}</span>}</div>
+      <div className="dg-parking-lot-heading"><span className="dg-parking-title-icon"><ParkingCircle aria-hidden="true" /></span><strong>{lot.name}</strong>{lot.distanceMeters !== null && <span>{distanceLabel(lot.distanceMeters)}</span>}</div>
       <dl>
         {lot.address && <div><dt>주소</dt><dd>{lot.address}</dd></div>}
         {lot.parkingType && <div><dt>구분</dt><dd>{lot.parkingType}</dd></div>}
@@ -4290,6 +4304,146 @@ function ReviewComments({ review, session, saving, onRequireAuth, onChanged, onE
       {review.comments.filter((reply) => reply.parent_id === comment.id).map((reply) => <div className="dg-review-comment reply" key={reply.id}><span>{reply.author_name}</span><p>{reply.body}</p><div><small>{new Date(reply.created_at).toLocaleDateString("ko-KR")}</small>{session?.user.id === reply.author_id && <button type="button" onClick={() => { void removeComment(reply.id); }}><Trash2 aria-hidden="true" /> 삭제</button>}</div></div>)}
     </div>)}
     <form onSubmit={saveComment}>{replyTo && <button type="button" className="dg-reply-cancel" onClick={() => { setReplyTo(null); setBody(""); }}>답글 취소 ×</button>}<div><input value={body} maxLength={400} onChange={(event) => setBody(event.target.value)} placeholder={replyTo ? "답글을 입력해 주세요" : "댓글을 입력해 주세요"} aria-label={replyTo ? "답글 내용" : "댓글 내용"} /><button type="submit" disabled={saving || !body.trim()}>{session ? "등록" : "로그인"}</button></div></form>
+  </div>;
+}
+
+function ProgramDetailNearbyPlaces({ program, mapReady }: { program: WebProgram; mapReady: boolean }) {
+  const [summary, setSummary] = useState<WebNearbyPlacesSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [radius, setRadius] = useState(100);
+  const [category, setCategory] = useState<NearbyCategory>("all");
+  const [selected, setSelected] = useState<WebNearbyPlace | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    const params = new URLSearchParams({
+      latitude: String(program.latitude),
+      longitude: String(program.longitude),
+      radiusMeters: String(radius),
+    });
+    fetch(`/api/web-nearby-places?${params}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json() as WebNearbyPlacesSummary & { message?: string };
+        if (!response.ok) throw new Error(payload.message ?? "주변 가게를 불러오지 못했습니다.");
+        setSummary(payload);
+        setSelected((current) => current && [...payload.places, ...payload.mapPlaces].some((place) => place.id === current.id) ? current : null);
+      })
+      .catch((error) => { if (!controller.signal.aborted) { setSummary(null); console.warn("detail nearby places", error); } })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [program.latitude, program.longitude, radius, retryKey]);
+
+  const visibleMapPlaces = useMemo(() => (summary?.mapPlaces ?? [])
+    .filter((place) => category === "all" || place.placeType === category)
+    .slice(0, 80), [category, summary?.mapPlaces]);
+
+  return <div className="dg-detail-nearby-card">
+    <KakaoNearbyPlacesPreview
+      program={program}
+      radius={radius}
+      places={visibleMapPlaces}
+      selected={selected}
+      mapReady={mapReady}
+      onSelect={setSelected}
+    />
+    {summary || loading ? <NearbyPlacesPanel
+      program={program}
+      summary={summary}
+      loading={loading}
+      radius={radius}
+      category={category}
+      selected={selected}
+      walkingRoute={null}
+      embedded
+      onBack={() => undefined}
+      onRadius={(value) => { setSelected(null); setRadius(value); }}
+      onCategory={(value) => { setSelected(null); setCategory(value); }}
+      onSelect={setSelected}
+      onShowOnMap={setSelected}
+    /> : <div className="dg-loading"><strong>주변 가게를 불러오지 못했어요.</strong><button type="button" onClick={() => setRetryKey((value) => value + 1)}>다시 불러오기</button></div>}
+    <p className="dg-detail-nearby-note">가게 정보와 영업·주차 현황은 제공 기관 사정에 따라 실제와 다를 수 있어요.</p>
+  </div>;
+}
+
+function KakaoNearbyPlacesPreview({ program, radius, places, selected, mapReady, onSelect }: {
+  program: WebProgram;
+  radius: number;
+  places: WebNearbyPlace[];
+  selected: WebNearbyPlace | null;
+  mapReady: boolean;
+  onSelect: (place: WebNearbyPlace) => void;
+}) {
+  const elementRef = useRef<HTMLDivElement>(null);
+  const [status, setStatus] = useState<"loading" | "ready" | "unavailable">("loading");
+
+  useEffect(() => {
+    const maps = window.kakao?.maps;
+    const element = elementRef.current;
+    if (!mapReady || !maps || !element) {
+      setStatus("unavailable");
+      return;
+    }
+    setStatus("loading");
+    const map = new maps.Map(element, { center: new maps.LatLng(program.latitude, program.longitude), level: 4 });
+    const overlays: KakaoOverlay[] = [];
+    const items: KakaoMapItem[] = [];
+    const destination = document.createElement("div");
+    destination.className = "dg-route-endpoint dg-route-destination";
+    destination.appendChild(routeEndpointElement("destination"));
+    overlays.push(new maps.CustomOverlay({ map, position: new maps.LatLng(program.latitude, program.longitude), content: destination, yAnchor: 0.5, zIndex: 30 }));
+
+    [1000, 500, 300, 100].filter((value) => value <= radius).forEach((value, index) => {
+      items.push(new maps.Circle({
+        map,
+        center: new maps.LatLng(program.latitude, program.longitude),
+        radius: value,
+        strokeWeight: [6, 5, 4, 3][index] ?? 3,
+        strokeColor: "#22b14c",
+        strokeOpacity: [0.94, 0.76, 0.60, 0.46][index] ?? 0.46,
+        strokeStyle: "dash",
+        fillColor: "#83d43f",
+        fillOpacity: [0.07, 0.045, 0.025, 0.012][index] ?? 0.012,
+      }));
+    });
+    (selected ? [selected] : places).forEach((place) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `dg-nearby-map-marker dg-nearby-${place.placeType}${selected?.id === place.id ? " selected" : ""}`;
+      button.setAttribute("aria-label", `${nearbyDisplayName(place)}, ${distanceLabel(place.distanceMeters)}`);
+      button.appendChild(nearbyMarkerElement(place.placeType));
+      button.addEventListener("click", () => onSelect(place));
+      overlays.push(new maps.CustomOverlay({ map, position: new maps.LatLng(place.latitude, place.longitude), content: button, yAnchor: 0.5, zIndex: selected?.id === place.id ? 40 : 20 }));
+    });
+    const bounds = new maps.LatLngBounds();
+    const latitudeDelta = radius / 111_000;
+    const longitudeDelta = radius / (111_000 * Math.max(0.3, Math.cos(program.latitude * Math.PI / 180)));
+    [
+      [program.latitude + latitudeDelta, program.longitude],
+      [program.latitude - latitudeDelta, program.longitude],
+      [program.latitude, program.longitude + longitudeDelta],
+      [program.latitude, program.longitude - longitudeDelta],
+    ].forEach(([latitude, longitude]) => bounds.extend(new maps.LatLng(latitude, longitude)));
+    if (selected) bounds.extend(new maps.LatLng(selected.latitude, selected.longitude));
+    const fit = () => {
+      map.relayout?.();
+      map.setBounds(bounds, 34, 34, 34, 34);
+      setStatus("ready");
+    };
+    const frame = window.requestAnimationFrame(fit);
+    const timer = window.setTimeout(fit, 120);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      overlays.forEach((overlay) => overlay.setMap(null));
+      items.forEach((item) => item.setMap(null));
+    };
+  }, [mapReady, onSelect, places, program.latitude, program.longitude, radius, selected]);
+
+  return <div className="dg-detail-nearby-map">
+    <div ref={elementRef} className="dg-detail-nearby-map-canvas" />
+    {status !== "ready" && <div className="dg-route-preview-loading">{status === "loading" ? "지도를 준비하고 있어요" : "지도 배경을 불러오지 못했어요"}</div>}
   </div>;
 }
 

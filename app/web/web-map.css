@@ -264,19 +264,21 @@
 .dg-easy-summary h2 { color: var(--dg-green-deep); }
 .dg-program-summary-card { padding: 17px; display: grid; gap: 17px; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
 .dg-program-summary-intro { display: grid; gap: 10px; }
-.dg-program-summary-intro > strong { display: block; margin-bottom: 7px; color: var(--dg-green); font-size: 17px; font-weight: 900; line-height: 1.4; }
+.dg-program-summary-intro > h3 { margin-bottom: 7px; }
 .dg-program-summary-card p { margin: 0; color: #273029; font-size: 15px; font-weight: 650; line-height: 1.7; white-space: pre-line; }
 .dg-program-summary-intro p + p { margin-top: 11px; }
 .dg-program-story-divider { height: 1px; background: #e9edea; }
 .dg-program-summary-card section { display: grid; gap: 8px; margin: 0; }
-.dg-program-summary-card h3 { margin: 0; color: var(--dg-green); font-size: 17px; font-weight: 900; line-height: 1.4; }
+.dg-program-summary-card h3 { margin: 0; display: flex; align-items: center; gap: 9px; color: var(--dg-green); font-size: 17px; font-weight: 900; line-height: 1.4; }
+.dg-program-summary-card h3 img { flex: none; width: 24px; height: 24px; }
 .dg-program-summary-card ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
 .dg-program-summary-card li { position: relative; padding-left: 15px; color: #5f685f; font-size: 14.5px; font-weight: 650; line-height: 1.55; }
 .dg-program-summary-card li::before { position: absolute; top: .68em; left: 1px; width: 5px; height: 5px; border-radius: 50%; background: var(--dg-green); content: ""; }
 .dg-info-list { margin: 0; padding: 4px 17px; border: 1px solid var(--dg-line); border-radius: 18px; box-shadow: 0 3px 12px rgba(20,40,25,.05); }
 .dg-info-list > div { padding: 15px 0; display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 9px; border-bottom: 1px solid #eef1ee; }
 .dg-info-list > div:last-child { border-bottom: 0; }
-.dg-info-list dt { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 11px; color: var(--dg-green); background: #eaf7e6; font-size: 18px; font-weight: 900; }
+.dg-info-list dt { width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; }
+.dg-info-list dt img { width: 34px; height: 34px; object-fit: contain; }
 .dg-info-list dd { margin: 0; display: flex; flex-direction: column; }
 .dg-info-list em { margin-bottom: 3px; color: var(--dg-green); font-size: 11.5px; font-style: normal; font-weight: 900; }
 .dg-info-list small { margin-bottom: 8px; color: #6d756f; font-size: 12px; font-weight: 800; }
@@ -284,13 +286,13 @@
 .dg-info-list span { color: #7f8780; font-size: 12.5px; line-height: 1.45; }
 .dg-program-parking-card { padding: 17px; border: 1px solid var(--dg-line); border-radius: 20px; background: #fff; box-shadow: 0 3px 12px rgba(20,40,25,.06); }
 .dg-facility-info-rows > div { min-height: 58px; padding: 11px 0; display: grid; grid-template-columns: 34px minmax(0,1fr); column-gap: 10px; border-bottom: 1px solid #edf0ed; }
-.dg-facility-info-rows > div > span { grid-row: 1 / 3; align-self: center; font-size: 18px; }
+.dg-facility-info-rows > div > img { grid-row: 1 / 3; align-self: center; width: 34px; height: 34px; object-fit: contain; }
 .dg-facility-info-rows small { color: #8e968f; font-size: 11.5px; font-weight: 800; }
 .dg-facility-info-rows strong { color: #404a42; font-size: 13.5px; line-height: 1.45; }
 .dg-facility-info-rows a { color: inherit; text-decoration: none; }
 .dg-parking-information { padding-top: 10px; }
 .dg-parking-information > header { min-height: 44px; display: flex; align-items: center; gap: 7px; }
-.dg-parking-title-icon { width: 32px; height: 32px; display: grid; place-items: center; color: #278fd1; }
+.dg-parking-title-icon { flex: none; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 0; color: var(--dg-green); background: transparent; }
 .dg-parking-title-icon svg { width: 22px; height: 22px; stroke-width: 2.5; }
 .dg-parking-information > header > strong { color: #59625a; font-size: 14px; font-weight: 900; }
 .dg-parking-information > header > em { flex: 1; overflow: hidden; color: #848c85; font-size: 11.5px; font-style: normal; font-weight: 800; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
@@ -301,9 +303,9 @@
 .dg-parking-lot-list { margin-top: 10px; padding-top: 4px; border-top: 1px solid #edf0ed; }
 .dg-parking-lot-list > article { padding: 13px 0; border-bottom: 1px solid #edf0ed; }
 .dg-parking-lot-list > article:last-child { border-bottom: 0; }
-.dg-parking-lot-heading { display: flex; align-items: flex-start; gap: 8px; }
+.dg-parking-lot-heading { display: flex; align-items: center; gap: 8px; }
 .dg-parking-lot-heading strong { flex: 1; font-size: 15.5px; line-height: 1.4; }
-.dg-parking-lot-heading span { flex: none; padding: 4px 7px; border-radius: 999px; color: var(--dg-green); background: #eef9ea; font-size: 10.5px; font-weight: 900; }
+.dg-parking-lot-heading > span:not(.dg-parking-title-icon) { flex: none; padding: 4px 7px; border-radius: 999px; color: var(--dg-green); background: #eef9ea; font-size: 10.5px; font-weight: 900; }
 .dg-parking-lot-list dl { margin: 9px 0 0; display: grid; gap: 6px; }
 .dg-parking-lot-list dl > div { display: grid; grid-template-columns: 68px minmax(0,1fr); gap: 8px; font-size: 12.5px; line-height: 1.5; }
 .dg-parking-lot-list dt { color: #8b938c; font-weight: 800; }
@@ -406,6 +408,14 @@
 .dg-route-nearby-panel .dg-nearby-categories { padding-inline: 0; }
 .dg-route-nearby-panel .dg-nearby-route-summary { margin-inline: 0; }
 .dg-route-nearby-panel .dg-aux-list { overflow: visible; padding: 14px 0 120px; }
+.dg-detail-section-subtitle { margin: -4px 0 10px; color: #7b847d; font-size: 12px; font-weight: 650; line-height: 1.45; }
+.dg-detail-nearby-card { display: grid; gap: 13px; padding: 14px; overflow: hidden; border: 1px solid #e5ebe6; border-radius: 20px; background: #fff; box-shadow: 0 5px 16px rgba(24,55,34,.08); }
+.dg-detail-nearby-map { position: relative; height: 220px; overflow: hidden; border-radius: 16px; background: #edf4ec; }
+.dg-detail-nearby-map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dg-detail-nearby-card .dg-route-nearby-panel { height: auto; min-height: 0; }
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-aux-list { max-height: 350px; overflow-y: auto; overscroll-behavior: contain; padding: 12px 2px 2px; }
+.dg-detail-nearby-card .dg-route-nearby-panel .dg-nearby-categories { padding-inline: 0; }
+.dg-detail-nearby-note { margin: 0; color: #8a918b; font-size: 10.5px; font-weight: 650; line-height: 1.45; }
 .dg-journey-card { margin-top: 12px; padding: 14px; border: 1px solid #edf2eb; border-radius: 16px; background: #fff; box-shadow: 0 3px 12px rgba(36,68,45,.055); }
 .dg-journey-card > header { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
 .dg-journey-card > header strong { min-width: 0; display: flex; align-items: center; gap: 8px; color: var(--dg-ink); font-size: 14px; }
