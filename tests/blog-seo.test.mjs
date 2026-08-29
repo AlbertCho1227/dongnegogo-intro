@@ -110,7 +110,7 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   const rss = await rssResponse.text();
   assert.equal(rssResponse.status, 200);
   assert.match(rssResponse.headers.get("content-type") ?? "", /application\/rss\+xml/);
-  assert.equal((rss.match(/<item>/g) ?? []).length, 34);
+  assert.equal((rss.match(/<item>/g) ?? []).length, 38);
   assert.match(rss, /content:encoded/);
   assert.match(rss, /이 강좌가 첫 코딩에 잘 맞는 이유/);
   assert.match(rss, /그림책 전시는 어떻게 보면 좋을까요/);
@@ -139,6 +139,10 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
   assert.equal(sitemapResponse.status, 200);
   assert.match(sitemap, /https:\/\/www\.dongnegogo\.com\/blog<\/loc>/);
   for (const slug of [
+    "ansan-family-science-day-september-guide",
+    "incheon-songam-kids-art-museum-class-guide",
+    "seoul-mike-nesbit-measured-resolve-exhibition-guide",
+    "ansan-seonbu-library-forest-picturebook-class-guide",
     "geumcheon-memory-archive-adult-class-guide",
     "ansan-september-online-breastfeeding-class-guide",
     "chuncheon-sugna-animation-museum-exhibition-guide",
@@ -175,6 +179,26 @@ test("RSS는 전체 본문을, 사이트맵은 블로그 URL을 제공한다", a
     "busan-neophilharmonic-87th-concert-guide",
   ]) {
     assert.match(sitemap, new RegExp(`https://www\\.dongnegogo\\.com/blog/${slug}`));
+  }
+});
+
+test("2026년 8월 30일 편집형 4편은 실제 이미지·AEO 스키마를 제공하고 실제 날짜만 Event로 구조화한다", async () => {
+  const datedSlug = "seoul-mike-nesbit-measured-resolve-exhibition-guide";
+  for (const slug of [
+    "ansan-family-science-day-september-guide",
+    "incheon-songam-kids-art-museum-class-guide",
+    datedSlug,
+    "ansan-seonbu-library-forest-picturebook-class-guide",
+  ]) {
+    const response = await render(`/blog/${slug}`);
+    const html = await response.text();
+    assert.equal(response.status, 200);
+    assert.match(html, /사진 출처:.*(?:공유누리|한국문화정보원 한눈에 보는 문화정보)/);
+    assert.match(html, /"@type":"BlogPosting"/);
+    assert.match(html, /"@type":"FAQPage"/);
+    assert.match(html, /2026-08-30T06:3[6-9]:00\+09:00/);
+    if (slug === datedSlug) assert.match(html, /"@type":"Event"/);
+    else assert.doesNotMatch(html, /"@type":"Event"/);
   }
 });
 
