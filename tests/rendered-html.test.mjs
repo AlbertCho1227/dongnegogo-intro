@@ -47,7 +47,7 @@ test("운영 응답에 브라우저 보안 경계를 강제한다", async () => 
   assert.equal(response.headers.get("x-permitted-cross-domain-policies"), "none");
   assert.match(response.headers.get("permissions-policy") ?? "", /camera=\(\)/);
   assert.match(response.headers.get("permissions-policy") ?? "", /geolocation=\(self\)/);
-  assert.match(response.headers.get("permissions-policy") ?? "", /microphone=\(self\)/);
+  assert.match(response.headers.get("permissions-policy") ?? "", /microphone=\(\)/);
 });
 
 test("평문 개발 응답에는 HSTS를 잘못 부착하지 않는다", async () => {
